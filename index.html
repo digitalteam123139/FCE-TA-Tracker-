@@ -2701,13 +2701,19 @@ function pkPrintWindow(title, bodyHtml, pageCss, opts){
   const _d=new Date(), _p=n=>(''+n).padStart(2,'0');
   const _now=_p(_d.getDate())+'/'+_p(_d.getMonth()+1)+'/'+_d.getFullYear()+' '+_p(_d.getHours())+':'+_p(_d.getMinutes());
   const footer=(opts&&opts.noFooter)?'':'<div class="print-by">Printed by: '+attEsc(who)+' &nbsp;·&nbsp; '+_now+'</div>';
-  const wm=(opts&&opts.watermark)?'<div class="wm">'+attEsc(opts.watermark)+'</div>':'';
+  let wm='';
+  if(opts&&opts.watermark){
+    const _wt=String(opts.watermark);
+    const _ws=Math.max(48,Math.min(110,Math.round(950/Math.max(_wt.length,1)))); // auto-fit watermark to page width
+    const _wls=Math.round(_ws/18);
+    wm='<div class="wm" style="font-size:'+_ws+'px;letter-spacing:'+_wls+'px;">'+attEsc(_wt)+'</div>';
+  }
   w.document.write('<!doctype html><html><head><meta charset="utf-8"><title>'+title+'</title><style>'
     +'*{box-sizing:border-box;}body{font-family:Arial,Helvetica,sans-serif;color:#000;margin:18px;}'
     +'table{border-collapse:collapse;width:100%;margin-top:6px;}th,td{border:1px solid #333;padding:5px 7px;font-size:12px;text-align:left;vertical-align:top;}th{background:#eee;}'
     +'h2{margin:0 0 10px;}.kv{display:grid;grid-template-columns:auto 1fr;gap:3px 14px;font-size:13px;margin-bottom:10px;}.kv b{white-space:nowrap;}'
     +'.print-by{position:fixed;left:6mm;bottom:5mm;font-size:10px;color:#555;}'
-    +'.wm{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-30deg);font-size:110px;font-weight:800;color:rgba(214,40,40,.22);z-index:9;pointer-events:none;white-space:nowrap;letter-spacing:6px;text-transform:uppercase;}'
+    +'.wm{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-30deg);font-size:90px;font-weight:800;color:rgba(214,40,40,.22);z-index:9;pointer-events:none;white-space:nowrap;letter-spacing:4px;text-transform:uppercase;max-width:96vw;}'
     +'@media print{.wm{-webkit-print-color-adjust:exact;print-color-adjust:exact;}}'
     +(pageCss||'')+'</style></head><body>'+wm+bodyHtml+footer+'<scr'+'ipt>window.onload=function(){setTimeout(function(){window.print();},120);};<\/scr'+'ipt></body></html>');
   w.document.close();
