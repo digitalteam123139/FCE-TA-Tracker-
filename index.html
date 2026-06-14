@@ -444,6 +444,13 @@ select.form-input option{background:var(--surface2);}
           <button class="btn btn-primary btn-sm" id="order-new-btn" onclick="openOrderModal()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>New Order Entry</button>
         </div>
       </div>
+      <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:center;margin:0 2px 10px;font-size:11px;color:var(--muted);">
+        <span style="display:inline-flex;align-items:center;gap:5px;"><span style="width:11px;height:11px;border-radius:3px;background:rgba(31,200,214,.5);"></span>New (today)</span>
+        <span style="display:inline-flex;align-items:center;gap:5px;"><span style="width:11px;height:11px;border-radius:3px;background:rgba(224,90,90,.5);"></span>1 day</span>
+        <span style="display:inline-flex;align-items:center;gap:5px;"><span style="width:11px;height:11px;border-radius:3px;background:rgba(224,70,70,.75);"></span>2 days</span>
+        <span style="display:inline-flex;align-items:center;gap:5px;"><span style="width:11px;height:11px;border-radius:3px;background:rgba(210,40,40,.9);"></span>3+ days due</span>
+        <span style="display:inline-flex;align-items:center;gap:5px;"><span style="width:11px;height:11px;border-radius:3px;background:rgba(82,200,122,.75);"></span>DN uploaded</span>
+      </div>
       <div class="card" style="overflow:auto;"><table><thead><tr><th style="width:26px;text-align:center;"><input type="checkbox" id="ord-tick-all" onclick="toggleAllTicks(this)" title="Select all" style="cursor:pointer;"></th><th style="width:30px;"></th><th>Date</th><th>Order No</th><th>Task</th><th>Customer</th><th>Buyer</th><th>Service By</th><th>Responsibility To</th><th>Delivery Zone</th><th>Req. Time / Delivered</th><th>Status</th><th>DN Download</th><th>Actions</th></tr></thead><tbody id="orders-table"></tbody></table></div>
     </div>
 
@@ -762,7 +769,7 @@ function isTeamLeader(){ return currentUser&&currentUser.role==='teamleader'; }
 function isPacker(){ return currentUser&&currentUser.role==='packer'; }
 function packerBlocked(){ if(isPacker()){ showToast('Packers have edit-only access — delete/cancel is not allowed.','err'); return true; } return false; }
 // A team leader only sees employees of their own location/zone.
-function tlLockedLoc(){ return isTeamLeader()?((currentUser.station||'').trim()):null; }
+function tlLockedLoc(){ return (isTeamLeader()||isPacker())?((currentUser.station||'').trim()):null; }
 const LOC_ALIASES={'chittagong':'chattogram','ctg':'chattogram','chattogram':'chattogram','gazipur':'gazipur','rajendrapur':'gazipur','dhaka':'dhaka h/o','dhaka h/o':'dhaka h/o','h/o':'dhaka h/o','head office':'dhaka h/o'};
 function locNorm(s){ s=(''+(s||'')).trim().toLowerCase(); return LOC_ALIASES[s]||s; }
 function locEq(a,b){ if(!b)return true; return locNorm(a)===locNorm(b); }
@@ -1395,6 +1402,15 @@ function buildOrderStatusBar(){
 function setOrderStatus(s,btn){ activeOrderStatus=s; document.querySelectorAll('#order-status-bar .month-chip').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); renderOrders(); }
 function orderStatusBadge(s){ const m={'Requested':'s-pending','Collected':'s-draft','In Development':'s-pending','Delivered':'s-approved'}; return `<span class="status-badge ${m[s]||'s-draft'}">${s}</span>`; }
 let visibleOrders=[];
+function orderAgeDays(o){ if(!o.date)return 0; const d=new Date((''+o.date).slice(0,10)+'T00:00:00'); if(isNaN(d))return 0; const t=new Date(); t.setHours(0,0,0,0); return Math.floor((t-d)/86400000); }
+function orderRowTint(o){
+  if(o.noteFile) return 'rgba(82,200,122,.18)';   // DN copy uploaded → green
+  const a=orderAgeDays(o);
+  if(a<=0) return 'rgba(31,200,214,.13)';          // new entry (today) → light teal
+  if(a===1) return 'rgba(224,90,90,.14)';          // 1 day due → red
+  if(a===2) return 'rgba(224,70,70,.22)';          // 2 days due → medium red
+  return 'rgba(210,40,40,.32)';                    // 3+ days due → deep red
+}
 let __svcMonth='all';
 function openServiceReview(){ if(!canSee('orders')){ showToast('No access.','err'); return; } __svcMonth='all'; renderServiceReview(); document.getElementById('service-review-modal').classList.add('open'); }
 function setSvcMonth(m){ __svcMonth=m; renderServiceReview(); }
@@ -1459,7 +1475,7 @@ function renderOrders(){
       ['Remarks',o.remarks]
     ].filter(x=>x[1]);
     const detail=`<tr id="detail-${o.id}" style="display:none;background:var(--surface2);"><td colspan="2"></td><td colspan="12" style="padding:12px 14px;"><div style="display:flex;flex-wrap:wrap;gap:8px 28px;">${detailItems.length?detailItems.map(([k,v])=>`<div style="min-width:120px;"><div style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-family:'DM Mono',monospace;">${k}</div><div style="font-size:13px;color:var(--text);margin-top:2px;">${v}</div></div>`).join(''):'<span style="font-size:12px;color:var(--muted);">No extra details.</span>'}</div></td></tr>`;
-    return `<tr><td style="text-align:center;">${canSend?`<input type="checkbox" class="ord-tick" value="${o.id}" onclick="event.stopPropagation()" style="cursor:pointer;" title="Select for combined send">`:''}</td><td>${chevron}</td><td class="mono" style="color:var(--muted);white-space:nowrap;">${d}</td><td style="font-size:12px;">${o.orderNo||'—'}</td><td style="font-size:12px;">${o.task||'—'}</td><td style="font-size:12px;">${o.customer||'—'}</td><td style="font-size:12px;">${o.buyer||'—'}</td><td style="font-size:12px;">${o.service||'—'}</td><td style="font-size:12px;">${o.fce||'—'}</td><td style="font-size:12px;">${o.to||'—'}</td><td style="font-size:12px;color:var(--muted);">${extra}</td><td>${orderStatusBadge(o.status)}</td><td>${note}</td><td><div style="display:flex;gap:4px;align-items:center;">${sendBtn}${editBtn}</div></td></tr>${detail}`;
+    return `<tr style="background:${orderRowTint(o)};"><td style="text-align:center;">${canSend?`<input type="checkbox" class="ord-tick" value="${o.id}" onclick="event.stopPropagation()" style="cursor:pointer;" title="Select for combined send">`:''}</td><td>${chevron}</td><td class="mono" style="color:var(--muted);white-space:nowrap;">${d}</td><td style="font-size:12px;">${o.orderNo||'—'}</td><td style="font-size:12px;">${o.task||'—'}</td><td style="font-size:12px;">${o.customer||'—'}</td><td style="font-size:12px;">${o.buyer||'—'}</td><td style="font-size:12px;">${o.service||'—'}</td><td style="font-size:12px;">${o.fce||'—'}</td><td style="font-size:12px;">${o.to||'—'}</td><td style="font-size:12px;color:var(--muted);">${extra}</td><td>${orderStatusBadge(o.status)}</td><td>${note}</td><td><div style="display:flex;gap:4px;align-items:center;">${sendBtn}${editBtn}</div></td></tr>${detail}`;
   }).join('')||'<tr><td colspan="14" style="text-align:center;color:var(--muted);padding:24px;">No orders yet</td></tr>';
   // Hide the New Order button for view-only users
   const newBtn=document.getElementById('order-new-btn'); if(newBtn) newBtn.style.display=canEdit?'':'none';
@@ -1468,8 +1484,12 @@ function renderOrders(){
 }
 function canEditOrders(){
   if(!canSee('orders')) return false;
-  // Super Admin, Authorizer, Team Leader and Packer can create/edit. Logistics = view + download only.
-  return isAdmin()||isAuthorizer()||isTeamLeader()||isPacker();
+  // Status update / edit: Super Admin, Authorizer, Team Leader only. Packer & Logistics = view only.
+  return isAdmin()||isAuthorizer()||isTeamLeader();
+}
+function canDeleteOrders(){
+  // Delete: Super Admin & Authorizer only (Team Leader cannot delete).
+  return canSee('orders')&&(isAdmin()||isAuthorizer());
 }
 function canSendOrders(){
   // Send requirement (SMS/WhatsApp/email): Super Admin, Authorizer and Team Leader.
@@ -1609,7 +1629,7 @@ function openOrderModal(id){
   if(!canSee('orders')){ showToast('You don\'t have access to Order Tracker.','err'); return; }
   editingOrderId=id||null;
   document.getElementById('order-modal-title').textContent=id?'Edit Order Entry':'New Order Entry';
-  document.getElementById('o-delete-btn').style.display=(id&&!isPacker())?'inline-flex':'none';
+  document.getElementById('o-delete-btn').style.display=(id&&canDeleteOrders())?'inline-flex':'none';
   document.getElementById('o-file-current').textContent='';
   document.getElementById('o-file').value='';
   populateOrderFce();
@@ -1685,7 +1705,7 @@ async function saveOrder(){
   }catch(e){ showToast('Save failed: '+e.message,'err'); }
   finally{ btn.disabled=false; btn.textContent='Save Order'; }
 }
-async function deleteOrder(){ if(packerBlocked())return;
+async function deleteOrder(){ if(!canDeleteOrders()){ showToast('Only Super Admin / Authorizer can delete orders.','err'); return; }
   if(!editingOrderId)return;
   if(!confirm('Delete this order?'))return;
   try{
@@ -1760,6 +1780,7 @@ async function attRender(){
 }
 
 /* ── MARK ── */
+function attCanEdit(){ return canSee('attendance') && !isPacker() && !isFCE(); } // Packer & FCE = view only
 function attRenderMark(){
   if(!attDate)attDate=attTodayIso();
   if(!(isAdmin()||isAuthorizer()))attDate=attTodayIso(); // only Super Admin / Authorizer can change the date
@@ -1780,8 +1801,8 @@ function attRenderMark(){
       <select class="filter-sel" onchange="attTitle=this.value;attRenderRows()">${titOpts}</select>
       <input class="filter-sel" type="text" placeholder="Search name / ID…" value="${attEsc(attSearch)}" oninput="attSearch=this.value;attRenderRows()" style="width:160px;"/>
       <span class="count-badge" id="att-mark-count">—</span>
-      <button class="btn btn-ghost btn-sm" id="att-markall-btn" title="Marks everyone present; click again to clear all" onclick="attMarkAll('present')">Mark all present</button>
-      <button class="btn btn-primary btn-sm" onclick="attSaveDay()">Save day</button>
+      ${attCanEdit()?`<button class="btn btn-ghost btn-sm" id="att-markall-btn" title="Marks everyone present; click again to clear all" onclick="attMarkAll('present')">Mark all present</button>
+      <button class="btn btn-primary btn-sm" onclick="attSaveDay()">Save day</button>`:'<span style="font-size:11px;color:var(--muted);">View only</span>'}
     </div></div>
     <div class="att-legend">${legend}</div>
     <div class="card" style="overflow:auto;"><table><thead><tr><th style="width:30px;">#</th><th>ID</th><th>Name</th><th>Title</th><th>Location</th><th style="text-align:center;">Status</th></tr></thead><tbody id="att-mark-rows"></tbody></table></div>`;
@@ -1796,16 +1817,20 @@ function attRenderRows(){
   const segDefs=[['present',ATTLAB.present,ATTCOL.present,'Present'],['absent',ATTLAB.absent,ATTCOL.absent,'Absent']]
     .concat(getLeaveTypes().map(t=>[t.key,t.code,ATTCOL.leave,t.name+' (leave)']))
     .concat([['holiday',ATTLAB.holiday,ATTCOL.holiday,'Holiday']]);
+  const canEd=attCanEdit();
   tb.innerHTML=emps.map((e,i)=>{
     const cur=attStage[e.id]||'';
-    const seg=segDefs.map(([s,lab,col,title])=>`<button class="att-sbtn ${cur===s?'on':''}" style="${cur===s?'background:'+col+';':''}" title="${attEsc(title)}" onclick="attSetStatus('${attEsc(e.id)}','${s}')">${attEsc(lab)}</button>`).join('');
+    const seg=canEd
+      ? segDefs.map(([s,lab,col,title])=>`<button class="att-sbtn ${cur===s?'on':''}" style="${cur===s?'background:'+col+';':''}" title="${attEsc(title)}" onclick="attSetStatus('${attEsc(e.id)}','${s}')">${attEsc(lab)}</button>`).join('')
+      : (function(){ const m=segDefs.find(x=>x[0]===cur); return m?`<span class="status-badge" style="background:${m[2]}22;color:${m[2]};border:1px solid ${m[2]}55;">${attEsc(m[3])}</span>`:'<span style="color:var(--muted);">—</span>'; })();
     return `<tr><td>${i+1}</td><td>${attEsc(e.id)}</td><td>${attEsc(e.name)}</td><td>${attEsc(e.title)}</td><td>${attEsc(e.location)}</td><td style="text-align:center;"><div class="att-seg">${seg}</div></td></tr>`;
   }).join('')||`<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:18px;">No employees match. Add some in the Employees tab, or run the setup SQL.</td></tr>`;
   const c=document.getElementById('att-mark-count'); if(c)c.textContent=emps.length+' staff';
 }
-function attSetStatus(id,s){if(attStage[id]===s)delete attStage[id];else attStage[id]=s;attRenderRows();}
-function attMarkAll(s){const emps=attMarkFiltered();if(!emps.length)return;if(s==='present'&&emps.every(e=>attStage[e.id]==='present')){emps.forEach(e=>delete attStage[e.id]);attRenderRows();showToast('Cleared all (unmarked).');return;}emps.forEach(e=>attStage[e.id]=s);attRenderRows();}
+function attSetStatus(id,s){if(!attCanEdit())return;if(attStage[id]===s)delete attStage[id];else attStage[id]=s;attRenderRows();}
+function attMarkAll(s){if(!attCanEdit())return;const emps=attMarkFiltered();if(!emps.length)return;if(s==='present'&&emps.every(e=>attStage[e.id]==='present')){emps.forEach(e=>delete attStage[e.id]);attRenderRows();showToast('Cleared all (unmarked).');return;}emps.forEach(e=>attStage[e.id]=s);attRenderRows();}
 async function attSaveDay(){
+  if(!attCanEdit()){ showToast('You have view-only access to attendance.','err'); return; }
   if(!CONFIGURED)return showToast('Cloud not configured.','err');
   const ids=Object.keys(attStage); if(!ids.length)return showToast('Nothing to save yet.','err');
   const rows=ids.map(eid=>({id:eid+'|'+attDate,emp_id:eid,date:attDate,status:attStage[eid],marked_by:(currentUser&&currentUser.name)||''}));
@@ -1819,6 +1844,7 @@ async function attSaveDay(){
 function attAgg(empId,start,end){let p=0,a=0,l=0,h=0;CACHE.attendance.forEach(r=>{if(r.emp_id===empId&&r.date>=start&&r.date<=end){if(r.status==='present')p++;else if(r.status==='absent')a++;else if(r.status==='holiday')h++;else if(isLeaveStatus(r.status))l++;}});const sched=p+a+l;const pct=sched?Math.round(p/sched*1000)/10:null;return{p,a,l,h,sched,pct};}
 function attRange(){const y=attYear;if(attPeriod==='H1')return[y+'-01-01',y+'-06-30','Jan–Jun '+y];if(attPeriod==='H2')return[y+'-07-01',y+'-12-31','Jul–Dec '+y];return[y+'-01-01',y+'-12-31','Full year '+y];}
 function attScopeEmps(){const lock=tlLockedLoc();const loc=lock||attLoc;return attActiveEmps().filter(e=>!loc||locEq(e.location,loc));}
+function attDashEmps(){ if(attSelEmp){ const e=attActiveEmps().find(x=>x.id===attSelEmp); return e?[e]:[]; } return attScopeEmps(); }
 
 /* ── DASHBOARD ── */
 function attRenderDash(){
@@ -1844,16 +1870,11 @@ function attRenderDash(){
       <div class="card"><div class="form-label" style="margin:0 0 6px;">Status breakdown</div><canvas id="att-c-status"></canvas></div>
     </div>
     <div class="card" style="overflow:auto;margin-bottom:14px;"><table><thead><tr><th>ID</th><th>Name</th><th>Title</th><th>Location</th><th>Present</th><th>Absent</th><th>Leave</th><th>Attendance %</th><th>Bonus</th></tr></thead><tbody id="att-dash-rows"></tbody></table></div>
-    <div id="att-leave-section"></div>
-    <div class="card">
-      <div class="form-label" style="margin:0 0 8px;">Individual employee</div>
-      <select class="form-input" style="max-width:340px;" onchange="attSelEmp=this.value;attRenderIndiv()">${empOpts}</select>
-      <div id="att-indiv" style="margin-top:12px;"></div>
-    </div>`;
-  attRenderKpis(); attRenderDashTable(); attDrawCharts(); attRenderIndiv(); attRenderLeaveSection();
+    <div id="att-leave-section"></div>`;
+  attRenderKpis(); attRenderDashTable(); attDrawCharts(); attRenderLeaveSection();
 }
 function attRenderKpis(){
-  const [s,e,lab]=attRange(); const emps=attScopeEmps();
+  const [s,e,lab]=attRange(); const emps=attDashEmps();
   let tp=0,tsched=0; emps.forEach(em=>{const g=attAgg(em.id,s,e);tp+=g.p;tsched+=g.sched;});
   const overall=tsched?Math.round(tp/tsched*1000)/10:0;
   const packers=emps.filter(em=>em.bonus_eligible);
@@ -1865,7 +1886,7 @@ function attRenderKpis(){
    <div class="att-stat"><div class="v">${tsched}</div><div class="l">Working-day records</div></div>`;
 }
 function attRenderDashTable(){
-  const [s,e]=attRange(); const emps=attScopeEmps().slice().sort((a,b)=>(a.location+a.name).localeCompare(b.location+b.name));
+  const [s,e]=attRange(); const emps=attDashEmps().slice().sort((a,b)=>(a.location+a.name).localeCompare(b.location+b.name));
   const tb=document.getElementById('att-dash-rows'); if(!tb)return;
   tb.innerHTML=emps.map(em=>{
     const g=attAgg(em.id,s,e); const pct=g.pct;
@@ -1877,7 +1898,7 @@ function attRenderDashTable(){
 }
 function attChart(id,cfg){if(attCharts[id]){try{attCharts[id].destroy();}catch(e){}}const cv=document.getElementById(id);if(cv)attCharts[id]=new Chart(cv,cfg);}
 function attDrawCharts(){
-  const [s,e]=attRange(); const emps=attScopeEmps();
+  const [s,e]=attRange(); const emps=attDashEmps();
   const mlab=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']; const mpct=[];
   for(let m=0;m<12;m++){const ms=attYear+'-'+String(m+1).padStart(2,'0')+'-01';const me=attYear+'-'+String(m+1).padStart(2,'0')+'-31';let p=0,sc=0;emps.forEach(em=>{const g=attAgg(em.id,ms,me);p+=g.p;sc+=g.sched;});mpct.push(sc?Math.round(p/sc*1000)/10:null);}
   attChart('att-c-trend',{type:'line',data:{labels:mlab,datasets:[{data:mpct,borderColor:ATTCOL.present,backgroundColor:'rgba(82,200,122,.15)',fill:true,tension:.3,spanGaps:true,pointRadius:3}]},options:{plugins:{legend:{display:false}},scales:{y:{min:0,max:100,ticks:{color:'#8aa2c4'},grid:{color:'#1b3358'}},x:{ticks:{color:'#8aa2c4'},grid:{display:false}}}}});
@@ -2087,7 +2108,7 @@ function deleteLeaveType(key){ if(!isAdmin())return; if(!confirm('Remove this le
 function attLeaveUsed(empId,year){ const start=year+'-01-01',end=year+'-12-31'; const used={}; leaveKeys().forEach(k=>used[k]=0); let legacy=0; CACHE.attendance.forEach(r=>{ if(r.emp_id===empId&&r.date>=start&&r.date<=end){ if(r.status==='leave')legacy++; else if(used[r.status]!=null)used[r.status]++; } }); return {used,legacy}; }
 function attRenderLeaveSection(){
   const box=document.getElementById('att-leave-section'); if(!box)return;
-  const types=getLeaveTypes(); const emps=attScopeEmps(); const yr=attYear;
+  const types=getLeaveTypes(); const emps=attDashEmps(); const yr=attYear;
   const adminTools = isAdmin() ? `
     <div class="card" style="margin-bottom:14px;">
       <div class="card-header"><div><div class="card-title">Leave types (annual entitlement)</div><div class="card-sub">Super Admin only · used to compute remaining balance</div></div></div>
@@ -2399,12 +2420,12 @@ function pkRenderReturns(){
   const byCust={}; rets.forEach(r=>{ const c=r.ship_to||'—'; byCust[c]=(byCust[c]||0)+1; });
   const custTop=Object.entries(byCust).sort((a,b)=>b[1]-a[1]).slice(0,8);
   const tblData=rets.slice().sort((a,b)=>(''+b.trip_date).localeCompare(''+a.trip_date));
-  // Day-wise repeat frequency: orders returned on more than one distinct day, bucketed 2/3/4/5+
-  const daysByOrder={};
-  rets.forEach(r=>{ const k=r.order_no||'—'; if(!daysByOrder[k])daysByOrder[k]={days:new Set(),cust:r.ship_to||''}; daysByOrder[k].days.add((r.trip_date||'').slice(0,10)); });
+  // Repeat-return frequency: same order returned more than once, bucketed by how many times (Return-N)
+  const cntByOrder={};
+  rets.forEach(r=>{ const k=r.order_no||'—'; const rn=parseInt(r.return_no,10)||1; if(!cntByOrder[k])cntByOrder[k]={n:0,cust:r.ship_to||''}; cntByOrder[k].n=Math.max(cntByOrder[k].n,rn); if(r.ship_to)cntByOrder[k].cust=r.ship_to; });
   const freq={'2':[],'3':[],'4':[],'5':[]};
-  Object.entries(daysByOrder).forEach(([k,v])=>{ const n=v.days.size; if(n<2)return; const b=n>=5?'5':String(n); freq[b].push({order:k,cust:v.cust}); });
-  const freqDefs=[['2','Returned on 2 days'],['3','Returned on 3 days'],['4','Returned on 4 days'],['5','Returned on 5+ days']];
+  Object.entries(cntByOrder).forEach(([k,v])=>{ if(v.n<2)return; const b=v.n>=5?'5':String(v.n); freq[b].push({order:k,cust:v.cust,n:v.n}); });
+  const freqDefs=[['2','Returned 2 times'],['3','Returned 3 times'],['4','Returned 4 times'],['5','Returned 5+ times']];
   const freqRows=freqDefs.map(([key,label])=>{ const list=freq[key]; const items=list.map(x=>attEsc(x.order)+(x.cust?(' ('+attEsc(x.cust)+')'):'')).join(', '); return `<tr><td style="white-space:nowrap;font-weight:600;">${label}</td><td class="mono" style="text-align:center;font-weight:700;color:${list.length?'#e0913a':'var(--muted)'};">${list.length}</td><td style="font-size:12px;color:var(--muted);">${items||'—'}</td></tr>`; }).join('');
   const tableRows=tblData.map(r=>`<tr><td><span style="font-size:11px;font-weight:600;color:#e0913a;">Return-${r.return_no||1}</span></td><td style="white-space:nowrap;">${fmtDate(r.trip_date)}</td><td>${attEsc(r.ship_to)}</td><td>${attEsc(r.order_no)}</td><td style="font-size:12px;">${attEsc(r.line_nos)}</td><td>${attEsc(r.road)||'—'}</td><td>${attEsc(r.total_qty)}</td><td>${isPacker()?'':`<button class="btn btn-reject btn-sm" onclick="pkListDelete('${r.id}')">Delete</button>`}</td></tr>`).join('')||`<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:18px;">No returns recorded yet. Open an order and click “Add to Return”.</td></tr>`;
   document.getElementById('pk-body').innerHTML=`
@@ -2419,7 +2440,7 @@ function pkRenderReturns(){
      <div class="card"><div class="form-label" style="margin:0 0 6px;">Returns by month</div><canvas id="pk-ret-month"></canvas></div>
      <div class="card"><div class="form-label" style="margin:0 0 6px;">Top customers by returns</div><canvas id="pk-ret-cust"></canvas></div>
    </div>
-   <div class="card" style="margin-bottom:14px;"><div class="card-header"><div><div class="card-title">Repeat-return frequency (day-wise)</div><div class="card-sub">Orders that came back on more than one day — grouped by how many different days they were returned.</div></div></div>
+   <div class="card" style="margin-bottom:14px;"><div class="card-header"><div><div class="card-title">Repeat-return frequency</div><div class="card-sub">The same order returned more than once — grouped by how many times it came back (Return-2, Return-3 …), regardless of date.</div></div></div>
      <div style="overflow:auto;"><table><thead><tr><th>Frequency</th><th style="text-align:center;">Orders</th><th>Order No (Customer)</th></tr></thead><tbody>${freqRows}</tbody></table></div></div>
    <div class="card"><div class="card-header"><div><div class="card-title">Returned orders</div><div class="card-sub">Each “Add to Return” adds one return day; the same order+lines returned again becomes Return-2, Return-3…</div></div>
      <div class="card-actions"><input class="filter-sel" id="pk-ret-search" type="text" value="${attEsc(pkRetCust)}" placeholder="Search customer…" style="min-width:230px;" oninput="pkRetCust=this.value;pkRenderReturns()"/></div></div>
@@ -2446,8 +2467,8 @@ function pkRenderImport(){
        <div class="form-label">Master data for enrichment (Tex &amp; CS mobile) <span style="float:right;font-weight:400;color:var(--muted);font-size:11px;">build 2026-06-13c</span></div>
        <div style="font-size:12px;color:var(--muted);margin:4px 0 10px;line-height:1.6;">Upload once; shared to all PCs. <b>Tex</b> comes from the ART/TKT list; the <b>CS mobile</b> from the Customer Mapping (matched by the email before <span class="mono">@coats.com</span>).</div>
        <div style="display:flex;gap:22px;flex-wrap:wrap;">
-         <div><div style="font-size:12px;margin-bottom:4px;">ART/TKT list — <b style="color:${PKM.texCount?'var(--green)':'var(--red)'};">${PKM.texCount?PKM.texCount.toLocaleString()+' articles ✓':'NOT LOADED'}</b></div><label class="btn btn-ghost btn-sm" style="cursor:pointer;">Upload ART/TKT<input type="file" accept=".xlsx,.xlsm,.csv" style="display:none;" onchange="pkmUpload('tex',this)"/></label></div>
-         <div><div style="font-size:12px;margin-bottom:4px;">Customer Mapping — <b style="color:${PKM.csCount?'var(--green)':'var(--red)'};">${PKM.csCount?PKM.csCount.toLocaleString()+' CS contacts ✓':'NOT LOADED'}</b></div><label class="btn btn-ghost btn-sm" style="cursor:pointer;">Upload Customer Mapping<input type="file" accept=".xlsx,.xlsm,.csv" style="display:none;" onchange="pkmUpload('cs',this)"/></label></div>
+         <div><div style="font-size:12px;margin-bottom:4px;">ART/TKT list — <b style="color:${PKM.texCount?'var(--green)':'var(--red)'};">${PKM.texCount?PKM.texCount.toLocaleString()+' articles ✓':'NOT LOADED'}</b></div>${isAdmin()?`<label class="btn btn-ghost btn-sm" style="cursor:pointer;">Upload ART/TKT<input type="file" accept=".xlsx,.xlsm,.csv" style="display:none;" onchange="pkmUpload('tex',this)"/></label>`:'<span style="font-size:11px;color:var(--muted);">View only</span>'}</div>
+         <div><div style="font-size:12px;margin-bottom:4px;">Customer Mapping — <b style="color:${PKM.csCount?'var(--green)':'var(--red)'};">${PKM.csCount?PKM.csCount.toLocaleString()+' CS contacts ✓':'NOT LOADED'}</b></div>${isAdmin()?`<label class="btn btn-ghost btn-sm" style="cursor:pointer;">Upload Customer Mapping<input type="file" accept=".xlsx,.xlsm,.csv" style="display:none;" onchange="pkmUpload('cs',this)"/></label>`:'<span style="font-size:11px;color:var(--muted);">View only</span>'}</div>
        </div>
        ${pkmSelfTest()}
      </div>
@@ -2492,8 +2513,8 @@ function pkRenderImport(){
 
      <div style="margin-top:18px;border-top:1px solid var(--border);padding-top:14px;">
        <div class="form-label" style="color:var(--red);">Danger zone</div>
-       ${isPacker()?'':`<button class="btn btn-reject btn-sm" onclick="pkClearImport()">Clear ALL imported data</button>`}
-       <span style="font-size:12px;color:var(--muted);margin-left:8px;">Use this to wipe the old data, then import a fresh full file so only the latest shows.</span>
+       ${isAdmin()?`<button class="btn btn-reject btn-sm" onclick="pkClearImport()">Clear ALL imported data</button>`:'<span style="font-size:12px;color:var(--muted);">Only the Super Admin can clear imported data.</span>'}
+       ${isAdmin()?'<span style="font-size:12px;color:var(--muted);margin-left:8px;">Use this to wipe the old data, then import a fresh full file so only the latest shows.</span>':''}
      </div>
    </div></div>`;
   pkLogoPreview();
