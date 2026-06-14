@@ -1845,6 +1845,8 @@ function attAgg(empId,start,end){let p=0,a=0,l=0,h=0;CACHE.attendance.forEach(r=
 function attRange(){const y=attYear;if(attPeriod==='H1')return[y+'-01-01',y+'-06-30','Jan–Jun '+y];if(attPeriod==='H2')return[y+'-07-01',y+'-12-31','Jul–Dec '+y];return[y+'-01-01',y+'-12-31','Full year '+y];}
 function attScopeEmps(){const lock=tlLockedLoc();const loc=lock||attLoc;return attActiveEmps().filter(e=>!loc||locEq(e.location,loc));}
 function attDashEmps(){ if(attSelEmp){ const e=attActiveEmps().find(x=>x.id===attSelEmp); return e?[e]:[]; } return attScopeEmps(); }
+function attSelfEmp(){ const norm=s=>(''+(s||'')).toLowerCase().replace(/[^a-z0-9]/g,''); const keys=[currentUser.fce,currentUser.name].filter(Boolean).map(norm); return attActiveEmps().find(e=>keys.includes(norm(e.name)))||null; }
+function attSelfOnly(){ return isFCE()||isPacker(); } // these roles see only their own record
 
 /* ── DASHBOARD ── */
 function attRenderDash(){
@@ -1855,13 +1857,16 @@ function attRenderDash(){
   const locCtl = lock
     ? `<select class="filter-sel" disabled title="Locked to your location"><option>${attEsc(lock)}</option></select>`
     : `<select class="filter-sel" onchange="attLoc=this.value;attSelEmp='';attRenderDash()">${['<option value="">All locations</option>'].concat(ATT_LOCS.map(l=>`<option ${attLoc===l?'selected':''}>${l}</option>`)).join('')}</select>`;
-  const empOpts=['<option value="">— pick an employee —</option>'].concat(attScopeEmps().map(e=>`<option value="${attEsc(e.id)}" ${attSelEmp===e.id?'selected':''}>${attEsc(e.name)} · ${attEsc(e.title)}</option>`)).join('');
+  const selfOnly=attSelfOnly(); const selfEmp=selfOnly?attSelfEmp():null; if(selfOnly)attSelEmp=selfEmp?selfEmp.id:'__none__';
+  const empOpts=selfOnly
+    ? (selfEmp?`<option value="${attEsc(selfEmp.id)}" selected>${attEsc(selfEmp.name)} · ${attEsc(selfEmp.title)}</option>`:'<option value="">(your employee record not found)</option>')
+    : ['<option value="">— pick an employee —</option>'].concat(attScopeEmps().map(e=>`<option value="${attEsc(e.id)}" ${attSelEmp===e.id?'selected':''}>${attEsc(e.name)} · ${attEsc(e.title)}</option>`)).join('');
   body.innerHTML=`
     <div class="detail-meta"><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
       <select class="filter-sel" onchange="attYear=+this.value;attRenderDash()">${yOpts}</select>
       <select class="filter-sel" onchange="attPeriod=this.value;attRenderDash()">${pOpts}</select>
       ${locCtl}
-      <select class="filter-sel" title="Check one employee's performance" onchange="attSelEmp=this.value;attRenderDash()">${empOpts}</select>
+      <select class="filter-sel" ${selfOnly?'disabled':''} title="Check one employee's performance" onchange="attSelEmp=this.value;attRenderDash()">${empOpts}</select>
     </div></div>
     <div id="att-kpis" class="att-stat-row"></div>
     <div class="att-charts">
@@ -2314,7 +2319,7 @@ function pkRenderTripRows(){
   if(!pkTripRoad){ box.innerHTML='<div class="card"><div style="padding:16px;color:var(--muted);">Select a road to start building this trip.</div></div>'; return; }
   const rows=(CACHE.trips||[]).filter(t=>t.kind!=='return'&&t.trip_date===pkTripDate&&(t.road||'')===pkTripRoad).sort((a,b)=>(a.serial||0)-(b.serial||0));
   let tq=0,tc=0;
-  const body=rows.map((t,i)=>{tq+=+t.total_qty||0;tc+=+t.carton_qty||0;return `<tr><td style="text-align:center;"><input type="checkbox" ${pkTripSel.has(t.id)?'checked':''} onchange="pkTripTick('${t.id}')"/></td><td>${i+1}</td><td>${attEsc(t.ship_to)}</td><td>${attEsc(t.order_no)}</td><td style="font-size:12px;">${attEsc(t.line_nos)}</td><td>${attEsc(t.total_qty)}</td><td><input type="number" min="0" value="${t.carton_qty||0}" onchange="pkTripSetCarton('${t.id}',this.value)" class="filter-sel" style="width:72px;padding:4px 6px;" title="Carton qty (editable)"/></td><td>${isPacker()?'':`<button class="btn btn-reject btn-sm" onclick="pkTripDelete('${t.id}')">Remove</button>`}</td></tr>`;}).join('')||`<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:16px;">No orders added yet.</td></tr>`;
+  const body=rows.map((t,i)=>{tq+=+t.total_qty||0;tc+=+t.carton_qty||0;return `<tr><td style="text-align:center;"><input type="checkbox" ${pkTripSel.has(t.id)?'checked':''} onchange="pkTripTick('${t.id}')"/></td><td>${i+1}</td><td>${attEsc(t.ship_to)}</td><td>${attEsc(t.order_no)}</td><td style="font-size:12px;">${attEsc(t.line_nos)}</td><td>${attEsc(t.total_qty)}</td><td><input type="number" min="0" value="${t.carton_qty||0}" onchange="pkTripSetCarton('${t.id}',this.value)" class="filter-sel" style="width:72px;padding:4px 6px;" title="Carton qty (editable)"/></td><td>${(isPacker()||isFCE())?'':`<button class="btn btn-reject btn-sm" onclick="pkTripDelete('${t.id}')">Remove</button>`}</td></tr>`;}).join('')||`<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:16px;">No orders added yet.</td></tr>`;
   const allOn=rows.length&&rows.every(t=>pkTripSel.has(t.id));
   box.innerHTML=`<div class="card"><div class="card-header"><div><div class="card-title">Trip — ${fmtDate(pkTripDate)} · ${attEsc(pkTripRoad)}</div><div class="card-sub">Total Qty ${tq} · Cartons ${tc} · tick rows to print only those (renumbered 1,2,3…)</div></div><div class="card-actions"><button class="btn btn-ghost btn-sm" onclick="pkPrintTrip()">🖨 Print Trip</button></div></div>
    <div style="overflow:auto;"><table><thead><tr><th style="width:30px;text-align:center;"><input type="checkbox" ${allOn?'checked':''} onchange="pkTripTickAll(this.checked)" title="Tick all"/></th><th>Serial</th><th>Ship to Party</th><th>Order No</th><th>Line Nos</th><th>Qty</th><th>Cartons</th><th></th></tr></thead><tbody>${body}</tbody></table></div></div>`;
@@ -2335,7 +2340,7 @@ async function pkTripAdd(){
     document.getElementById('pk-trip-order').value=''; pkRenderTripRows(); showToast('Added to trip.');
   }catch(e){ showToast('Failed: '+e.message,'err'); }
 }
-async function pkTripDelete(id){ if(packerBlocked())return; if(!confirm('Remove this order from the trip?'))return; try{ await dbDeleteTrip(id); await pkLoadTrips(true); pkRenderTripRows(); }catch(e){ showToast('Failed: '+e.message,'err'); } }
+async function pkTripDelete(id){ if(isPacker()||isFCE()){ showToast('You don\'t have delete access in Sample Packing.','err'); return; } if(!confirm('Remove this order from the trip?'))return; try{ await dbDeleteTrip(id); await pkLoadTrips(true); pkRenderTripRows(); }catch(e){ showToast('Failed: '+e.message,'err'); } }
 async function pkTripSetCarton(id,val){ const carton=parseInt(val,10)||0; try{ const {error}=await sb.from('trip_schedule').update({carton_qty:carton}).eq('id',id); if(error)throw error; await pkLoadTrips(true); pkRenderTripRows(); }catch(e){ showToast('Carton update failed: '+e.message,'err'); } }
 
 // ── Trip List ──
@@ -2370,7 +2375,7 @@ function pkListType(t){ return t.kind==='return'?('Return-'+(t.return_no||1)):'R
 function pkRenderListRows(){
   const tb=document.getElementById('pk-list-rows'); if(!tb)return;
   const rows=pkListFiltered();
-  tb.innerHTML=rows.map((t,i)=>{ const isRet=t.kind==='return'; const typeBadge=`<span style="font-size:11px;font-weight:600;color:${isRet?'#e0913a':'#4ecdc4'};">${pkListType(t)}</span>`; return `<tr><td style="text-align:center;"><input type="checkbox" ${pkListSel.has(t.id)?'checked':''} onchange="pkListTick('${t.id}')"/></td><td>${i+1}</td><td>${typeBadge}</td><td style="white-space:nowrap;">${fmtDate(t.trip_date)}</td><td>${attEsc(t.ship_to)}</td><td>${attEsc(t.order_no)}</td><td style="font-size:12px;">${attEsc(t.line_nos)}</td><td>${attEsc(t.total_qty)}</td><td>${attEsc(t.carton_qty)}</td><td>${attEsc(t.road)||(isRet?'—':'')}</td><td style="white-space:nowrap;"><button class="btn btn-ghost btn-sm" onclick="pkListEdit('${t.id}')">Edit</button> ${isPacker()?'':`<button class="btn btn-reject btn-sm" onclick="pkListDelete('${t.id}')">Delete</button>`}</td></tr>`;}).join('')||`<tr><td colspan="11" style="text-align:center;color:var(--muted);padding:16px;">No entries yet.</td></tr>`;
+  tb.innerHTML=rows.map((t,i)=>{ const isRet=t.kind==='return'; const typeBadge=`<span style="font-size:11px;font-weight:600;color:${isRet?'#e0913a':'#4ecdc4'};">${pkListType(t)}</span>`; return `<tr><td style="text-align:center;"><input type="checkbox" ${pkListSel.has(t.id)?'checked':''} onchange="pkListTick('${t.id}')"/></td><td>${i+1}</td><td>${typeBadge}</td><td style="white-space:nowrap;">${fmtDate(t.trip_date)}</td><td>${attEsc(t.ship_to)}</td><td>${attEsc(t.order_no)}</td><td style="font-size:12px;">${attEsc(t.line_nos)}</td><td>${attEsc(t.total_qty)}</td><td>${attEsc(t.carton_qty)}</td><td>${attEsc(t.road)||(isRet?'—':'')}</td><td style="white-space:nowrap;"><button class="btn btn-ghost btn-sm" onclick="pkListEdit('${t.id}')">Edit</button> ${(isPacker()||isFCE())?'':`<button class="btn btn-reject btn-sm" onclick="pkListDelete('${t.id}')">Delete</button>`}</td></tr>`;}).join('')||`<tr><td colspan="11" style="text-align:center;color:var(--muted);padding:16px;">No entries yet.</td></tr>`;
 }
 function pkListTick(id){ if(pkListSel.has(id))pkListSel.delete(id); else pkListSel.add(id); pkRenderListRows(); }
 function pkListTickAll(on){ pkListSel=new Set(on?pkListFiltered().map(t=>t.id):[]); pkRenderListRows(); }
@@ -2390,7 +2395,7 @@ async function pkListEdit(id){
   try{ await dbUpdateTrip(id,{carton_qty:carton,line_nos:ln.trim()}); await pkLoadTrips(true); pkRenderListRows(); showToast('Trip entry updated.'); }
   catch(e){ showToast('Update failed: '+e.message,'err'); }
 }
-async function pkListDelete(id){ if(packerBlocked())return;
+async function pkListDelete(id){ if(isPacker()||isFCE()){ showToast('You don\'t have delete access in Sample Packing.','err'); return; }
   if(!confirm('Delete this trip entry permanently?'))return;
   try{ await dbDeleteTrip(id); await pkLoadTrips(true); pkRenderListRows(); showToast('Trip entry deleted.'); }
   catch(e){ showToast('Delete failed: '+e.message,'err'); }
@@ -2427,7 +2432,7 @@ function pkRenderReturns(){
   Object.entries(cntByOrder).forEach(([k,v])=>{ if(v.n<2)return; const b=v.n>=5?'5':String(v.n); freq[b].push({order:k,cust:v.cust,n:v.n}); });
   const freqDefs=[['2','Returned 2 times'],['3','Returned 3 times'],['4','Returned 4 times'],['5','Returned 5+ times']];
   const freqRows=freqDefs.map(([key,label])=>{ const list=freq[key]; const items=list.map(x=>attEsc(x.order)+(x.cust?(' ('+attEsc(x.cust)+')'):'')).join(', '); return `<tr><td style="white-space:nowrap;font-weight:600;">${label}</td><td class="mono" style="text-align:center;font-weight:700;color:${list.length?'#e0913a':'var(--muted)'};">${list.length}</td><td style="font-size:12px;color:var(--muted);">${items||'—'}</td></tr>`; }).join('');
-  const tableRows=tblData.map(r=>`<tr><td><span style="font-size:11px;font-weight:600;color:#e0913a;">Return-${r.return_no||1}</span></td><td style="white-space:nowrap;">${fmtDate(r.trip_date)}</td><td>${attEsc(r.ship_to)}</td><td>${attEsc(r.order_no)}</td><td style="font-size:12px;">${attEsc(r.line_nos)}</td><td>${attEsc(r.road)||'—'}</td><td>${attEsc(r.total_qty)}</td><td>${isPacker()?'':`<button class="btn btn-reject btn-sm" onclick="pkListDelete('${r.id}')">Delete</button>`}</td></tr>`).join('')||`<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:18px;">No returns recorded yet. Open an order and click “Add to Return”.</td></tr>`;
+  const tableRows=tblData.map(r=>`<tr><td><span style="font-size:11px;font-weight:600;color:#e0913a;">Return-${r.return_no||1}</span></td><td style="white-space:nowrap;">${fmtDate(r.trip_date)}</td><td>${attEsc(r.ship_to)}</td><td>${attEsc(r.order_no)}</td><td style="font-size:12px;">${attEsc(r.line_nos)}</td><td>${attEsc(r.road)||'—'}</td><td>${attEsc(r.total_qty)}</td><td>${(isPacker()||isFCE())?'':`<button class="btn btn-reject btn-sm" onclick="pkListDelete('${r.id}')">Delete</button>`}</td></tr>`).join('')||`<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:18px;">No returns recorded yet. Open an order and click “Add to Return”.</td></tr>`;
   document.getElementById('pk-body').innerHTML=`
    <div class="att-stat-row" style="margin-bottom:14px;">
      <div class="att-stat"><div class="v">${total}</div><div class="l">Total return days</div></div>
@@ -2696,12 +2701,15 @@ function pkPrintWindow(title, bodyHtml, pageCss, opts){
   const _d=new Date(), _p=n=>(''+n).padStart(2,'0');
   const _now=_p(_d.getDate())+'/'+_p(_d.getMonth()+1)+'/'+_d.getFullYear()+' '+_p(_d.getHours())+':'+_p(_d.getMinutes());
   const footer=(opts&&opts.noFooter)?'':'<div class="print-by">Printed by: '+attEsc(who)+' &nbsp;·&nbsp; '+_now+'</div>';
+  const wm=(opts&&opts.watermark)?'<div class="wm">'+attEsc(opts.watermark)+'</div>':'';
   w.document.write('<!doctype html><html><head><meta charset="utf-8"><title>'+title+'</title><style>'
     +'*{box-sizing:border-box;}body{font-family:Arial,Helvetica,sans-serif;color:#000;margin:18px;}'
     +'table{border-collapse:collapse;width:100%;margin-top:6px;}th,td{border:1px solid #333;padding:5px 7px;font-size:12px;text-align:left;vertical-align:top;}th{background:#eee;}'
     +'h2{margin:0 0 10px;}.kv{display:grid;grid-template-columns:auto 1fr;gap:3px 14px;font-size:13px;margin-bottom:10px;}.kv b{white-space:nowrap;}'
     +'.print-by{position:fixed;left:6mm;bottom:5mm;font-size:10px;color:#555;}'
-    +(pageCss||'')+'</style></head><body>'+bodyHtml+footer+'<scr'+'ipt>window.onload=function(){setTimeout(function(){window.print();},120);};<\/scr'+'ipt></body></html>');
+    +'.wm{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-30deg);font-size:110px;font-weight:800;color:rgba(214,40,40,.22);z-index:9;pointer-events:none;white-space:nowrap;letter-spacing:6px;text-transform:uppercase;}'
+    +'@media print{.wm{-webkit-print-color-adjust:exact;print-color-adjust:exact;}}'
+    +(pageCss||'')+'</style></head><body>'+wm+bodyHtml+footer+'<scr'+'ipt>window.onload=function(){setTimeout(function(){window.print();},120);};<\/scr'+'ipt></body></html>');
   w.document.close();
 }
 function pkPrintDN(){
@@ -2730,7 +2738,7 @@ function pkPrintDN(){
    +'.lines th{background:#1f3a5f;color:#fff;}'
    +'.sign{display:flex;justify-content:flex-end;margin-top:34px;}'
    +'.sign .box{border:1px solid #000;padding:30px 34px 8px;min-width:240px;text-align:center;font-size:12px;color:#444;}';
-  pkPrintWindow('Sample Order '+o.orderNo, body, css);
+  pkPrintWindow('Sample Order '+o.orderNo, body, css, {watermark:'DN COPY'});
 }
 async function pkPrintSticker(){
   if(!pkOrder)return; const o=pkOrder;
@@ -2755,11 +2763,11 @@ async function pkPrintSticker(){
   const css='@page{size:'+w+'mm '+h+'mm;margin:4mm;}body{margin:4mm;}'
    +'.hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;}'
    +'.hdr .dt{font-size:10px;font-weight:600;}'
-   +'.st{border-collapse:collapse;width:100%;}'
+   +'.st{border-collapse:collapse;width:100%;table-layout:fixed;}'
    +'.st td{border:1px solid #000;padding:3px 7px;font-size:11px;}'
    +'.st td.l{font-weight:bold;width:44%;background:#f4f4f4;}'
-   +'.st td.v{font-weight:600;}'
-   +'.st td.vb{font-weight:800;font-size:13px;}'
+   +'.st td.v{font-weight:600;word-break:break-word;overflow-wrap:anywhere;}'
+   +'.st td.vb{font-weight:800;font-size:13px;word-break:break-word;overflow-wrap:anywhere;}'
    +'.print-inline{font-size:10px;color:#555;margin-top:3px;text-align:left;}'
    +'.biglogo{text-align:center;margin-top:22mm;}';
   pkPrintWindow('Sticker '+o.orderNo, body, css, {noFooter:true});
@@ -2774,7 +2782,7 @@ function pkTripPrintRows(rows,date,road){
     +'<tr><td colspan="4" style="text-align:right;font-weight:bold;">Total:</td><td style="font-weight:bold;text-align:center;">'+tq+'</td><td style="font-weight:bold;text-align:center;">'+tc+'</td><td></td></tr></tbody></table>';
   const css='.so-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}'
     +'.so-hdr .lg{flex:1;}.so-hdr .ttl{flex:1;text-align:center;font-size:22px;font-weight:bold;}';
-  pkPrintWindow('Trip '+date+' '+(road||''), body, css);
+  pkPrintWindow('Trip '+date+' '+(road||''), body, css, {watermark:'Trip Schedule'});
 }
 function pkPrintTrip(){
   const date=pkTripDate, road=pkTripRoad;
