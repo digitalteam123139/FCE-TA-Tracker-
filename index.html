@@ -515,7 +515,7 @@ body{
     <label class="form-label" style="display:block;margin-top:10px;">Full Name</label>
     <input class="form-input" id="att-emp-name" placeholder="Full name"/>
     <label class="form-label" style="display:block;margin-top:10px;">Job Title</label>
-    <input class="form-input" id="att-emp-title" placeholder="e.g. CCE Packer" oninput="attTitleAuto()"/>
+    <select class="form-input" id="att-emp-title" onchange="attTitleAuto()"><option value="">Select title…</option><option>Hub Coordinator</option><option>FCE</option><option>CCE Packer</option></select>
     <label class="form-label" style="display:block;margin-top:10px;">Location</label>
     <select class="form-input" id="att-emp-loc"></select>
     <label class="form-label" style="display:block;margin-top:10px;" style="display:flex;align-items:center;gap:8px;margin-top:10px;cursor:pointer;"><input type="checkbox" id="att-emp-bonus" style="width:auto;"/> Eligible for attendance bonus (Packer)</label>
@@ -1717,12 +1717,14 @@ function populateOrderFce(){
   document.getElementById('o-fce').innerHTML='<option value="">Select…</option>'+opts.map(f=>`<option>${f}</option>`).join('');
 }
 let oEditNoteFiles=[], oPendingFiles=[], oRemovedNotePaths=[];
-function oAddFiles(input){ if(input&&input.files){ for(const f of input.files) oPendingFiles.push(f); input.value=''; } oRenderNoteFiles(); }
+function oAddFiles(input){ if(input&&input.files){ for(const f of input.files) oPendingFiles.push({file:f,name:f.name}); input.value=''; } oRenderNoteFiles(); }
 function oRemovePending(i){ oPendingFiles.splice(i,1); oRenderNoteFiles(); }
+function oRenamePending(i,v){ if(oPendingFiles[i]) oPendingFiles[i].name=(v||'').trim()||oPendingFiles[i].name; }
+function oRenameExisting(path,v){ const f=oEditNoteFiles.find(x=>x.path===path); if(f) f.name=(v||'').trim()||f.name; }
 function oRemoveExisting(path){ if(!isAdmin()){ showToast('Only Super Admin can delete attachments.','err'); return; } const i=oEditNoteFiles.findIndex(f=>f.path===path); if(i>=0){ oRemovedNotePaths.push(oEditNoteFiles[i].path); oEditNoteFiles.splice(i,1); oRenderNoteFiles(); } }
-function oRenderNoteFiles(){ const el=document.getElementById('o-file-list'); if(!el)return; let h='';
-  oEditNoteFiles.forEach(f=>{ const p=String(f.path||'').replace(/'/g,"\\'"); h+=`<div style="display:flex;align-items:center;gap:8px;"><span>📎</span><a href="${dbNoteUrl(f.path)}" target="_blank" rel="noopener" style="color:var(--accent2);">${attEsc(f.name||'note')}</a>${isAdmin()?`<button type="button" title="Delete attachment (Super Admin)" onclick="oRemoveExisting('${p}')" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:14px;line-height:1;">✕</button>`:''}</div>`; });
-  oPendingFiles.forEach((f,i)=>{ h+=`<div style="display:flex;align-items:center;gap:8px;"><span style="color:var(--green);">＋</span><span>${attEsc(f.name)}</span><span style="color:var(--dim);">(new)</span><button type="button" title="Remove" onclick="oRemovePending(${i})" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:14px;line-height:1;">✕</button></div>`; });
+function oRenderNoteFiles(){ const el=document.getElementById('o-file-list'); if(!el)return; const inp='flex:1;min-width:140px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:11px;padding:3px 6px;'; let h='';
+  oEditNoteFiles.forEach(f=>{ const p=String(f.path||'').replace(/'/g,"\\'"); h+=`<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;"><span>📎</span><input type="text" value="${attEsc(f.name||'note')}" onchange="oRenameExisting('${p}',this.value)" title="Rename this attachment" style="${inp}"/><a href="${dbNoteUrl(f.path)}" target="_blank" rel="noopener" style="color:var(--accent2);font-size:11px;">open</a>${isAdmin()?`<button type="button" title="Delete attachment (Super Admin)" onclick="oRemoveExisting('${p}')" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:14px;line-height:1;">✕</button>`:''}</div>`; });
+  oPendingFiles.forEach((f,i)=>{ h+=`<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;"><span style="color:var(--green);">＋</span><input type="text" value="${attEsc(f.name)}" onchange="oRenamePending(${i},this.value)" title="Name this file before saving" style="${inp}"/><span style="color:var(--dim);font-size:11px;">new</span><button type="button" title="Remove" onclick="oRemovePending(${i})" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:14px;line-height:1;">✕</button></div>`; });
   el.innerHTML=h||'<span style="color:var(--dim);">No attachments yet.</span>';
 }
 async function saveOrder(){
@@ -1747,7 +1749,7 @@ async function saveOrder(){
   try{
     btn.disabled=true; btn.innerHTML='<span class="loader"></span> Saving…';
     let files=(oEditNoteFiles||[]).slice();
-    for(let k=0;k<oPendingFiles.length;k++){ const file=oPendingFiles[k]; const ext=(file.name.split('.').pop()||'dat'); const path=o.id+'_'+Date.now()+'_'+k+'.'+ext; await dbUploadNote(file,path); files.push({path:path,name:file.name}); }
+    for(let k=0;k<oPendingFiles.length;k++){ const pf=oPendingFiles[k]; const file=pf.file; const ext=(file.name.split('.').pop()||'dat'); const path=o.id+'_'+Date.now()+'_'+k+'.'+ext; await dbUploadNote(file,path); files.push({path:path,name:(pf.name&&pf.name.trim())||file.name}); }
     for(const rp of oRemovedNotePaths){ try{ await dbDeleteNote(rp); }catch(e){} }
     o.noteFiles=files; o.noteFile=(files[0]&&files[0].path)||null; o.noteName=(files[0]&&files[0].name)||null;
     await dbUpsertOrder(orderToRow(o));
@@ -1806,7 +1808,9 @@ const ATTLAB={present:'P',absent:'A',leave:'L',holiday:'H'};
 function attTodayIso(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
 function attEmpById(id){return CACHE.employees.find(e=>e.id===id);}
 function attActiveEmps(){return CACHE.employees.filter(e=>e.active!==false);}
-function attTitles(){return [...new Set(CACHE.employees.map(e=>e.title))].sort();}
+const STAFF_TITLES=['Hub Coordinator','FCE','CCE Packer'];
+function normTitle(t){ const s=(''+(t||'')).toLowerCase(); if(/packer/.test(s))return 'CCE Packer'; if(/hub|coordinator/.test(s))return 'Hub Coordinator'; if(/fce/.test(s))return 'FCE'; return (t||'').trim(); }
+function attTitles(){ const set=new Set((CACHE.employees||[]).map(e=>normTitle(e.title))); STAFF_TITLES.forEach(t=>set.add(t)); return [...set].filter(Boolean).sort();}
 function attEsc(s){return (''+(s==null?'':s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 
 async function attLoad(force){
@@ -1863,7 +1867,7 @@ function attRenderMark(){
 }
 function attBuildStage(){attStage={};CACHE.attendance.forEach(r=>{if(r.date===attDate)attStage[r.emp_id]=r.status;});}
 function attSetDate(v){attDate=v;attBuildStage();attRenderRows();}
-function attMarkFiltered(){const lock=tlLockedLoc();const loc=lock||attLoc;const q=attSearch.trim().toLowerCase();return attActiveEmps().filter(e=>(!loc||locEq(e.location,loc))&&(!attTitle||e.title===attTitle)&&(!q||(e.name||'').toLowerCase().includes(q)||(e.id||'').toLowerCase().includes(q)));}
+function attMarkFiltered(){const lock=tlLockedLoc();const loc=lock||attLoc;const q=attSearch.trim().toLowerCase();return attActiveEmps().filter(e=>(!loc||locEq(e.location,loc))&&(!attTitle||normTitle(e.title)===attTitle)&&(!q||(e.name||'').toLowerCase().includes(q)||(e.id||'').toLowerCase().includes(q)));}
 function attRenderRows(){
   const tb=document.getElementById('att-mark-rows'); if(!tb)return;
   const emps=attMarkFiltered();
@@ -1876,7 +1880,7 @@ function attRenderRows(){
     const seg=canEd
       ? segDefs.map(([s,lab,col,title])=>`<button class="att-sbtn ${cur===s?'on':''}" style="${cur===s?'background:'+col+';':''}" title="${attEsc(title)}" onclick="attSetStatus('${attEsc(e.id)}','${s}')">${attEsc(lab)}</button>`).join('')
       : (function(){ const m=segDefs.find(x=>x[0]===cur); return m?`<span class="status-badge" style="background:${m[2]}22;color:${m[2]};border:1px solid ${m[2]}55;">${attEsc(m[3])}</span>`:'<span style="color:var(--muted);">—</span>'; })();
-    return `<tr><td>${i+1}</td><td>${attEsc(e.id)}</td><td>${attEsc(e.name)}</td><td>${attEsc(e.title)}</td><td>${attEsc(e.location)}</td><td style="text-align:center;"><div class="att-seg">${seg}</div></td></tr>`;
+    return `<tr><td>${i+1}</td><td>${attEsc(e.id)}</td><td>${attEsc(e.name)}</td><td>${attEsc(normTitle(e.title))}</td><td>${attEsc(e.location)}</td><td style="text-align:center;"><div class="att-seg">${seg}</div></td></tr>`;
   }).join('')||`<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:18px;">No employees match. Add some in the Employees tab, or run the setup SQL.</td></tr>`;
   const c=document.getElementById('att-mark-count'); if(c)c.textContent=emps.length+' staff';
 }
@@ -1912,7 +1916,7 @@ function attRenderDash(){
     : `<select class="filter-sel" onchange="attLoc=this.value;attSelEmp='';attRenderDash()">${['<option value="">All locations</option>'].concat(ATT_LOCS.map(l=>`<option ${attLoc===l?'selected':''}>${l}</option>`)).join('')}</select>`;
   const selfOnly=attSelfOnly(); const selfEmp=selfOnly?attSelfEmp():null; if(selfOnly)attSelEmp=selfEmp?selfEmp.id:'__none__';
   const empOpts=selfOnly
-    ? (selfEmp?`<option value="${attEsc(selfEmp.id)}" selected>${attEsc(selfEmp.name)} · ${attEsc(selfEmp.title)}</option>`:'<option value="">(your employee record not found)</option>')
+    ? (selfEmp?`<option value="${attEsc(selfEmp.id)}" selected>${attEsc(selfEmp.name)} · ${attEsc(normTitle(selfEmp.title))}</option>`:'<option value="">(your employee record not found)</option>')
     : ['<option value="">— pick an employee —</option>'].concat(attScopeEmps().map(e=>`<option value="${attEsc(e.id)}" ${attSelEmp===e.id?'selected':''}>${attEsc(e.name)} · ${attEsc(e.title)}</option>`)).join('');
   body.innerHTML=`
     <div class="detail-meta"><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
@@ -2026,7 +2030,7 @@ function attEmpModal(id){
   const e=id?attEmpById(id):null;
   const idEl=document.getElementById('att-emp-id'); idEl.value=e?e.id:''; idEl.readOnly=!!id;
   document.getElementById('att-emp-name').value=e?e.name:'';
-  document.getElementById('att-emp-title').value=e?e.title:'';
+  document.getElementById('att-emp-title').value=e?normTitle(e.title):'';
   const lock=tlLockedLoc(); const lockLoc=lock?(ATT_LOCS.find(l=>locEq(l,lock))||ATT_LOCS[0]):ATT_LOCS[0];
   document.getElementById('att-emp-loc').value=e?e.location:lockLoc;
   document.getElementById('att-emp-bonus').checked=e?!!e.bonus_eligible:false;
@@ -2866,6 +2870,39 @@ function pkPrintTrip(){
   pkTripPrintRows(rows,date,road);
 }
 
+</script>
+<!-- Floating WhatsApp live-chat help -->
+<div id="wa-help" style="position:fixed;right:18px;bottom:18px;z-index:1200;display:flex;flex-direction:column;align-items:flex-end;gap:10px;">
+  <div id="wa-panel" style="display:none;background:var(--surface2,#16315a);-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);border:1px solid var(--border,#244372);border-radius:14px;box-shadow:0 12px 30px rgba(0,0,0,.45);padding:12px;min-width:230px;max-width:290px;"></div>
+  <button id="wa-fab" onclick="waToggle()" title="Live chat / help" style="width:58px;height:58px;border-radius:18px;border:none;cursor:pointer;background:linear-gradient(135deg,#3A66E0,#14379B);box-shadow:0 8px 22px rgba(20,55,155,.5);display:grid;place-items:center;">
+    <svg width="32" height="32" viewBox="0 0 24 24"><rect x="2.5" y="3.5" width="13" height="9" rx="2.6" fill="#ffffff"/><polygon points="6,12 6,15.2 9.6,12" fill="#ffffff"/><rect x="9" y="9.3" width="12.5" height="8.6" rx="2.6" fill="#9ec2ff"/><polygon points="18,17.5 18,20.7 14.4,17.5" fill="#9ec2ff"/></svg>
+  </button>
+</div>
+<script>
+/* Support contacts are saved on this device (key 'sc_support_contacts').
+   A Super Admin can set/edit the numbers from the chat panel itself — no code editing needed. */
+function waContacts(){ const d=lsGet('sc_support_contacts',null); if(Array.isArray(d)&&d.length) return d; return [
+  {name:'Rinon Moni Talukder (Super Admin)', phone:''},
+  {name:'Authorizer 1', phone:''},
+  {name:'Authorizer 2', phone:''}
+]; }
+function waNum(p){ try{ return (typeof intlPhone==='function')?(''+intlPhone(p)).replace(/[^0-9]/g,''):(''+p).replace(/[^0-9]/g,''); }catch(e){ return (''+p).replace(/[^0-9]/g,''); } }
+function waToggle(){ const p=document.getElementById('wa-panel'); if(!p)return; if(p.style.display==='none'||!p.style.display){ waRender(); p.style.display='block'; } else { p.style.display='none'; } }
+function waRender(){ const p=document.getElementById('wa-panel'); if(!p)return; const msg=encodeURIComponent('Hello, I need help with the SC Digital Team app.'); const list=waContacts();
+  let h='<div style="font-weight:600;font-size:13px;margin-bottom:8px;color:var(--text,#fff);">Live chat — choose a contact</div>';
+  h+=list.map(function(c){ const n=waNum(c.phone); const ok=/^[0-9]{8,15}$/.test(n); return '<a href="'+(ok?('https://wa.me/'+n+'?text='+msg):'javascript:void(0)')+'" '+(ok?'target="_blank" rel="noopener"':'')+' style="display:flex;align-items:center;gap:8px;padding:8px;border-radius:8px;text-decoration:none;color:var(--text,#fff);font-size:12.5px;'+(ok?'':'opacity:.55;')+'"><span style="color:#3fe0d4;font-size:10px;">●</span><span>'+c.name+(ok?'':' (number not set)')+'</span></a>'; }).join('');
+  if(typeof isAdmin==='function'&&isAdmin()){ h+='<button type="button" onclick="waEdit()" style="margin-top:6px;width:100%;background:var(--surface,rgba(255,255,255,.08));border:1px solid var(--border,#244372);color:var(--accent,#6ea0ff);border-radius:8px;padding:7px;font-size:12px;cursor:pointer;">✎ Set / edit numbers</button>'; }
+  h+='<div style="font-size:10.5px;color:var(--muted,#8aa2c4);margin-top:6px;">Opens a WhatsApp chat</div>';
+  p.innerHTML=h;
+}
+function waEdit(){ const p=document.getElementById('wa-panel'); if(!p)return; const list=waContacts(); const inp='width:100%;background:var(--surface2,#16315a);border:1px solid var(--border,#244372);border-radius:6px;color:var(--text,#fff);font-size:12px;padding:5px 7px;margin-top:3px;';
+  let h='<div style="font-weight:600;font-size:13px;margin-bottom:8px;color:var(--text,#fff);">Set support numbers</div>';
+  list.forEach(function(c,i){ h+='<div style="margin-bottom:9px;"><input id="wa-n'+i+'" type="text" value="'+attEsc(c.name)+'" placeholder="Name / role" style="'+inp+'"/><input id="wa-p'+i+'" type="tel" value="'+attEsc(c.phone||'')+'" placeholder="WhatsApp no. with country code e.g. 8801712345678" style="'+inp+'"/></div>'; });
+  h+='<div style="display:flex;gap:6px;margin-top:4px;"><button type="button" onclick="waSaveContacts()" style="flex:1;background:linear-gradient(120deg,#3A66E0,#1E48C0);border:none;color:#fff;border-radius:8px;padding:8px;font-size:12px;cursor:pointer;">Save</button><button type="button" onclick="waRender()" style="flex:1;background:none;border:1px solid var(--border,#244372);color:var(--muted,#8aa2c4);border-radius:8px;padding:8px;font-size:12px;cursor:pointer;">Cancel</button></div>';
+  h+='<div style="font-size:10.5px;color:var(--muted,#8aa2c4);margin-top:7px;">Saved on this device. Country code required (no + or spaces needed).</div>';
+  p.innerHTML=h;
+}
+function waSaveContacts(){ const list=waContacts(); const out=list.map(function(c,i){ const ne=document.getElementById('wa-n'+i), pe=document.getElementById('wa-p'+i); return {name:((ne&&ne.value)||c.name).trim(), phone:((pe&&pe.value)||'').replace(/[^0-9+]/g,'').replace(/\+/g,'').trim()}; }); lsSet('sc_support_contacts',out); if(typeof showToast==='function')showToast('Support numbers saved on this device.'); waRender(); }
 </script>
 </body>
 </html>
