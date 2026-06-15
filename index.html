@@ -490,7 +490,7 @@ body{
         <button class="att-tab active" data-pk="orders" onclick="pkSwitch('orders',this)">Orders · DN · Sticker Print</button>
         <button class="att-tab" data-pk="trip" onclick="pkSwitch('trip',this)">Trip Schedule Print</button>
         <button class="att-tab" data-pk="list" onclick="pkSwitch('list',this)">Trip List</button>
-        <button class="att-tab" data-pk="returns" onclick="pkSwitch('returns',this)">Returns Trand</button>
+        <button class="att-tab" data-pk="returns" onclick="pkSwitch('returns',this)">Returns Trend</button>
         <button class="att-tab" data-pk="import" onclick="pkSwitch('import',this)">Import Data Management</button>
       </div>
       <div id="pk-body"></div>
@@ -583,7 +583,14 @@ body{
          <div class="form-group o-swatch"><label class="form-label">Responsibility To</label><select class="form-input" id="o-fce"></select></div>
          <div class="form-group o-swatch"><label class="form-label">Requested Time</label><input class="form-input" type="text" id="o-reqtime" placeholder="e.g. 10:30 AM"/></div>
          <div class="form-group o-delivery"><label class="form-label">Delivery Date</label><input class="form-input" type="date" id="o-delivered"/></div>
-         <div class="form-group full o-delivery"><label class="form-label">Delivery note (PDF / image)</label><input class="form-input" type="file" id="o-file" accept=".pdf,.jpg,.jpeg,.png" style="padding:7px;"/><div id="o-file-current" style="font-size:11px;color:var(--muted);margin-top:4px;"></div></div>
+         <div class="form-group full o-delivery"><label class="form-label">Delivery note (PDF / image) <span style="text-transform:none;color:var(--dim);">— attach one or more</span></label>
+           <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+             <input class="form-input" type="file" id="o-file" accept=".pdf,.jpg,.jpeg,.png" multiple style="padding:7px;flex:1;min-width:200px;" onchange="oAddFiles(this)"/>
+             <input type="file" id="o-file-cam" accept="image/*" capture="environment" style="display:none;" onchange="oAddFiles(this)"/>
+             <button type="button" class="btn btn-ghost btn-sm" title="Take a photo with the camera" onclick="document.getElementById('o-file-cam').click()" style="white-space:nowrap;">📷 Camera</button>
+           </div>
+           <div id="o-file-list" style="font-size:11px;color:var(--muted);margin-top:6px;display:flex;flex-direction:column;gap:4px;"></div>
+         </div>
          <div class="form-group"><label class="form-label">Delivery Zone <span style="text-transform:none;color:var(--dim);">(road)</span></label><select class="form-input" id="o-zone" onchange="onZoneSelect(this)"></select></div>
          <div class="form-group"><label class="form-label">Status</label><select class="form-input" id="o-status" onchange="onOrderStatusChange()"><option>Requested</option><option>Returned</option><option>In Development</option><option>Delivered</option></select></div>
          <div class="form-group full"><label class="form-label">Remarks</label><textarea class="form-input" id="o-remarks" style="min-height:48px;"></textarea></div>
@@ -751,8 +758,16 @@ function getMaster(){ return CACHE.master||{fce:[...DEFAULT_FCE_LIST],customers:
 function getUsers(){ return CACHE.users; }
 function getEntries(){ return CACHE.entries; }
 function getOrders(){ return CACHE.orders||[]; }
-function rowToOrder(r){ return {id:r.id,date:r.date,month:r.month,orderNo:r.order_no,task:r.task_type,customer:r.customer,buyer:r.buyer,fce:r.fce,service:r.service,reqTime:r.requested_time,from:r.from_loc,to:r.to_loc,status:r.status,deliveredAt:r.delivered_at,noteFile:r.note_file,noteName:r.note_name,remarks:r.remarks,createdBy:r.created_by}; }
-function orderToRow(o){ return {id:o.id,date:o.date,month:o.date.slice(0,7),order_no:o.orderNo||null,task_type:o.task||null,customer:o.customer||null,buyer:o.buyer||null,fce:o.fce||null,service:o.service||null,requested_time:o.reqTime||null,from_loc:o.from||null,to_loc:o.to||null,status:o.status||'Requested',delivered_at:o.deliveredAt||null,note_file:o.noteFile||null,note_name:o.noteName||null,remarks:o.remarks||null,created_by:o.createdBy||null,updated_at:new Date().toISOString()}; }
+function parseNoteFiles(r){
+  const raw=r.note_file;
+  if(!raw) return [];
+  if(typeof raw==='string'){ const s=raw.trim();
+    if(s.charAt(0)==='['){ try{ const arr=JSON.parse(s); if(Array.isArray(arr)) return arr.map(x=> typeof x==='string'?{path:x,name:(x||'').split('/').pop()}:{path:x.path,name:x.name||(x.path||'').split('/').pop()}).filter(f=>f.path); }catch(e){} }
+  }
+  return [{path:raw,name:r.note_name||'note'}];
+}
+function rowToOrder(r){ const _nf=parseNoteFiles(r); return {id:r.id,date:r.date,month:r.month,orderNo:r.order_no,task:r.task_type,customer:r.customer,buyer:r.buyer,fce:r.fce,service:r.service,reqTime:r.requested_time,from:r.from_loc,to:r.to_loc,status:r.status,deliveredAt:r.delivered_at,noteFiles:_nf,noteFile:(_nf[0]&&_nf[0].path)||null,noteName:(_nf[0]&&_nf[0].name)||null,remarks:r.remarks,createdBy:r.created_by}; }
+function orderToRow(o){ return {id:o.id,date:o.date,month:o.date.slice(0,7),order_no:o.orderNo||null,task_type:o.task||null,customer:o.customer||null,buyer:o.buyer||null,fce:o.fce||null,service:o.service||null,requested_time:o.reqTime||null,from_loc:o.from||null,to_loc:o.to||null,status:o.status||'Requested',delivered_at:o.deliveredAt||null,note_file:(o.noteFiles&&o.noteFiles.length)?JSON.stringify(o.noteFiles):(o.noteFile||null),note_name:(o.noteFiles&&o.noteFiles.length?o.noteFiles.map(f=>f.name).join(', '):o.noteName)||null,remarks:o.remarks||null,created_by:o.createdBy||null,updated_at:new Date().toISOString()}; }
 
 // ═══ AUTH (checks against cloud users table) ═══
 async function doLogin(){
@@ -1435,7 +1450,7 @@ let visibleOrders=[];
 function orderAgeDays(o){ if(!o.date)return 0; const d=new Date((''+o.date).slice(0,10)+'T00:00:00'); if(isNaN(d))return 0; const t=new Date(); t.setHours(0,0,0,0); return Math.floor((t-d)/86400000); }
 function orderRowTint(o){
   let rgb;
-  if(o.noteFile){ rgb='70,230,160'; }            // DN copy uploaded → green
+  if(o.noteFiles&&o.noteFiles.length){ rgb='70,230,160'; }   // DN uploaded → green
   else { const a=orderAgeDays(o);
     if(a<=0) rgb='47,214,224';                    // new today → cyan
     else if(a===1) rgb='255,194,77';              // 1 day → amber
@@ -1497,7 +1512,7 @@ function renderOrders(){
     const extra = o.task==='Sample Delivery'
       ? (o.deliveredAt?('Delivered '+fmtDate(o.deliveredAt)):'—')
       : (o.reqTime?('Req. '+o.reqTime):'—');
-    const note=o.noteFile?`<a href="${dbNoteUrl(o.noteFile)}" target="_blank" rel="noopener" class="btn-approve" style="text-decoration:none;">Download</a>`:'<span style="color:var(--muted);">—</span>';
+    const _nfs=o.noteFiles||[]; const note=_nfs.length?(_nfs.length===1?`<a href="${dbNoteUrl(_nfs[0].path)}" target="_blank" rel="noopener" class="btn-approve" style="text-decoration:none;">Download</a>`:_nfs.map((f,ix)=>`<a href="${dbNoteUrl(f.path)}" target="_blank" rel="noopener" class="btn-approve" style="text-decoration:none;margin:1px;display:inline-block;" title="${attEsc(f.name||('file '+(ix+1)))}">↓${ix+1}</a>`).join(' ')):'<span style="color:var(--muted);">—</span>';
     const editBtn=canEdit?`<button class="btn-icon btn-sm" onclick="openOrderModal('${o.id}')" title="Edit"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.828 2.828 0 114 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg></button>`:'<span style="color:var(--muted);">—</span>';
     const sendBtn=canSendOrders()?`<button class="btn-icon btn-sm" onclick="openSendModal('${o.id}')" title="Send requirement (SMS / WhatsApp / Email)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg></button>`:'';
     const chevron=`<button class="btn-icon btn-sm" onclick="toggleOrderRow('${o.id}')" title="Show details" id="chev-${o.id}" style="transition:transform .15s;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></button>`;
@@ -1663,7 +1678,7 @@ function openOrderModal(id){
   editingOrderId=id||null;
   document.getElementById('order-modal-title').textContent=id?'Edit Order Entry':'New Order Entry';
   document.getElementById('o-delete-btn').style.display=(id&&canDeleteOrders())?'inline-flex':'none';
-  document.getElementById('o-file-current').textContent='';
+  oEditNoteFiles=[]; oPendingFiles=[]; oRemovedNotePaths=[]; oRenderNoteFiles();
   document.getElementById('o-file').value='';
   populateOrderFce();
   populateZoneSelects();
@@ -1681,7 +1696,7 @@ function openOrderModal(id){
     document.getElementById('o-delivered').value=o.deliveredAt||'';
     document.getElementById('o-remarks').value=o.remarks||'';
     { const zs=document.getElementById('o-zone'); if(zs){ if(o.to&&![...zs.options].some(op=>op.value===o.to)){ const op=document.createElement('option'); op.textContent=o.to; zs.insertBefore(op,zs.options[zs.options.length-1]); } zs.value=o.to||''; } }
-    if(o.noteFile) document.getElementById('o-file-current').innerHTML=`Current: <a href="${dbNoteUrl(o.noteFile)}" target="_blank" rel="noopener" style="color:var(--accent2);">${o.noteName||'view note'}</a>`;
+    oEditNoteFiles=(o.noteFiles||[]).slice(); oPendingFiles=[]; oRemovedNotePaths=[]; oRenderNoteFiles();
     oStep(2); oStep2Summary(); oResetMode('manual'); document.getElementById('o-back-btn').style.display='none';
   } else {
     document.getElementById('o-date').value=new Date().toISOString().split('T')[0];
@@ -1701,6 +1716,15 @@ function populateOrderFce(){
   const opts=[...m.fce, ...DEFAULT_RESPONSIBILITY.filter(r=>!m.fce.includes(r))];
   document.getElementById('o-fce').innerHTML='<option value="">Select…</option>'+opts.map(f=>`<option>${f}</option>`).join('');
 }
+let oEditNoteFiles=[], oPendingFiles=[], oRemovedNotePaths=[];
+function oAddFiles(input){ if(input&&input.files){ for(const f of input.files) oPendingFiles.push(f); input.value=''; } oRenderNoteFiles(); }
+function oRemovePending(i){ oPendingFiles.splice(i,1); oRenderNoteFiles(); }
+function oRemoveExisting(path){ if(!isAdmin()){ showToast('Only Super Admin can delete attachments.','err'); return; } const i=oEditNoteFiles.findIndex(f=>f.path===path); if(i>=0){ oRemovedNotePaths.push(oEditNoteFiles[i].path); oEditNoteFiles.splice(i,1); oRenderNoteFiles(); } }
+function oRenderNoteFiles(){ const el=document.getElementById('o-file-list'); if(!el)return; let h='';
+  oEditNoteFiles.forEach(f=>{ const p=String(f.path||'').replace(/'/g,"\\'"); h+=`<div style="display:flex;align-items:center;gap:8px;"><span>📎</span><a href="${dbNoteUrl(f.path)}" target="_blank" rel="noopener" style="color:var(--accent2);">${attEsc(f.name||'note')}</a>${isAdmin()?`<button type="button" title="Delete attachment (Super Admin)" onclick="oRemoveExisting('${p}')" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:14px;line-height:1;">✕</button>`:''}</div>`; });
+  oPendingFiles.forEach((f,i)=>{ h+=`<div style="display:flex;align-items:center;gap:8px;"><span style="color:var(--green);">＋</span><span>${attEsc(f.name)}</span><span style="color:var(--dim);">(new)</span><button type="button" title="Remove" onclick="oRemovePending(${i})" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:14px;line-height:1;">✕</button></div>`; });
+  el.innerHTML=h||'<span style="color:var(--dim);">No attachments yet.</span>';
+}
 async function saveOrder(){
   if(!canSee('orders')){ showToast('No access to Order Tracker.','err'); return; }
   const date=document.getElementById('o-date').value;
@@ -1714,22 +1738,18 @@ async function saveOrder(){
     to:(function(){const z=document.getElementById('o-zone');return z&&z.value&&z.value!=='__new__'?z.value:null;})(),
     status:document.getElementById('o-status').value, deliveredAt:document.getElementById('o-delivered').value||null,
     remarks:document.getElementById('o-remarks').value.trim(), createdBy:currentUser.id };
-  if(editingOrderId){ const ex=getOrders().find(x=>x.id===editingOrderId); if(ex){ o.noteFile=ex.noteFile; o.noteName=ex.noteName; } }
+  // attachments are managed via oEditNoteFiles / oPendingFiles / oRemovedNotePaths
   if(o.orderNo){
     const dup=getOrders().find(x=>x.id!==o.id && (x.orderNo||'').trim().toLowerCase()===o.orderNo.toLowerCase() && (x.task||'')===o.task);
     if(dup){ showToast('Duplicate: order '+o.orderNo+' already exists for task “'+o.task+'”.','err'); return; }
   }
-  const fileInput=document.getElementById('o-file');
   const btn=document.getElementById('o-save-btn');
   try{
     btn.disabled=true; btn.innerHTML='<span class="loader"></span> Saving…';
-    if(fileInput.files&&fileInput.files[0]){
-      const file=fileInput.files[0];
-      const ext=file.name.split('.').pop();
-      const path=o.id+'_'+Date.now()+'.'+ext;
-      await dbUploadNote(file,path);
-      o.noteFile=path; o.noteName=file.name;
-    }
+    let files=(oEditNoteFiles||[]).slice();
+    for(let k=0;k<oPendingFiles.length;k++){ const file=oPendingFiles[k]; const ext=(file.name.split('.').pop()||'dat'); const path=o.id+'_'+Date.now()+'_'+k+'.'+ext; await dbUploadNote(file,path); files.push({path:path,name:file.name}); }
+    for(const rp of oRemovedNotePaths){ try{ await dbDeleteNote(rp); }catch(e){} }
+    o.noteFiles=files; o.noteFile=(files[0]&&files[0].path)||null; o.noteName=(files[0]&&files[0].name)||null;
     await dbUpsertOrder(orderToRow(o));
     await refreshAll();
     closeModal('order-modal');
@@ -1743,7 +1763,7 @@ async function deleteOrder(){ if(!canDeleteOrders()){ showToast('Only Super Admi
   if(!confirm('Delete this order?'))return;
   try{
     const o=getOrders().find(x=>x.id===editingOrderId);
-    if(o&&o.noteFile) await dbDeleteNote(o.noteFile);
+    if(o&&o.noteFiles&&o.noteFiles.length){ for(const f of o.noteFiles){ try{ await dbDeleteNote(f.path); }catch(e){} } } else if(o&&o.noteFile){ try{ await dbDeleteNote(o.noteFile); }catch(e){} }
     await dbDeleteOrder(editingOrderId);
     await refreshAll();
     closeModal('order-modal');
@@ -1753,7 +1773,7 @@ async function deleteOrder(){ if(!canDeleteOrders()){ showToast('Only Super Admi
 function downloadOrders(){
   const rows=visibleOrders;
   const header='Date,Order No,Task,Service By,Customer Name,Buyer Name,Responsibility To,Delivery Zone,Requested Time,Status,Delivery Date,Note,Remarks\n';
-  const csv=rows.map(o=>[fmtDate(o.date),o.orderNo||'',o.task||'',o.service||'',o.customer||'',o.buyer||'',o.fce||'',o.to||'',o.reqTime||'',o.status||'',o.deliveredAt?fmtDate(o.deliveredAt):'',o.noteName||'',o.remarks||''].map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',')).join('\n');
+  const csv=rows.map(o=>[fmtDate(o.date),o.orderNo||'',o.task||'',o.service||'',o.customer||'',o.buyer||'',o.fce||'',o.to||'',o.reqTime||'',o.status||'',o.deliveredAt?fmtDate(o.deliveredAt):'',(o.noteFiles&&o.noteFiles.length?o.noteFiles.map(f=>f.name).join(' | '):(o.noteName||'')),o.remarks||''].map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',')).join('\n');
   const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([header+csv],{type:'text/csv'})); a.download='Sample_Orders.csv'; a.click();
 }
 
@@ -2174,7 +2194,7 @@ function attRenderLeaveSection(){
 //  sample_lines + trip_schedule live in Supabase (run SAMPLE_PACKING_SETUP.sql)
 // ═══════════════════════════════════════════════════════════════
 let pkTab='orders', pkOrder=null, pkResults=[], pkTripDate=null, pkTripRoad='', pkPendingTripOrder='';
-let pkTripSel=new Set(), pkListSel=new Set(), pkListKind='', pkRetCust='', pkPendingCarton='';
+let pkTripSel=new Set(), pkListSel=new Set(), pkListKind='', pkRetCust='', pkPendingCarton='', pkRetGran='month', pkRetRoad='';
 
 // ── DB ──
 async function dbPkLookup(orderNo){ const {data,error}=await sb.from('sample_lines').select('*').eq('order_no',orderNo); if(error)throw error; return data||[]; }
@@ -2464,9 +2484,18 @@ function pkRenderReturns(){
   const freq={'2':[],'3':[],'4':[],'5':[]};
   Object.entries(cntByOrder).forEach(([k,v])=>{ if(v.n<2)return; const b=v.n>=5?'5':String(v.n); freq[b].push({order:k,cust:v.cust,n:v.n}); });
   const freqDefs=[['2','Returned 2 times'],['3','Returned 3 times'],['4','Returned 4 times'],['5','Returned 5+ times']];
-  const freqRows=freqDefs.map(([key,label])=>{ const list=freq[key]; const items=list.map(x=>attEsc(x.order)+(x.cust?(' ('+attEsc(x.cust)+')'):'')).join(', '); return `<tr><td style="white-space:nowrap;font-weight:600;">${label}</td><td class="mono" style="text-align:center;font-weight:700;color:${list.length?'#e0913a':'var(--muted)'};">${list.length}</td><td style="font-size:12px;color:var(--muted);">${items||'—'}</td></tr>`; }).join('');
+  const freqRows=freqDefs.map(([key,label])=>{ const list=freq[key]; const itemsHtml=list.length?`<div style="max-height:90px;overflow:auto;display:flex;flex-wrap:wrap;gap:4px;padding:2px 0;">${list.map(x=>`<span style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:1px 7px;font-size:11px;white-space:nowrap;">${attEsc(x.order)}${x.cust?` · ${attEsc(x.cust)}`:''}</span>`).join('')}</div>`:'<span style="color:var(--muted);">—</span>'; return `<tr><td style="white-space:nowrap;font-weight:600;">${label}</td><td class="mono" style="text-align:center;font-weight:700;color:${list.length?'#e0913a':'var(--muted)'};">${list.length}</td><td>${itemsHtml}</td></tr>`; }).join('');
   const tableRows=tblData.map(r=>`<tr><td><span style="font-size:11px;font-weight:600;color:#e0913a;">Return-${r.return_no||1}</span></td><td style="white-space:nowrap;">${fmtDate(r.trip_date)}</td><td>${attEsc(r.ship_to)}</td><td>${attEsc(r.order_no)}</td><td style="font-size:12px;">${attEsc(r.line_nos)}</td><td>${attEsc(r.road)||'—'}</td><td>${attEsc(r.total_qty)}</td><td>${(isPacker()||isFCE())?'':`<button class="btn btn-reject btn-sm" onclick="pkListDelete('${r.id}')">Delete</button>`}</td></tr>`).join('')||`<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:18px;">No returns recorded yet. Open an order and click “Add to Return”.</td></tr>`;
+  // road-wise grouping (day / month)
+  const roadList=[...new Set(all.map(r=>r.road).filter(Boolean))].sort();
+  const roadSrc=pkRetRoad?rets.filter(r=>(r.road||'')===pkRetRoad):rets;
+  const byPR={}; roadSrc.forEach(r=>{ const per=pkRetGran==='day'?((r.trip_date||'').slice(0,10)||'—'):((r.trip_date||'').slice(0,7)||'—'); const rd=r.road||'—'; const key=per+'||'+rd; if(!byPR[key])byPR[key]={per,rd,n:0,q:0}; byPR[key].n++; byPR[key].q+=parseFloat(r.total_qty)||0; });
+  const roadRows=Object.values(byPR).sort((a,b)=>String(b.per).localeCompare(String(a.per))||String(a.rd).localeCompare(String(b.rd))).map(x=>`<tr><td style="white-space:nowrap;">${pkRetGran==='day'?(x.per==='—'?'—':fmtDate(x.per)):(x.per==='—'?'—':monthLabel(x.per))}</td><td>${attEsc(x.rd)}</td><td style="text-align:center;">${x.n}</td><td style="text-align:center;">${x.q}</td></tr>`).join('')||`<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:14px;">No road data.</td></tr>`;
   document.getElementById('pk-body').innerHTML=`
+   <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:14px;">
+     <div class="card-title" style="margin:0;">Returns Trend</div>
+     <input class="filter-sel" id="pk-ret-search" type="text" value="${attEsc(pkRetCust)}" placeholder="Search customer…" style="min-width:240px;" oninput="pkRetCust=this.value;pkRenderReturns()"/>
+   </div>
    <div class="att-stat-row" style="margin-bottom:14px;">
      <div class="att-stat"><div class="v">${total}</div><div class="l">Total return days</div></div>
      <div class="att-stat"><div class="v">${orders.size}</div><div class="l">Orders returned</div></div>
@@ -2478,10 +2507,16 @@ function pkRenderReturns(){
      <div class="card"><div class="form-label" style="margin:0 0 6px;">Returns by month</div><canvas id="pk-ret-month"></canvas></div>
      <div class="card"><div class="form-label" style="margin:0 0 6px;">Top customers by returns</div><canvas id="pk-ret-cust"></canvas></div>
    </div>
-   <div class="card" style="margin-bottom:14px;"><div class="card-header"><div><div class="card-title">Repeat-return frequency</div><div class="card-sub">The same order returned more than once — grouped by how many times it came back (Return-2, Return-3 …), regardless of date.</div></div></div>
+   <div class="card" style="margin-bottom:14px;"><div class="card-header"><div><div class="card-title">Returns by road</div><div class="card-sub">Road-wise returns grouped by ${pkRetGran==='day'?'day':'month'}.</div></div>
+     <div class="card-actions" style="display:flex;gap:8px;flex-wrap:wrap;">
+       <select class="filter-sel" onchange="pkRetRoad=this.value;pkRenderReturns()"><option value="">All roads</option>${roadList.map(rd=>`<option ${rd===pkRetRoad?'selected':''}>${attEsc(rd)}</option>`).join('')}</select>
+       <select class="filter-sel" onchange="pkRetGran=this.value;pkRenderReturns()"><option value="month" ${pkRetGran==='month'?'selected':''}>By month</option><option value="day" ${pkRetGran==='day'?'selected':''}>By day</option></select>
+     </div></div>
+     <div style="overflow:auto;"><table><thead><tr><th>${pkRetGran==='day'?'Day':'Month'}</th><th>Road</th><th style="text-align:center;">Returns</th><th style="text-align:center;">Qty</th></tr></thead><tbody>${roadRows}</tbody></table></div></div>
+   <div class="card" style="margin-bottom:14px;"><div class="card-header"><div><div class="card-title">Repeat-return frequency</div><div class="card-sub">The same order returned more than once — grouped by how many times it came back (Return-2, Return-3 …), regardless of date. Long lists scroll inside the cell.</div></div></div>
      <div style="overflow:auto;"><table><thead><tr><th>Frequency</th><th style="text-align:center;">Orders</th><th>Order No (Customer)</th></tr></thead><tbody>${freqRows}</tbody></table></div></div>
    <div class="card"><div class="card-header"><div><div class="card-title">Returned orders</div><div class="card-sub">Each “Add to Return” adds one return day; the same order+lines returned again becomes Return-2, Return-3…</div></div>
-     <div class="card-actions"><input class="filter-sel" id="pk-ret-search" type="text" value="${attEsc(pkRetCust)}" placeholder="Search customer…" style="min-width:230px;" oninput="pkRetCust=this.value;pkRenderReturns()"/></div></div>
+     <div class="card-actions"><span style="font-size:12px;color:var(--muted);">${tblData.length} record(s)</span></div></div>
      <div style="overflow:auto;"><table><thead><tr><th>Return</th><th>Date</th><th>Ship to Party</th><th>Order No</th><th>Line Nos</th><th>Road</th><th>Qty</th><th></th></tr></thead><tbody>${tableRows}</tbody></table></div></div>`;
   if(pkRetCust){ const si=document.getElementById('pk-ret-search'); if(si){ si.focus(); si.setSelectionRange(si.value.length,si.value.length); } }
   // charts
@@ -2756,7 +2791,7 @@ function pkPrintDN(){
   const sel=pkSelectedLines(); if(!sel.length){ showToast('Select at least one line to print.','err'); return; }
   const rows=sel.map(l=>'<tr><td style="text-align:center;">'+attEsc(l.line_no)+'</td><td>'+attEsc(l.coats_brand_tex)+'</td><td>'+attEsc(l.product_code)+'</td><td>'+attEsc(l.shade)+'</td><td style="text-align:center;">'+attEsc(l.qty)+'</td><td>'+attEsc(l.style_no)+'</td><td>'+attEsc(l.remarks)+'</td></tr>').join('');
   const body=''
-   +'<div class="so-hdr"><div class="lg">'+pkLogoImg(false)+'</div><div class="ttl">Sample Order - DN Copy</div><div class="lg"></div></div>'
+   +'<div class="so-hdr"><div class="lg">'+pkLogoImg(false)+'</div><div class="ttl">ShopCoats Sampling - Delivery Note</div><div class="lg"></div></div>'
    +'<table class="info">'
    +'<tr><td class="k">Order No</td><td><b>'+attEsc(o.orderNo)+'</b></td><td class="k">Customer Service Name</td><td>'+attEsc(o.csName)+'</td></tr>'
    +'<tr><td class="k">Creation Date</td><td>'+pkFmtDate(o.creationDate)+'</td><td class="k">Ship to Party Name</td><td>'+attEsc(o.shipTo)+'</td></tr>'
@@ -2777,7 +2812,7 @@ function pkPrintDN(){
    +'.lines th{background:#1f3a5f;color:#fff;}'
    +'.sign{display:flex;justify-content:flex-end;margin-top:34px;}'
    +'.sign .box{border:1px solid #000;padding:30px 34px 8px;min-width:240px;text-align:center;font-size:12px;color:#444;}';
-  pkPrintWindow('Sample Order '+o.orderNo, body, css, {watermark:'DN COPY'});
+  pkPrintWindow('Sample Order '+o.orderNo, body, css, {});
 }
 async function pkPrintSticker(){
   if(!pkOrder)return; const o=pkOrder;
@@ -2821,7 +2856,7 @@ function pkTripPrintRows(rows,date,road){
     +'<tr><td colspan="4" style="text-align:right;font-weight:bold;">Total:</td><td style="font-weight:bold;text-align:center;">'+tq+'</td><td style="font-weight:bold;text-align:center;">'+tc+'</td><td></td></tr></tbody></table>';
   const css='.so-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}'
     +'.so-hdr .lg{flex:1;}.so-hdr .ttl{flex:1;text-align:center;font-size:22px;font-weight:bold;}';
-  pkPrintWindow('Trip '+date+' '+(road||''), body, css, {watermark:'Trip Schedule'});
+  pkPrintWindow('Trip '+date+' '+(road||''), body, css, {});
 }
 function pkPrintTrip(){
   const date=pkTripDate, road=pkTripRoad;
