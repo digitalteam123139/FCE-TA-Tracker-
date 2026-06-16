@@ -2805,7 +2805,7 @@ function pkPrintDN(){
   const sel=pkSelectedLines(); if(!sel.length){ showToast('Select at least one line to print.','err'); return; }
   const rows=sel.map(l=>'<tr><td style="text-align:center;">'+attEsc(l.line_no)+'</td><td>'+attEsc(l.coats_brand_tex)+'</td><td>'+attEsc(l.product_code)+'</td><td>'+attEsc(l.shade)+'</td><td style="text-align:center;">'+attEsc(l.qty)+'</td><td>'+attEsc(l.style_no)+'</td><td>'+attEsc(l.remarks)+'</td></tr>').join('');
   const body=''
-   +'<div class="so-hdr"><div class="lg">'+pkLogoImg(false)+'</div><div class="ttl">ShopCoats Sampling - Delivery Note</div><div class="lg"></div></div>'
+   +'<div class="so-hdr"><div class="lg">'+pkLogoImg(false)+'</div><div class="ttl"><span class="t1">ShopCoats Sampling</span><span class="t2">Delivery Note</span></div><div class="lg"></div></div>'
    +'<table class="info">'
    +'<tr><td class="k">Order No</td><td><b>'+attEsc(o.orderNo)+'</b></td><td class="k">Customer Service Name</td><td>'+attEsc(o.csName)+'</td></tr>'
    +'<tr><td class="k">Creation Date</td><td>'+pkFmtDate(o.creationDate)+'</td><td class="k">Ship to Party Name</td><td>'+attEsc(o.shipTo)+'</td></tr>'
@@ -2816,8 +2816,8 @@ function pkPrintDN(){
    +'<table class="lines"><thead><tr><th>Line No</th><th>COATS BRAND/Tex</th><th>PRODUCT CODE</th><th>SHADE CODE</th><th>QTY</th><th>STYLE/REF NO</th><th>COMMENTS / REMARKS</th></tr></thead><tbody>'+rows+'</tbody></table>'
    +'<div class="sign"><div class="box">Receiver\'s Signature &amp; Date</div></div>';
   const css='@page{size:A4 '+pkDnOrient()+';margin:10mm;}'
-   +'.so-hdr{position:relative;display:flex;align-items:center;min-height:56px;margin-bottom:12px;}'
-   +'.so-hdr .lg{flex:0 0 auto;z-index:2;}.so-hdr .ttl{position:absolute;left:0;right:0;text-align:center;white-space:nowrap;font-size:22px;font-weight:bold;letter-spacing:.3px;z-index:1;}'
+   +'.so-hdr{display:flex;align-items:center;margin-bottom:12px;}'
+   +'.so-hdr .lg{flex:0 0 auto;}.so-hdr .ttl{flex:1;text-align:center;line-height:1.2;}.so-hdr .ttl .t1{display:block;font-size:22px;font-weight:bold;letter-spacing:.3px;}.so-hdr .ttl .t2{display:block;font-size:16px;font-weight:bold;letter-spacing:.3px;margin-top:2px;}'
    +'.info{border-collapse:collapse;width:100%;margin-bottom:12px;}'
    +'.info td{border:1px solid #000;padding:6px 9px;font-size:12px;}'
    +'.info td.k{font-weight:bold;background:#eef1f5;width:15%;}'
@@ -2869,8 +2869,8 @@ function pkTripPrintRows(rows,date,road){
     +'<table><thead><tr><th>Serial</th><th>Ship to Party Name</th><th>Sample Order No</th><th>Line Nos</th><th>Ordered Qty</th><th>Carton Qty</th><th>Return</th></tr></thead><tbody>'+tr
     +'<tr><td colspan="4" style="text-align:right;font-weight:bold;">Total:</td><td style="font-weight:bold;text-align:center;">'+tq+'</td><td style="font-weight:bold;text-align:center;">'+tc+'</td><td></td></tr></tbody></table>';
   const css='@page{size:A4 portrait;margin:10mm;}'
-    +'.so-hdr{position:relative;display:flex;align-items:center;min-height:56px;margin-bottom:12px;}'
-    +'.so-hdr .lg{flex:0 0 auto;z-index:2;}.so-hdr .ttl{position:absolute;left:0;right:0;text-align:center;white-space:nowrap;font-size:22px;font-weight:bold;letter-spacing:.3px;z-index:1;}';
+    +'.so-hdr{display:flex;align-items:center;margin-bottom:12px;}'
+    +'.so-hdr .lg{flex:0 0 auto;}.so-hdr .ttl{flex:1;text-align:center;font-size:22px;font-weight:bold;letter-spacing:.3px;}';
   pkPrintWindow('Trip '+date+' '+(road||''), body, css, {});
 }
 function pkPrintTrip(){
