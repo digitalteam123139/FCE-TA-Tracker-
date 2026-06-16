@@ -492,10 +492,14 @@ body{
         <button class="att-tab" data-pk="trip" onclick="pkSwitch('trip',this)">Trip Schedule Print</button>
         <button class="att-tab" data-pk="list" onclick="pkSwitch('list',this)">Trip List</button>
         <button class="att-tab" data-pk="returns" onclick="pkSwitch('returns',this)">Returns Trend</button>
-        <button class="att-tab" data-pk="dash" onclick="pkSwitch('dash',this)">Dashboard</button>
         <button class="att-tab" data-pk="import" onclick="pkSwitch('import',this)">Import Data Management</button>
       </div>
       <div id="pk-body"></div>
+    </div>
+
+    <!-- LOGISTICS DASHBOARD -->
+    <div class="page" id="page-logdash">
+      <div id="dash-root"></div>
     </div>
 
 
@@ -855,6 +859,7 @@ const NAV_ITEMS=[
   {id:'approval',label:'Approvals',group:'TA Tracker',taSub:true,icon:'<path d="M9 12l2 2 4-4"/><path d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>',roles:['admin','authorizer'],notif:true},
   {id:'orders',label:'Order Tracker',group:'Logistics',icon:'<rect x="1" y="3" width="15" height="13" rx="1"/><path d="M16 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/>',roles:['admin','authorizer','logistics','teamleader','packer']},
   {id:'packing',label:'Sample Packing',group:'Logistics',icon:'<path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><path d="M3.27 6.96L12 12.01l8.73-5.05M12 22.08V12"/>',roles:['admin','logistics']},
+  {id:'logdash',label:'Dashboard',group:'Logistics',icon:'<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>',roles:['admin','authorizer','logistics']},
   {id:'attendance',label:'Attendance',group:'Attendance',icon:'<path d="M8 2v4M16 2v4"/><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18"/><path d="M9 16l2 2 4-4"/>',roles:['admin','authorizer','teamleader']},
   {id:'masterdata',label:'Master Data',group:'Admin',icon:'<path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>',roles:['admin','authorizer']},
   {id:'users',label:'User Accounts',group:'Admin',icon:'<path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/>',roles:['admin']},
@@ -1395,7 +1400,7 @@ function downloadChartsTable(){
 }
 
 // ═══ NAV ═══
-const PAGE_META={dashboard:['Dashboard','FCE TA performance overview'],visitlog:['Visit Log','All daily visit records'],charts:['Charts','Visual analytics & summary table'],perfce:['Per FCE','Individual FCE breakdown'],addentry:['Add Entry','Record a new TA visit'],approval:['Approvals','Review and approve TA claims'],masterdata:['Master Data','Manage lists used in forms'],users:['User Accounts','Manage user access'],orders:['Order Tracker','Swatch collection & sample delivery'],packing:['Sample Packing','Delivery notes, stickers & trip schedules'],attendance:['Attendance Tracker','Daily attendance, dashboards & Packer bonus']};
+const PAGE_META={dashboard:['Dashboard','FCE TA performance overview'],visitlog:['Visit Log','All daily visit records'],charts:['Charts','Visual analytics & summary table'],perfce:['Per FCE','Individual FCE breakdown'],addentry:['Add Entry','Record a new TA visit'],approval:['Approvals','Review and approve TA claims'],masterdata:['Master Data','Manage lists used in forms'],users:['User Accounts','Manage user access'],orders:['Order Tracker','Swatch collection & sample delivery'],packing:['Sample Packing','Delivery notes, stickers & trip schedules'],logdash:['Logistics Dashboard','Deliveries, DN status & order lines placed'],attendance:['Attendance Tracker','Daily attendance, dashboards & Packer bonus']};
 let activePage='dashboard';
 function showPage(name,btn){
   if(!canSee(name)){ showToast('You don\'t have access to this page.','err'); return; }
@@ -1434,6 +1439,7 @@ function rerenderActive(){
   if(name==='users')renderUsers();
   if(name==='orders')renderOrders();
   if(name==='packing')pkRender();
+  if(name==='logdash')renderLogDash();
   if(name==='attendance')attRender();
   checkNotifDot();
 }
@@ -2226,7 +2232,6 @@ async function pkRender(){
   else if(pkTab==='trip')pkRenderTrip();
   else if(pkTab==='list')pkRenderList();
   else if(pkTab==='returns')pkRenderReturns();
-  else if(pkTab==='dash')pkRenderDash();
   else pkRenderImport();
 }
 
@@ -2573,8 +2578,9 @@ function pkDashChart(id,cfg){ if(pkDashCharts[id]){try{pkDashCharts[id].destroy(
 function pkMonthKey(cd){ const s=(''+(cd==null?'':cd)).trim(); if(!s)return ''; let m=s.match(/^(\d{4})-(\d{2})/); if(m)return m[1]+'-'+m[2]; m=s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/); if(m)return m[3]+'-'+(''+m[2]).padStart(2,'0'); m=s.match(/(\d{4})[\/\-](\d{1,2})/); if(m)return m[1]+'-'+(''+m[2]).padStart(2,'0'); return ''; }
 function pkDashGranKey(d,gran){ const s=(''+(d||'')).slice(0,10); return gran==='month'?s.slice(0,7):s; }
 const PK_AXIS={ticks:{color:'#b0c6fa',precision:0},grid:{color:'rgba(255,255,255,.10)'}};
+async function renderLogDash(){ try{ await pkLoadTrips(); }catch(e){} if(!PKM.loaded){ try{ await dbPkmLoad(); }catch(e){} } pkRenderDash(); }
 function pkRenderDash(){
-  const b=document.getElementById('pk-body'); if(!b)return;
+  const b=document.getElementById('dash-root'); if(!b)return;
   b.innerHTML=`<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;">
      <button class="att-tab ${pkDashView==='ops'?'active':''}" onclick="pkDashView='ops';pkRenderDash()">Deliveries &amp; DN</button>
      <button class="att-tab ${pkDashView==='lines'?'active':''}" onclick="pkDashView='lines';pkRenderDash()">Order Lines Placed</button>
