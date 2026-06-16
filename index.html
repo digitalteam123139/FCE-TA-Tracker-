@@ -2816,8 +2816,8 @@ function pkPrintDN(){
    +'<table class="lines"><thead><tr><th>Line No</th><th>COATS BRAND/Tex</th><th>PRODUCT CODE</th><th>SHADE CODE</th><th>QTY</th><th>STYLE/REF NO</th><th>COMMENTS / REMARKS</th></tr></thead><tbody>'+rows+'</tbody></table>'
    +'<div class="sign"><div class="box">Receiver\'s Signature &amp; Date</div></div>';
   const css='@page{size:A4 '+pkDnOrient()+';margin:10mm;}'
-   +'.so-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}'
-   +'.so-hdr .lg{flex:1;}.so-hdr .ttl{flex:none;white-space:nowrap;text-align:center;font-size:20px;font-weight:bold;letter-spacing:.3px;padding:0 8px;}'
+   +'.so-hdr{position:relative;display:flex;align-items:center;min-height:56px;margin-bottom:12px;}'
+   +'.so-hdr .lg{flex:0 0 auto;z-index:2;}.so-hdr .ttl{position:absolute;left:0;right:0;text-align:center;white-space:nowrap;font-size:22px;font-weight:bold;letter-spacing:.3px;z-index:1;}'
    +'.info{border-collapse:collapse;width:100%;margin-bottom:12px;}'
    +'.info td{border:1px solid #000;padding:6px 9px;font-size:12px;}'
    +'.info td.k{font-weight:bold;background:#eef1f5;width:15%;}'
@@ -2869,8 +2869,8 @@ function pkTripPrintRows(rows,date,road){
     +'<table><thead><tr><th>Serial</th><th>Ship to Party Name</th><th>Sample Order No</th><th>Line Nos</th><th>Ordered Qty</th><th>Carton Qty</th><th>Return</th></tr></thead><tbody>'+tr
     +'<tr><td colspan="4" style="text-align:right;font-weight:bold;">Total:</td><td style="font-weight:bold;text-align:center;">'+tq+'</td><td style="font-weight:bold;text-align:center;">'+tc+'</td><td></td></tr></tbody></table>';
   const css='@page{size:A4 portrait;margin:10mm;}'
-    +'.so-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}'
-    +'.so-hdr .lg{flex:1;}.so-hdr .ttl{flex:none;white-space:nowrap;text-align:center;font-size:20px;font-weight:bold;letter-spacing:.3px;padding:0 8px;}';
+    +'.so-hdr{position:relative;display:flex;align-items:center;min-height:56px;margin-bottom:12px;}'
+    +'.so-hdr .lg{flex:0 0 auto;z-index:2;}.so-hdr .ttl{position:absolute;left:0;right:0;text-align:center;white-space:nowrap;font-size:22px;font-weight:bold;letter-spacing:.3px;z-index:1;}';
   pkPrintWindow('Trip '+date+' '+(road||''), body, css, {});
 }
 function pkPrintTrip(){
