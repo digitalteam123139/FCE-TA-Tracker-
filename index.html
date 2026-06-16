@@ -319,6 +319,7 @@ body{
   <div class="topbar">
     <div class="topbar-left"><h1 id="page-title">Dashboard</h1><p id="page-sub">Overview</p></div>
     <div class="topbar-right">
+      <button class="btn btn-ghost btn-sm" onclick="askToggle(true)" title="Ask — quick data assistant" style="white-space:nowrap;">✨ Ask</button>
       <div class="search-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg><input type="text" id="global-search" placeholder="Search…" oninput="onSearch(this.value)"/></div>
       <select class="filter-sel" id="fce-filter" onchange="onFCEFilter(this.value)"><option value="">All FCEs</option></select>
       <select class="filter-sel" id="month-filter-top" onchange="onMonthFilter(this.value)"></select>
@@ -745,8 +746,8 @@ async function refreshAll(){
       else { const lz=getZones(); if(lz.length){ await dbSaveZones(lz); } }
     }catch(ze){}
     try{
-      if(master && master.contacts){ CONTACTS={fce:master.contacts.fce||{},courier:master.contacts.courier||{}}; lsSet('sc_contacts',CONTACTS); }
-      else { const c=lsGet('sc_contacts',null); if(c)CONTACTS={fce:c.fce||{},courier:c.courier||{}}; }
+      if(master && master.contacts){ CONTACTS={fce:master.contacts.fce||{},courier:master.contacts.courier||{},support:Array.isArray(master.contacts.support)?master.contacts.support:[]}; lsSet('sc_contacts',CONTACTS); }
+      else { const c=lsGet('sc_contacts',null); if(c)CONTACTS={fce:c.fce||{},courier:c.courier||{},support:Array.isArray(c.support)?c.support:[]}; }
     }catch(ce){}
     try{ CACHE.announcements=await dbGetAnnouncements(); ANN_CLOUD=true; }catch(ae){ CACHE.announcements=null; ANN_CLOUD=false; }
     setSync(true,'Cloud synced');
@@ -1513,7 +1514,7 @@ function renderOrders(){
     const extra = o.task==='Sample Delivery'
       ? (o.deliveredAt?('Delivered '+fmtDate(o.deliveredAt)):'—')
       : (o.reqTime?('Req. '+o.reqTime):'—');
-    const _nfs=o.noteFiles||[]; const _esc=s=>String(s||'').replace(/'/g,"\\'"); const note=_nfs.length?(_nfs.length===1?`<a href="javascript:void(0)" onclick="openNote('${_esc(_nfs[0].path)}');return false;" class="btn-approve" style="text-decoration:none;">Download</a>`:_nfs.map((f,ix)=>`<a href="javascript:void(0)" onclick="openNote('${_esc(f.path)}');return false;" class="btn-approve" style="text-decoration:none;margin:1px;display:inline-block;" title="${attEsc(f.name||('file '+(ix+1)))}">↓${ix+1}</a>`).join(' ')):'<span style="color:var(--muted);">—</span>';
+    const _nfs=o.noteFiles||[]; const _esc=s=>String(s||'').replace(/'/g,"\\'"); const note=_nfs.length?_nfs.map((f,ix)=>`<a href="javascript:void(0)" onclick="openNote('${_esc(f.path)}');return false;" class="btn-approve" title="${attEsc(f.name||('file '+(ix+1)))}" style="text-decoration:none;display:block;max-width:170px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin:2px 0;">${attEsc(f.name||('file '+(ix+1)))}</a>`).join(''):'<span style="color:var(--muted);">—</span>';
     const editBtn=canEdit?`<button class="btn-icon btn-sm" onclick="openOrderModal('${o.id}')" title="Edit"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.828 2.828 0 114 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg></button>`:'<span style="color:var(--muted);">—</span>';
     const sendBtn=canSendOrders()?`<button class="btn-icon btn-sm" onclick="openSendModal('${o.id}')" title="Send requirement (SMS / WhatsApp / Email)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg></button>`:'';
     const chevron=`<button class="btn-icon btn-sm" onclick="toggleOrderRow('${o.id}')" title="Show details" id="chev-${o.id}" style="transition:transform .15s;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></button>`;
@@ -2490,7 +2491,7 @@ function pkRenderReturns(){
   Object.entries(cntByOrder).forEach(([k,v])=>{ if(v.n<2)return; const b=v.n>=5?'5':String(v.n); freq[b].push({order:k,cust:v.cust,n:v.n}); });
   const freqDefs=[['2','Returned 2 times'],['3','Returned 3 times'],['4','Returned 4 times'],['5','Returned 5+ times']];
   const freqRows=freqDefs.map(([key,label])=>{ const list=freq[key]; const itemsHtml=list.length?`<div style="max-height:90px;overflow:auto;display:flex;flex-wrap:wrap;gap:4px;padding:2px 0;">${list.map(x=>`<span style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:1px 7px;font-size:11px;white-space:nowrap;">${attEsc(x.order)}${x.cust?` · ${attEsc(x.cust)}`:''}</span>`).join('')}</div>`:'<span style="color:var(--muted);">—</span>'; return `<tr><td style="white-space:nowrap;font-weight:600;">${label}</td><td class="mono" style="text-align:center;font-weight:700;color:${list.length?'#e0913a':'var(--muted)'};">${list.length}</td><td>${itemsHtml}</td></tr>`; }).join('');
-  const tableRows=tblData.map(r=>`<tr><td><span style="font-size:11px;font-weight:600;color:#e0913a;">Return-${r.return_no||1}</span></td><td style="white-space:nowrap;">${fmtDate(r.trip_date)}</td><td>${attEsc(r.ship_to)}</td><td>${attEsc(r.order_no)}</td><td style="font-size:12px;">${attEsc(r.line_nos)}</td><td>${attEsc(r.road)||'—'}</td><td>${attEsc(r.total_qty)}</td><td>${(isPacker()||isFCE())?'':`<button class="btn btn-reject btn-sm" onclick="pkListDelete('${r.id}')">Delete</button>`}</td></tr>`).join('')||`<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:18px;">No returns recorded yet. Open an order and click “Add to Return”.</td></tr>`;
+  const tableRows=tblData.map(r=>`<tr><td><span style="font-size:11px;font-weight:600;color:#e0913a;">Return-${r.return_no||1}</span></td><td style="white-space:nowrap;">${fmtDate(r.trip_date)}</td><td>${attEsc(r.ship_to)}</td><td>${attEsc(r.order_no)}</td><td style="font-size:12px;">${attEsc(r.line_nos)}</td><td>${attEsc(r.road)||'—'}</td><td>${attEsc(r.total_qty)}</td><td>${(isAdmin()||isAuthorizer())?`<button class="btn btn-reject btn-sm" onclick="pkListDelete('${r.id}')">Delete</button>`:''}</td></tr>`).join('')||`<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:18px;">No returns recorded yet. Open an order and click “Add to Return”.</td></tr>`;
   // road-wise grouping (day / month)
   const roadList=[...new Set(all.map(r=>r.road).filter(Boolean))].sort();
   const roadSrc=pkRetRoad?rets.filter(r=>(r.road||'')===pkRetRoad):rets;
@@ -2536,9 +2537,9 @@ function pkRenderReturns(){
 // ── Import ──
 function pkRenderImport(){
   const hasLogo=!!lsGet('sc_print_logo','');
-  document.getElementById('pk-body').innerHTML=`<div class="card"><div class="card-header"><div><div class="card-title">Import Sample Order Data</div><div class="card-sub">Upload your Coats export (.xlsx / .xlsm / .csv). New & updated order lines are merged in.</div></div></div>
+  document.getElementById('pk-body').innerHTML=`<div class="card"><div class="card-header"><div><div class="card-title">Import Sample Order Data</div><div class="card-sub">Upload your Coats export (.xlsx / .xlsm / .csv). Select one or more files (e.g. 1–3 months) — new & updated order lines are merged in.</div></div></div>
    <div style="padding:16px;">
-     <input type="file" id="pk-file" accept=".xlsx,.xlsm,.csv" class="form-input" style="max-width:360px;display:inline-block;"/>
+     <input type="file" id="pk-file" accept=".xlsx,.xlsm,.csv" multiple class="form-input" style="max-width:360px;display:inline-block;"/>
      <button class="btn btn-primary btn-sm" style="margin-left:8px;" onclick="pkDoImport()">Import</button>
      <div id="pk-import-status" style="margin-top:12px;font-size:13px;color:var(--muted);"></div>
      <div style="margin-top:18px;border-top:1px solid var(--border);padding-top:14px;">
@@ -2714,55 +2715,59 @@ function pkmSelfTest(){
 }
 function pkFieldFor(header){ const h=pkNorm(header); const h2=h.replace(/[.\s]+$/,'').replace(/\.$/,''); for(const [keys,field] of PK_HMAP){ if(keys.includes(h)||keys.includes(h2)||keys.some(k=>k.replace(/[.\s]+$/,'')===h2))return field; } return null; }
 async function pkDoImport(){
-  const fi=document.getElementById('pk-file'); const f=fi&&fi.files[0];
+  const fi=document.getElementById('pk-file'); const files=fi?[...fi.files]:[];
   const st=document.getElementById('pk-import-status');
-  if(!f){ showToast('Choose a file first.','err'); return; }
+  if(!files.length){ showToast('Choose one or more files first.','err'); return; }
   st.textContent='Loading reader…';
   try{
     await pkLoadSheetJS();
-    st.textContent='Reading file…';
-    const buf=await f.arrayBuffer();
-    let wb;
-    if(/\.csv$/i.test(f.name)){
-      let text; try{ text=new TextDecoder('windows-1252').decode(buf); }catch(_){ text=new TextDecoder('utf-8').decode(buf); }
-      wb=XLSX.read(text,{type:'string'});
-    } else {
-      wb=XLSX.read(buf,{type:'array'});
-    }
-    const sheetName=wb.SheetNames.find(n=>/raw/i.test(n))||wb.SheetNames[0];
-    const aoa=XLSX.utils.sheet_to_json(wb.Sheets[sheetName],{header:1,defval:''});
-    let hdrIdx=aoa.findIndex(r=>{ const set=r.map(pkNorm); return set.some(x=>x.includes('order ref')||x==='order no'||x==='sample order no')&&set.some(x=>x.includes('ship to party name')); });
-    if(hdrIdx<0)hdrIdx=0;
-    const headers=(aoa[hdrIdx]||[]).map(pkFieldFor);
-    if(!headers.includes('order_no')){ st.innerHTML='<span style="color:var(--red);">Could not find a "Customer Order Ref. No" column. Check the file headers.</span>'; return; }
-    const byId={}; let dupMerged=0;
-    for(let i=hdrIdx+1;i<aoa.length;i++){
-      const row=aoa[i]||[]; const o={};
-      headers.forEach((field,c)=>{ if(field)o[field]=row[c]; });
-      if((o.order_no==null||(''+o.order_no).trim()==='')&&o.sample_order_no!=null&&(''+o.sample_order_no).trim()!=='')o.order_no=o.sample_order_no;
-      delete o.sample_order_no; // helper only, not a DB column
-      if((o.line_no==null||(''+o.line_no).trim()==='')&&o.alt_line_no!=null&&(''+o.alt_line_no).trim()!=='')o.line_no=o.alt_line_no;
-      delete o.alt_line_no; // helper only, not a DB column
-      if(o.order_no==null||(''+o.order_no).trim()==='')continue;
-      o.order_no=(''+o.order_no).trim();
-      o.line_no=o.line_no==null?'':(''+o.line_no).trim();
-      o.qty=parseFloat(o.qty)||0;
-      if(o.creation_date instanceof Date)o.creation_date=o.creation_date.toISOString();
-      else if(o.creation_date!=null)o.creation_date=(''+o.creation_date).trim();
-      o.id=[o.order_no,o.line_no,(o.shade||''),(o.material_no||'')].join('|');
-      pkmEnrich(o); // Tex + CS name/mobile from master; sets imported_at; drops cs_exec
-      const prev=byId[o.id];
-      if(prev){ dupMerged++; if(pkCreationMs(o.creation_date)>=pkCreationMs(prev.creation_date))byId[o.id]=o; } // keep the newest record for a repeated line
-      else byId[o.id]=o;
+    const byId={}; let dupMerged=0; const fileErrs=[];
+    for(let fIdx=0; fIdx<files.length; fIdx++){
+      const f=files[fIdx];
+      st.textContent=`Reading ${f.name} (${fIdx+1}/${files.length})…`;
+      const buf=await f.arrayBuffer();
+      let wb;
+      if(/\.csv$/i.test(f.name)){
+        let text; try{ text=new TextDecoder('windows-1252').decode(buf); }catch(_){ text=new TextDecoder('utf-8').decode(buf); }
+        wb=XLSX.read(text,{type:'string'});
+      } else {
+        wb=XLSX.read(buf,{type:'array'});
+      }
+      const sheetName=wb.SheetNames.find(n=>/raw/i.test(n))||wb.SheetNames[0];
+      const aoa=XLSX.utils.sheet_to_json(wb.Sheets[sheetName],{header:1,defval:''});
+      let hdrIdx=aoa.findIndex(r=>{ const set=r.map(pkNorm); return set.some(x=>x.includes('order ref')||x==='order no'||x==='sample order no')&&set.some(x=>x.includes('ship to party name')); });
+      if(hdrIdx<0)hdrIdx=0;
+      const headers=(aoa[hdrIdx]||[]).map(pkFieldFor);
+      if(!headers.includes('order_no')){ fileErrs.push(f.name); continue; }
+      for(let i=hdrIdx+1;i<aoa.length;i++){
+        const row=aoa[i]||[]; const o={};
+        headers.forEach((field,c)=>{ if(field)o[field]=row[c]; });
+        if((o.order_no==null||(''+o.order_no).trim()==='')&&o.sample_order_no!=null&&(''+o.sample_order_no).trim()!=='')o.order_no=o.sample_order_no;
+        delete o.sample_order_no; // helper only, not a DB column
+        if((o.line_no==null||(''+o.line_no).trim()==='')&&o.alt_line_no!=null&&(''+o.alt_line_no).trim()!=='')o.line_no=o.alt_line_no;
+        delete o.alt_line_no; // helper only, not a DB column
+        if(o.order_no==null||(''+o.order_no).trim()==='')continue;
+        o.order_no=(''+o.order_no).trim();
+        o.line_no=o.line_no==null?'':(''+o.line_no).trim();
+        o.qty=parseFloat(o.qty)||0;
+        if(o.creation_date instanceof Date)o.creation_date=o.creation_date.toISOString();
+        else if(o.creation_date!=null)o.creation_date=(''+o.creation_date).trim();
+        o.id=[o.order_no,o.line_no,(o.shade||''),(o.material_no||'')].join('|');
+        pkmEnrich(o); // Tex + CS name/mobile from master; sets imported_at; drops cs_exec
+        const prev=byId[o.id];
+        if(prev){ dupMerged++; if(pkCreationMs(o.creation_date)>=pkCreationMs(prev.creation_date))byId[o.id]=o; } // keep the newest record for a repeated line
+        else byId[o.id]=o;
+      }
     }
     const recs=Object.values(byId);
-    if(!recs.length){ st.innerHTML='<span style="color:var(--red);">No data rows found in the file.</span>'; return; }
+    if(!recs.length){ st.innerHTML='<span style="color:var(--red);">No data rows found'+(fileErrs.length?(' — header not recognized in: '+attEsc(fileErrs.join(', '))):' in the file(s)')+'.</span>'; return; }
     let done=0; const batch=400;
     for(let i=0;i<recs.length;i+=batch){ await dbPkUpsert(recs.slice(i,i+batch)); done+=Math.min(batch,recs.length-i); st.textContent=`Imported ${done} / ${recs.length}…`; }
     await dbPkPurgeOld();
-    const dupNote=dupMerged?` <span style="color:var(--muted);">${dupMerged} duplicate row${dupMerged>1?'s':''} in the file ignored — newest kept.</span>`:'';
-    st.innerHTML=`<span style="color:var(--green);font-weight:600;">Done — ${recs.length} order lines added / updated.</span>${dupNote} <span style="color:var(--muted);">Kept cumulatively; lines older than 3 months auto-removed.</span>`;
-    showToast('Import complete: '+recs.length+' lines'+(dupMerged?(' · '+dupMerged+' duplicate(s) ignored'):'')+'.');
+    const dupNote=dupMerged?` <span style="color:var(--muted);">${dupMerged} duplicate row${dupMerged>1?'s':''} across files ignored — newest kept.</span>`:'';
+    const errNote=fileErrs.length?` <span style="color:var(--amber);">Skipped ${fileErrs.length} file(s) with no recognizable header.</span>`:'';
+    st.innerHTML=`<span style="color:var(--green);font-weight:600;">Done — ${recs.length} order lines added / updated from ${files.length} file(s).</span>${dupNote}${errNote} <span style="color:var(--muted);">Kept cumulatively; lines older than 3 months auto-removed.</span>`;
+    showToast('Import complete: '+recs.length+' lines from '+files.length+' file(s)'+(dupMerged?(' · '+dupMerged+' duplicate(s) ignored'):'')+'.');
   }catch(e){ st.innerHTML='<span style="color:var(--red);">Import failed: '+attEsc(e.message)+'</span>'; }
 }
 
@@ -2880,9 +2885,9 @@ function pkPrintTrip(){
   </button>
 </div>
 <script>
-/* Support contacts are saved on this device (key 'sc_support_contacts').
-   A Super Admin can set/edit the numbers from the chat panel itself — no code editing needed. */
-function waContacts(){ const d=lsGet('sc_support_contacts',null); if(Array.isArray(d)&&d.length) return d; return [
+/* Support contacts are stored in the shared master_data.contacts (synced to all users) via dbSaveContacts.
+   A Super Admin sets/edits them from the chat panel — no code editing needed. Falls back to this device if offline. */
+function waContacts(){ try{ const c=(typeof getContacts==='function')?getContacts():null; if(c&&Array.isArray(c.support)&&c.support.length) return c.support; }catch(e){} const d=lsGet('sc_support_contacts',null); if(Array.isArray(d)&&d.length) return d; return [
   {name:'Rinon Moni Talukder (Super Admin)', phone:''},
   {name:'Authorizer 1', phone:''},
   {name:'Authorizer 2', phone:''}
@@ -2900,10 +2905,99 @@ function waEdit(){ const p=document.getElementById('wa-panel'); if(!p)return; co
   let h='<div style="font-weight:600;font-size:13px;margin-bottom:8px;color:var(--text,#fff);">Set support numbers</div>';
   list.forEach(function(c,i){ h+='<div style="margin-bottom:9px;"><input id="wa-n'+i+'" type="text" value="'+attEsc(c.name)+'" placeholder="Name / role" style="'+inp+'"/><input id="wa-p'+i+'" type="tel" value="'+attEsc(c.phone||'')+'" placeholder="WhatsApp no. with country code e.g. 8801712345678" style="'+inp+'"/></div>'; });
   h+='<div style="display:flex;gap:6px;margin-top:4px;"><button type="button" onclick="waSaveContacts()" style="flex:1;background:linear-gradient(120deg,#3A66E0,#1E48C0);border:none;color:#fff;border-radius:8px;padding:8px;font-size:12px;cursor:pointer;">Save</button><button type="button" onclick="waRender()" style="flex:1;background:none;border:1px solid var(--border,#244372);color:var(--muted,#8aa2c4);border-radius:8px;padding:8px;font-size:12px;cursor:pointer;">Cancel</button></div>';
-  h+='<div style="font-size:10.5px;color:var(--muted,#8aa2c4);margin-top:7px;">Saved on this device. Country code required (no + or spaces needed).</div>';
+  h+='<div style="font-size:10.5px;color:var(--muted,#8aa2c4);margin-top:7px;">Saved to the cloud and shared to all users. Country code required (no + or spaces needed).</div>';
   p.innerHTML=h;
 }
-function waSaveContacts(){ const list=waContacts(); const out=list.map(function(c,i){ const ne=document.getElementById('wa-n'+i), pe=document.getElementById('wa-p'+i); return {name:((ne&&ne.value)||c.name).trim(), phone:((pe&&pe.value)||'').replace(/[^0-9+]/g,'').replace(/\+/g,'').trim()}; }); lsSet('sc_support_contacts',out); if(typeof showToast==='function')showToast('Support numbers saved on this device.'); waRender(); }
+async function waSaveContacts(){ const out=waContacts().map(function(c,i){ const ne=document.getElementById('wa-n'+i), pe=document.getElementById('wa-p'+i); return {name:((ne&&ne.value)||c.name).trim(), phone:((pe&&pe.value)||'').replace(/[^0-9+]/g,'').replace(/\+/g,'').trim()}; });
+  lsSet('sc_support_contacts',out);
+  try{
+    if(typeof CONTACTS!=='undefined'&&CONTACTS){ CONTACTS.support=out; }
+    if(typeof dbSaveContacts==='function'){ await dbSaveContacts(); if(typeof showToast==='function')showToast('Support numbers saved — shared to all users.'); }
+    else if(typeof showToast==='function'){ showToast('Saved on this device.'); }
+  }catch(e){ if(typeof showToast==='function')showToast('Cloud save failed (saved on this device): '+((e&&e.message)||e),'err'); }
+  waRender();
+}
+</script>
+<!-- Ask — offline quick-data assistant (answers from already-loaded app data; no external calls) -->
+<div id="ask-overlay" onclick="if(event.target===this)askToggle(false)" style="display:none;position:fixed;inset:0;background:rgba(2,8,30,.55);z-index:1300;align-items:flex-start;justify-content:center;padding:64px 16px;">
+  <div style="width:560px;max-width:100%;background:var(--surface2,#16315a);-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);border:1px solid var(--border,#244372);border-radius:16px;box-shadow:0 24px 60px rgba(0,0,0,.5);overflow:hidden;">
+    <div style="display:flex;align-items:center;gap:8px;padding:12px 14px;border-bottom:1px solid var(--border,#244372);">
+      <span style="font-size:16px;">✨</span><b style="color:var(--text,#fff);font-size:14px;">Ask — quick data assistant</b>
+      <button onclick="askToggle(false)" style="margin-left:auto;background:none;border:none;color:var(--muted,#8aa2c4);font-size:20px;cursor:pointer;line-height:1;">×</button>
+    </div>
+    <div style="padding:14px;">
+      <input id="ask-in" type="text" autocomplete="off" placeholder="Ask about orders, returns, attendance…" onkeydown="if(event.key==='Enter')askRun(this.value)" style="width:100%;background:var(--surface,rgba(255,255,255,.06));border:1px solid var(--border,#244372);border-radius:10px;color:var(--text,#fff);font-size:14px;padding:10px 12px;outline:none;"/>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;">
+        <button class="btn btn-ghost btn-sm" onclick="askChip('orders delivered today')">Delivered today</button>
+        <button class="btn btn-ghost btn-sm" onclick="askChip('pending orders')">Pending</button>
+        <button class="btn btn-ghost btn-sm" onclick="askChip('returns this month')">Returns this month</button>
+        <button class="btn btn-ghost btn-sm" onclick="askChip('absent today')">Absent today</button>
+      </div>
+      <div id="ask-out" style="margin-top:12px;min-height:40px;max-height:46vh;overflow:auto;"></div>
+    </div>
+  </div>
+</div>
+<script>
+function aiToday(){ const d=new Date(),p=n=>(''+n).padStart(2,'0'); return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate()); }
+function aiThisMonth(){ return aiToday().slice(0,7); }
+function aiHelp(){ return '<div style="font-size:12.5px;color:var(--muted,#8aa2c4);line-height:1.8;">Ask things like:<br>• “orders delivered today” / “pending orders”<br>• “returns this month”<br>• “absent today”<br>• “find RS40295803”<br>• “orders for Old DEPZ” or any name / customer<br><span style="font-size:11px;">Answers come from the data already loaded in the app.</span></div>'; }
+function aiStat(v,l,color){ return '<div style="display:inline-block;min-width:92px;background:var(--surface,rgba(255,255,255,.06));border:1px solid var(--border,#244372);border-radius:10px;padding:8px 12px;margin:4px 6px 0 0;"><div style="font-size:20px;font-weight:800;color:'+(color||'var(--accent,#6ea0ff)')+';">'+v+'</div><div style="font-size:10px;color:var(--muted,#8aa2c4);text-transform:uppercase;letter-spacing:.05em;">'+l+'</div></div>'; }
+function aiOrderCard(o){ return '<div style="background:var(--surface,rgba(255,255,255,.06));border:1px solid var(--border,#244372);border-radius:10px;padding:9px 12px;margin-bottom:7px;font-size:12.5px;color:var(--text,#fff);"><b>'+attEsc(o.orderNo||'—')+'</b> · '+attEsc(o.status||'')+'<br><span style="color:var(--muted,#8aa2c4);">'+attEsc(o.customer||'')+(o.buyer?(' → '+attEsc(o.buyer)):'')+'</span><br><span style="color:var(--muted,#8aa2c4);">'+attEsc(o.task||'')+(o.fce?(' · '+attEsc(o.fce)):'')+(o.to?(' · '+attEsc(o.to)):'')+(o.deliveredAt?(' · delivered '+fmtDate(o.deliveredAt)):'')+'</span></div>'; }
+function aiOrderList(list){ if(!list.length)return '<div style="color:var(--muted,#8aa2c4);">None.</div>'; return list.slice(0,8).map(aiOrderCard).join('')+(list.length>8?('<div style="color:var(--muted,#8aa2c4);font-size:11.5px;">+'+(list.length-8)+' more…</div>'):''); }
+function askToggle(show){ const o=document.getElementById('ask-overlay'); if(!o)return; if(show){ o.style.display='flex'; const i=document.getElementById('ask-in'); if(i){ i.value=''; setTimeout(()=>i.focus(),30); } const out=document.getElementById('ask-out'); if(out)out.innerHTML=aiHelp(); } else { o.style.display='none'; } }
+function askChip(q){ const i=document.getElementById('ask-in'); if(i)i.value=q; askRun(q); }
+function askRun(q){
+  const out=document.getElementById('ask-out'); if(!out)return;
+  q=(''+(q||'')).trim(); if(!q){ out.innerHTML=aiHelp(); return; }
+  const ql=q.toLowerCase();
+  const fceScope=(typeof isFCE==='function'&&isFCE())?(typeof myFCE==='function'?myFCE():null):null;
+  let orders=(typeof getOrders==='function')?getOrders():[]; if(fceScope)orders=orders.filter(o=>o.fce===fceScope);
+  const rets=(typeof pkReturns==='function')?pkReturns():[];
+  const today=aiToday(), ym=aiThisMonth();
+  const wantToday=/\btoday\b/.test(ql), wantMonth=/month/.test(ql);
+  // 1) order-number lookup
+  const mNo=ql.match(/rs\s?\d{4,}/i)||ql.match(/\b\d{6,}\b/);
+  if(mNo){
+    const key=mNo[0].replace(/\s+/g,'').toLowerCase();
+    const found=orders.filter(o=>(''+(o.orderNo||'')).replace(/\s+/g,'').toLowerCase().includes(key));
+    out.innerHTML=found.length?found.slice(0,6).map(aiOrderCard).join(''):'<div style="color:var(--muted,#8aa2c4);">No order found matching “'+attEsc(q)+'”.</div>'; return;
+  }
+  // 2) attendance
+  if(/\b(absent|present|attendance|on leave|leave)\b/.test(ql)){
+    const recs=((typeof CACHE!=='undefined'&&CACHE.attendance)||[]).filter(r=>r.date===today);
+    const emps={}; ((typeof attActiveEmps==='function')?attActiveEmps():((typeof CACHE!=='undefined'&&CACHE.employees)||[])).forEach(e=>emps[e.id]=e);
+    const by={present:0,absent:0,leave:0,holiday:0}; const absentList=[];
+    recs.forEach(r=>{ if(r.status==='present')by.present++; else if(r.status==='absent'){by.absent++; if(emps[r.emp_id])absentList.push(emps[r.emp_id].name);} else if(r.status==='holiday')by.holiday++; else if(typeof isLeaveStatus==='function'&&isLeaveStatus(r.status))by.leave++; });
+    let h='<div>'+aiStat(by.present,'Present','#46e6a0')+aiStat(by.absent,'Absent','#ff7a90')+aiStat(by.leave,'On leave','#ffc24d')+'</div>';
+    if(!recs.length)h+='<div style="color:var(--muted,#8aa2c4);margin-top:8px;">No attendance marked for today yet (open the Attendance page once to load it).</div>';
+    else if(/absent/.test(ql)&&absentList.length)h+='<div style="margin-top:8px;font-size:12.5px;color:var(--text,#fff);">Absent today: '+absentList.map(attEsc).join(', ')+'</div>';
+    out.innerHTML=h; return;
+  }
+  // 3) returns
+  if(/\breturn/.test(ql)){
+    let list=rets; if(wantMonth)list=list.filter(r=>(''+(r.trip_date||'')).slice(0,7)===ym); else if(wantToday)list=list.filter(r=>(''+(r.trip_date||'')).slice(0,10)===today);
+    const byOrder={}; list.forEach(r=>{ byOrder[r.order_no]=(byOrder[r.order_no]||0)+1; });
+    const repeat=Object.values(byOrder).filter(n=>n>=2).length;
+    const qty=list.reduce((s,r)=>s+(parseFloat(r.total_qty)||0),0);
+    out.innerHTML='<div>'+aiStat(list.length,'Returns'+(wantMonth?' (month)':wantToday?' (today)':''),'#ff9f5a')+aiStat(Object.keys(byOrder).length,'Orders','#6ea0ff')+aiStat(repeat,'Repeat 2+','#ff7a90')+aiStat(qty,'Qty','#3fe0d4')+'</div>'; return;
+  }
+  // 4) order status
+  if(/\b(deliver|pending|requested|development|order|status|how many|count)\b/.test(ql)){
+    const st=s=>orders.filter(o=>(''+(o.status||'')).toLowerCase().includes(s));
+    if(/deliver/.test(ql)){ let l=st('deliver'); if(wantToday)l=l.filter(o=>(''+(o.deliveredAt||'')).slice(0,10)===today); out.innerHTML='<div>'+aiStat(l.length,'Delivered'+(wantToday?' today':''),'#46e6a0')+'</div>'+aiOrderList(l); return; }
+    if(/pending|requested/.test(ql)){ const l=st('request'); out.innerHTML='<div>'+aiStat(l.length,'Requested','#ffc24d')+'</div>'+aiOrderList(l); return; }
+    if(/development/.test(ql)){ const l=st('develop'); out.innerHTML='<div>'+aiStat(l.length,'In development','#6ea0ff')+'</div>'+aiOrderList(l); return; }
+    out.innerHTML='<div>'+aiStat(orders.length,'Total orders','#6ea0ff')+aiStat(st('deliver').length,'Delivered','#46e6a0')+aiStat(st('request').length,'Requested','#ffc24d')+aiStat(st('return').length,'Returned','#ff9f5a')+'</div>'; return;
+  }
+  // 5) fallback free-text search across orders
+  const stop=new Set(['the','of','in','for','by','to','show','find','list','orders','order','all','me','a','an','with','on','at','give','tell']);
+  const tokens=ql.split(/\s+/).filter(t=>t&&!stop.has(t));
+  if(tokens.length){
+    const matches=orders.filter(o=>{ const blob=Object.values(o).filter(v=>typeof v==='string').join(' ').toLowerCase(); return tokens.every(t=>blob.includes(t)); });
+    if(matches.length){ out.innerHTML='<div style="font-size:12.5px;color:var(--muted,#8aa2c4);margin-bottom:6px;">'+matches.length+' matching order(s):</div>'+aiOrderList(matches); return; }
+  }
+  out.innerHTML='<div style="color:var(--muted,#8aa2c4);margin-bottom:8px;">No quick answer for that.</div>'+aiHelp();
+}
 </script>
 </body>
 </html>
