@@ -2539,9 +2539,11 @@ function pkRenderImport(){
   const hasLogo=!!lsGet('sc_print_logo','');
   document.getElementById('pk-body').innerHTML=`<div class="card"><div class="card-header"><div><div class="card-title">Import Sample Order Data</div><div class="card-sub">Upload your Coats export (.xlsx / .xlsm / .csv). Select one or more files (e.g. 1–3 months) — new & updated order lines are merged in.</div></div></div>
    <div style="padding:16px;">
-     <input type="file" id="pk-file" accept=".xlsx,.xlsm,.csv" multiple class="form-input" style="max-width:360px;display:inline-block;"/>
+     <input type="file" id="pk-file" accept=".xlsx,.xlsm,.csv" multiple class="form-input" style="max-width:360px;display:inline-block;" onchange="pkImportNames(this)"/>
      <button class="btn btn-primary btn-sm" style="margin-left:8px;" onclick="pkDoImport()">Import</button>
-     <div id="pk-import-status" style="margin-top:12px;font-size:13px;color:var(--muted);"></div>
+     <button class="btn btn-ghost btn-sm" style="margin-left:6px;" onclick="pkCancelImport()">Cancel</button>
+     <div id="pk-import-files" style="margin-top:8px;font-size:12px;color:var(--text);"></div>
+     <div id="pk-import-status" style="margin-top:8px;font-size:13px;color:var(--muted);"></div>
      <div style="margin-top:18px;border-top:1px solid var(--border);padding-top:14px;">
        <div class="form-label">Master data for enrichment (Tex &amp; CS mobile) <span style="float:right;font-weight:400;color:var(--muted);font-size:11px;">build 2026-06-13c</span></div>
        <div style="font-size:12px;color:var(--muted);margin:4px 0 10px;line-height:1.6;">Upload once; shared to all PCs. <b>Tex</b> comes from the ART/TKT list; the <b>CS mobile</b> from the Customer Mapping (matched by the email before <span class="mono">@coats.com</span>).</div>
@@ -2592,8 +2594,8 @@ function pkRenderImport(){
 
      <div style="margin-top:18px;border-top:1px solid var(--border);padding-top:14px;">
        <div class="form-label" style="color:var(--red);">Danger zone</div>
-       ${isAdmin()?`<button class="btn btn-reject btn-sm" onclick="pkClearImport()">Clear ALL imported data</button>`:'<span style="font-size:12px;color:var(--muted);">Only the Super Admin can clear imported data.</span>'}
-       ${isAdmin()?'<span style="font-size:12px;color:var(--muted);margin-left:8px;">Use this to wipe the old data, then import a fresh full file so only the latest shows.</span>':''}
+       ${(isAdmin()||isAuthorizer())?`<button class="btn btn-reject btn-sm" onclick="pkClearImport()">Clear ALL imported data</button>`:'<span style="font-size:12px;color:var(--muted);">Only Super Admin or Authorizer can clear imported data.</span>'}
+       ${(isAdmin()||isAuthorizer())?'<span style="font-size:12px;color:var(--muted);margin-left:8px;">Use this to wipe the old data, then import a fresh full file so only the latest shows.</span>':''}
      </div>
    </div></div>`;
   pkLogoPreview();
@@ -2607,8 +2609,10 @@ function pkSaveLogo(){
 function pkClearLogo(){ localStorage.removeItem('sc_print_logo'); const s=document.getElementById('pk-logo-state'); if(s)s.textContent='No logo set — prints show a text header.'; pkLogoPreview(); showToast('Logo removed.'); }
 function pkSetLogoCrop(pos){ lsSet('sc_print_logo_crop',pos); pkLogoPreview(); showToast('Logo crop updated — re-print to see it.'); }
 function pkLogoPreview(){ const sel=document.getElementById('pk-logo-crop'); if(sel)sel.value=lsGet('sc_print_logo_crop','left'); const box=document.getElementById('pk-logo-preview'); if(!box)return; const l=lsGet('sc_print_logo',''); box.innerHTML = l ? '<img src="'+l+'" style="'+pkLogoCropStyle('64px')+'"/>' : '<span style="font-size:10px;color:var(--muted);">no logo</span>'; }
+function pkImportNames(input){ const el=document.getElementById('pk-import-files'); if(!el)return; const fs=input&&input.files?[...input.files]:[]; if(!fs.length){ el.innerHTML=''; return; } el.innerHTML='<b>'+fs.length+' file'+(fs.length>1?'s':'')+' selected:</b><br>'+fs.map(f=>'📄 '+attEsc(f.name)).join('<br>'); }
+function pkCancelImport(){ const fi=document.getElementById('pk-file'); if(fi)fi.value=''; const el=document.getElementById('pk-import-files'); if(el)el.innerHTML=''; const st=document.getElementById('pk-import-status'); if(st)st.textContent='Selection cleared.'; }
 async function pkClearImport(){ if(packerBlocked())return;
-  if(!isAdmin()){ showToast('Only the Super Admin can clear data.','err'); return; }
+  if(!(isAdmin()||isAuthorizer())){ showToast('Only Super Admin or Authorizer can clear data.','err'); return; }
   if(!confirm('Delete ALL imported sample-order data? This cannot be undone — you will import a fresh file afterwards.'))return;
   const st=document.getElementById('pk-import-status'); if(st)st.textContent='Clearing…';
   try{ await dbPkClearAll(); pkOrder=null; pkResults=[]; if(st)st.innerHTML='<span style="color:var(--green);font-weight:600;">All imported data cleared. Now upload a fresh file above.</span>'; showToast('Imported data cleared.'); }
