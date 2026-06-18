@@ -2687,12 +2687,6 @@ function pkDashOps(){
       <div class="card"><div class="form-label" style="margin:0 0 6px;">Deliveries by ${gran==='month'?'month':'day'}${road?(' · '+attEsc(road)):''}</div><canvas id="pk-dash-deliv"></canvas></div>
       <div class="card"><div class="form-label" style="margin:0 0 6px;">DN received vs pending</div><canvas id="pk-dash-dn"></canvas></div>
     </div>
-    <div class="att-charts" style="margin-bottom:14px;">
-      <div class="card"><div class="card-header"><div><div class="card-title">Delivery quantity by Delivery Plant</div><div class="card-sub">Grouped by Delivery Plant (from import). Selected plant highlighted.</div></div></div>
-        <div style="overflow:auto;"><table><thead><tr><th>Delivery Plant</th><th style="text-align:center;">Deliveries</th><th style="text-align:center;">Orders</th><th style="text-align:right;">Total qty</th></tr></thead><tbody>${delPlantRows}</tbody></table></div></div>
-      <div class="card"><div class="card-header"><div><div class="card-title">Delivery quantity by Supply Plant</div><div class="card-sub">Grouped by Supply Plant (from import). Selected plant highlighted.</div></div></div>
-        <div style="overflow:auto;"><table><thead><tr><th>Supply Plant</th><th style="text-align:center;">Deliveries</th><th style="text-align:center;">Orders</th><th style="text-align:right;">Total qty</th></tr></thead><tbody>${supPlantRows}</tbody></table></div></div>
-    </div>
     <div class="card" style="margin-bottom:14px;"><div class="card-header"><div><div class="card-title">Delivery quantity by road</div><div class="card-sub">All trip-list deliveries grouped by road / zone. Selected road is highlighted.</div></div></div>
       <div style="overflow:auto;"><table><thead><tr><th>Road / Zone</th><th style="text-align:center;">Deliveries</th><th style="text-align:center;">Distinct orders</th><th style="text-align:right;">Total qty</th></tr></thead><tbody>${roadRows}</tbody></table></div></div>
     <div class="card"><div class="card-header"><div><div class="card-title">Pending DN by date &amp; road</div><div class="card-sub">Order Tracker orders that don't yet have a DN copy attached. Updates automatically as DN copies are uploaded.</div></div></div>
@@ -2739,12 +2733,6 @@ async function pkDashLinesView(){
       <div class="att-stat"><div class="v">${totalQty}</div><div class="l">Total qty</div></div>
     </div>
     <div class="card" style="margin-bottom:14px;"><div class="form-label" style="margin:0;padding:14px 14px 0;">Monthly total quantity (trend)</div><div style="padding:8px 14px 14px;"><canvas id="pk-dash-trend" height="90"></canvas></div></div>
-    <div class="att-charts" style="margin-bottom:14px;">
-      <div class="card"><div class="card-header"><div><div class="card-title">Order qty by Delivery Plant</div><div class="card-sub">${pkDashMonth?monthLabel(pkDashMonth):'all months'} · selected plant highlighted.</div></div></div>
-        <div style="overflow:auto;"><table><thead><tr><th>Delivery Plant</th><th style="text-align:center;">Lines</th><th style="text-align:right;">Total qty</th></tr></thead><tbody>${delPlantRowsL}</tbody></table></div></div>
-      <div class="card"><div class="card-header"><div><div class="card-title">Order qty by Supply Plant</div><div class="card-sub">${pkDashMonth?monthLabel(pkDashMonth):'all months'} · selected plant highlighted.</div></div></div>
-        <div style="overflow:auto;"><table><thead><tr><th>Supply Plant</th><th style="text-align:center;">Lines</th><th style="text-align:right;">Total qty</th></tr></thead><tbody>${supPlantRowsL}</tbody></table></div></div>
-    </div>
     <div class="card"><div class="card-header"><div><div class="card-title">Order lines placed — top 20 — ${pkDashMonth?monthLabel(pkDashMonth):'all months'}</div><div class="card-sub">Total quantity per Customer + Business Principal + Material No. (top 20 by quantity)</div></div></div>
       <div style="overflow:auto;"><table><thead><tr><th>Customer - Business Principal - Material No</th><th style="text-align:center;">Lines</th><th style="text-align:right;">Total Qty</th></tr></thead><tbody>${tableRows}</tbody></table></div></div>`;
   setTimeout(()=>{ pkDashChart('pk-dash-trend',{type:'line',data:{labels:trendKeys.map(m=>monthLabel(m)),datasets:[{label:'Qty',data:trendKeys.map(m=>byMonth[m]),borderColor:'#6ea0ff',backgroundColor:'rgba(110,160,255,.14)',borderWidth:2,fill:true,tension:.3,pointBackgroundColor:'#6ea0ff'}]},options:{plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{color:'#b0c6fa'},grid:{color:'rgba(255,255,255,.10)'}},x:{ticks:{color:'#b0c6fa'},grid:{color:'rgba(255,255,255,.06)'}}}}}); },40);
@@ -2767,11 +2755,6 @@ function pkRenderImport(){
          <div><div style="font-size:12px;margin-bottom:4px;">Customer Mapping — <b style="color:${PKM.csCount?'var(--green)':'var(--red)'};">${PKM.csCount?PKM.csCount.toLocaleString()+' CS contacts ✓':'NOT LOADED'}</b></div>${isAdmin()?`<label class="btn btn-ghost btn-sm" style="cursor:pointer;">Upload Customer Mapping<input type="file" accept=".xlsx,.xlsm,.csv" style="display:none;" onchange="pkmUpload('cs',this)"/></label>`:'<span style="font-size:11px;color:var(--muted);">View only</span>'}</div>
        </div>
        ${pkmSelfTest()}${typeof pkmRoadTest==='function'?pkmRoadTest():''}
-     </div>
-     <div style="margin-top:18px;border-top:1px solid var(--border);padding-top:14px;">
-       <div class="form-label">Plant name mapping <span style="float:right;font-weight:400;color:var(--muted);font-size:11px;">code → friendly name</span></div>
-       <div style="font-size:12px;color:var(--muted);margin:4px 0 10px;line-height:1.6;">Give each plant code (e.g. <b>BD11</b>, <b>BD12</b>) a readable name. Names show across the Logistics dashboards next to the code. Shared to all PCs.</div>
-       <div id="pk-plant-names"></div>
      </div>
      <div style="margin-top:14px;font-size:12px;color:var(--muted);line-height:1.6;">Matches your <b>DN RAW Sheet</b> columns (any order): Ship to Party Name · Ship to Party Address · Requester · Requester Mobile · Business Principal Name · Customer Order Ref. No · Customer Reference Line No. · Coats Material No. · Brand · Size/Tkt · Shade Code · Ordered Qty · Creation Date · Customer Service Executive · StyleNo/ProductionNo · Comments/Remarks · COATS BRAND/ Tex · PRODUCT CODE · Customer Service Name · Delivery Plant · Supply Plant.<br>A first full import of many rows can take a minute — keep the tab open. Duplicate rows are merged automatically.</div>
 
@@ -2820,7 +2803,6 @@ function pkRenderImport(){
    </div></div>`;
   pkLogoPreview();
   pkRenderImportLog();
-  pkRenderPlantNames();
 }
 function pkRenderImportLog(){
   const el=document.getElementById('pk-import-log'); if(!el)return;
@@ -2911,7 +2893,7 @@ const PK_HMAP=[
 ];
 function pkNorm(s){ return (''+(s==null?'':s)).trim().toLowerCase().replace(/\s+/g,' '); }
 // ── Master data for enrichment (Tex from ART/TKT, CS mobile from Customer Mapping) ──
-const PKM={ tex:new Map(), brand:new Map(), csMob:new Map(), csMobByName:new Map(), shipRoad:new Map(), texCount:0, csCount:0, texUpd:'', csUpd:'', loaded:false };
+const PKM={ tex:new Map(), brand:new Map(), csMob:new Map(), csMobByName:new Map(), shipRoad:new Map(), shipRoadLoose:new Map(), shipRoadEx:null, texCount:0, csCount:0, texUpd:'', csUpd:'', loaded:false };
 function pkmKey(s){ return (''+(s==null?'':s)).toUpperCase().replace(/[^A-Z0-9]/g,''); }
 function pkmArticle(material){ return (''+(material==null?'':material)).split('-')[0].toUpperCase().replace(/[^A-Z0-9]/g,''); }
 function pkmEmailName(email){ const e=(''+(email==null?'':email)).trim(); const raw=(!e||e.indexOf('@')<0)?e:e.split('@')[0]; return raw.replace(/[._]+/g,' ').trim().replace(/\b\w/g,c=>c.toUpperCase()); }
@@ -2921,9 +2903,9 @@ function pkmBuild(at,cm){
     // packing format [article,tex,brand]; legacy OOR format [article,GT,tex,tkt,brand]
     let tex,brand; if(r.length>=5){ tex=r[2]; brand=r[4]; } else { tex=r[1]; brand=r[2]; }
     PKM.tex.set(k,(tex==null?'':(''+tex).trim())); PKM.brand.set(k,brand||''); });
-  PKM.csMob=new Map(); PKM.csMobByName=new Map(); PKM.shipRoad=new Map();
+  PKM.csMob=new Map(); PKM.csMobByName=new Map(); PKM.shipRoad=new Map(); PKM.shipRoadLoose=new Map(); PKM.shipRoadEx=null;
   (cm||[]).forEach(r=>{ if(!Array.isArray(r))return;
-    if(r[0]==='#ROAD'){ const k=pkmKey(r[1]); const rd=(r[2]==null?'':(''+r[2]).trim()); if(k&&rd&&!PKM.shipRoad.has(k))PKM.shipRoad.set(k,rd); return; }
+    if(r[0]==='#ROAD'){ const rd=(r[2]==null?'':(''+r[2]).trim()); const k=pkmKey(r[1]); if(k&&rd){ if(!PKM.shipRoad.has(k))PKM.shipRoad.set(k,rd); const lk=pkmRoadLoose(r[1]); if(lk&&!PKM.shipRoadLoose.has(lk))PKM.shipRoadLoose.set(lk,rd); if(!PKM.shipRoadEx)PKM.shipRoadEx={name:(''+r[1]).trim(),road:rd}; } return; }
     const e=(''+(r[0]||'')).trim().toLowerCase();
     if(e.indexOf('@')<0)return; // only [email,mobile] rows; ignore legacy customer rows
     const mob=(r[1]==null?'':(''+r[1]).trim());
@@ -2995,8 +2977,9 @@ function pkmSelfTest(){
   const tam=PKM.csMob.get('tamanna.hannan@coats.com');
   return '<div style="margin-top:12px;font-size:12px;color:var(--green);line-height:1.6;">✓ <b>Mobile lookup ready.</b> e.g. '+attEsc(e)+' → '+attEsc(m)+(tam?(' · tamanna.hannan → '+attEsc(tam)):'')+'. The DN fills the mobile from the CS name automatically.</div>';
 }
-function pkRoadFor(shipTo){ const k=pkmKey(shipTo); return (PKM.shipRoad&&PKM.shipRoad.get(k))||''; }
-function pkmRoadTest(){ const n=(PKM.shipRoad&&PKM.shipRoad.size)||0; if(!n) return '<div style="margin-top:8px;font-size:12px;color:var(--muted);line-height:1.6;">ℹ <b>Road Name on DN &amp; Sticker:</b> add <b>Ship to Party Name</b> + <b>Road Name</b> columns to the Customer Mapping file and re-upload — the road then auto-fills by ship-to.</div>'; return '<div style="margin-top:8px;font-size:12px;color:var(--green);line-height:1.6;">✓ <b>'+n+' ship-to → road mappings loaded.</b> DN &amp; Sticker fill Road Name automatically by Ship to Party Name.</div>'; }
+function pkmRoadLoose(s){ let k=pkmKey(s); k=k.replace(/(?:LIMITED|LTD|PVT|PRIVATE|COMPANY)+$/,''); return k; }
+function pkRoadFor(shipTo){ if(!PKM.shipRoad)return ''; const k=pkmKey(shipTo); let r=PKM.shipRoad.get(k); if(r)return r; const lk=pkmRoadLoose(shipTo); r=PKM.shipRoadLoose&&PKM.shipRoadLoose.get(lk); return r||''; }
+function pkmRoadTest(){ const n=(PKM.shipRoad&&PKM.shipRoad.size)||0; if(!n) return '<div style="margin-top:8px;font-size:12px;color:var(--red);line-height:1.6;">⚠ <b>No ship-to → road mappings loaded.</b> In the Customer Mapping file add columns <b>Ship to Party Name</b> + <b>Road Name</b> (first sheet, one row per ship-to) and re-upload via <b>Upload Customer Mapping</b>.</div>'; const ex=PKM.shipRoadEx; return '<div style="margin-top:8px;font-size:12px;color:var(--green);line-height:1.6;">✓ <b>'+n+' ship-to → road mappings loaded.</b>'+(ex?(' e.g. <b>'+attEsc(ex.name)+'</b> → <b>'+attEsc(ex.road)+'</b>.'):'')+' DN &amp; Sticker fill Road Name by Ship to Party Name (ignores case, spaces &amp; Ltd/Limited).</div>'; }
 function pkFieldFor(header){ const h=pkNorm(header); const h2=h.replace(/[.\s]+$/,'').replace(/\.$/,''); for(const [keys,field] of PK_HMAP){ if(keys.includes(h)||keys.includes(h2)||keys.some(k=>k.replace(/[.\s]+$/,'')===h2))return field; } return null; }
 async function pkDoImport(){
   const fi=document.getElementById('pk-file'); const files=fi?[...fi.files]:[];
