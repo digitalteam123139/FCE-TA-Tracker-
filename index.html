@@ -2681,7 +2681,6 @@ function pkDashOps(){
     </div></div>
     <div class="att-stat-row" style="margin-bottom:14px;">
       <div class="att-stat"><div class="v">${totalDeliv}</div><div class="l">Deliveries</div></div>
-      <div class="att-stat"><div class="v">${totalOrders}</div><div class="l">Distinct orders</div></div>
       <div class="att-stat"><div class="v">${totalQty}</div><div class="l">Total qty</div></div>
       <div class="att-stat" style="border:1.5px solid #46e6a0;background:rgba(70,230,160,.10);"><div class="v" style="color:#46e6a0;">${received.length}</div><div class="l">DN received</div></div>
       <div class="att-stat" style="border:1.5px solid #ff9f5a;background:rgba(255,159,90,.10);"><div class="v" style="color:#ff9f5a;">${pending.length}</div><div class="l">DN pending</div></div>
@@ -2697,7 +2696,7 @@ function pkDashOps(){
         <div style="overflow:auto;"><table><thead><tr><th>Delivery Date</th><th>Road / Zone</th><th style="text-align:center;">Received DN</th><th style="text-align:center;">Pending</th></tr></thead><tbody>${pendRows}${pendTotal}</tbody></table></div></div>
     </div>`;
   setTimeout(()=>{
-    pkDashChart('pk-dash-deliv',{type:'bar',data:{labels:perKeys.map(k=>gran==='month'?monthLabel(k):fmtDate(k)),datasets:[{label:'Deliveries',data:perKeys.map(k=>byPer[k].n),backgroundColor:'#6ea0ff'}]},options:{plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{color:'#b0c6fa',precision:0},grid:{color:'rgba(255,255,255,.10)'}},x:{ticks:{color:'#b0c6fa'},grid:{color:'rgba(255,255,255,.06)'}}}}});
+    pkDashChart('pk-dash-deliv',{type:'bar',data:{labels:perKeys.map(k=>gran==='month'?monthLabel(k):fmtDate(k)),datasets:[{label:'Deliveries',data:perKeys.map(k=>byPer[k].n),backgroundColor:perKeys.map((k,i)=>['#6ea0ff','#46e6a0','#ff9f5a','#c792ea','#ffd166','#4ecdc4'][i%6])}]},options:{plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{color:'#b0c6fa',precision:0},grid:{color:'rgba(255,255,255,.10)'}},x:{ticks:{color:'#b0c6fa'},grid:{color:'rgba(255,255,255,.06)'}}}}});
     pkDashChart('pk-dash-dn',{type:'doughnut',data:{labels:['Received','Pending'],datasets:[{data:[received.length,pending.length],backgroundColor:['#46e6a0','#ff9f5a'],borderColor:'rgba(0,0,0,0)'}]},options:{plugins:{legend:{labels:{color:'#b0c6fa'}}}}});
   },40);
 }
