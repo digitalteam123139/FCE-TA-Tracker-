@@ -1809,7 +1809,7 @@ window.addEventListener('DOMContentLoaded',async()=>{
 //  ATTENDANCE TRACKER MODULE
 // ═══════════════════════════════════════════════════════════════
 let attTab='mark', attDate=null, attYear=new Date().getFullYear(), attPeriod='H1';
-let attLoc='', attTitle='', attSearch='', attSelEmp='', attCalY=null, attCalM=null;
+let attLoc='', attTitle='', attSearch='', attSelEmp='', attCalY=null, attCalM=null, attDayDate='';
 let attStage={}, attCharts={}, attEditingEmp=null;
 const ATT_LOCS=['Chattogram','Gazipur','Dhaka H/O'];
 const ATTCOL={present:'#52c87a',absent:'#e05252',leave:'#f5a623',holiday:'#5a6f93',none:'#16315a',accent2:'#37c2d6'};
@@ -1936,6 +1936,7 @@ function attRenderDash(){
       <select class="filter-sel" ${selfOnly?'disabled':''} title="Check one employee's performance" onchange="attSelEmp=this.value;attRenderDash()">${empOpts}</select>
     </div></div>
     <div id="att-kpis" class="att-stat-row"></div>
+    <div id="att-daily-loc"></div>
     <div class="att-charts">
       <div class="card"><div class="form-label" style="margin:0 0 6px;">Monthly attendance %</div><canvas id="att-c-trend"></canvas></div>
       <div class="card"><div class="form-label" style="margin:0 0 6px;">By location</div><canvas id="att-c-loc"></canvas></div>
@@ -1943,7 +1944,7 @@ function attRenderDash(){
     </div>
     <div class="card" style="overflow:auto;margin-bottom:14px;"><table><thead><tr><th>ID</th><th>Name</th><th>Title</th><th>Location</th><th>Present</th><th>Absent</th><th>Leave</th><th>Attendance %</th><th>Bonus</th></tr></thead><tbody id="att-dash-rows"></tbody></table></div>
     <div id="att-leave-section"></div>`;
-  attRenderKpis(); attRenderDashTable(); attDrawCharts(); attRenderLeaveSection();
+  attRenderKpis(); attRenderDashTable(); attDrawCharts(); attRenderLeaveSection(); attRenderDailyLoc();
 }
 function attRenderKpis(){
   const [s,e,lab]=attRange(); const emps=attDashEmps();
@@ -1956,6 +1957,37 @@ function attRenderKpis(){
    <div class="att-stat"><div class="v">${overall}%</div><div class="l">Overall attendance · ${lab}</div></div>
    <div class="att-stat"><div class="v">${onTrack}/${packers.length}</div><div class="l">Packers ≥85% (bonus)</div></div>
    <div class="att-stat"><div class="v">${tsched}</div><div class="l">Working-day records</div></div>`;
+}
+function attRenderDailyLoc(){
+  const box=document.getElementById('att-daily-loc'); if(!box)return;
+  if(attSelfOnly()){ box.innerHTML=''; return; } // FCE/Packer see only their own record
+  if(!attDayDate)attDayDate=attTodayIso();
+  const lock=tlLockedLoc(); const locFilter=lock||attLoc; // '' = all locations
+  const locs=(locFilter?ATT_LOCS.filter(l=>locEq(l,locFilter)):ATT_LOCS.slice());
+  const empLoc={}; attActiveEmps().forEach(e=>{ empLoc[e.id]=e.location; });
+  const tally={}, head={}; locs.forEach(l=>{ tally[l]={p:0,a:0,lv:0,h:0,n:0}; head[l]=0; });
+  attActiveEmps().forEach(e=>{ const key=locs.find(l=>locEq(l,e.location)); if(key)head[key]++; });
+  CACHE.attendance.forEach(r=>{
+    if(r.date!==attDayDate)return;
+    const loc=empLoc[r.emp_id]; if(loc==null)return;
+    const key=locs.find(l=>locEq(l,loc)); if(!key)return;
+    const t=tally[key]; t.n++;
+    if(r.status==='present')t.p++; else if(r.status==='absent')t.a++; else if(r.status==='holiday')t.h++; else if(isLeaveStatus(r.status))t.lv++;
+  });
+  let TP=0,TA=0,TL=0,TH=0,THEAD=0,TN=0;
+  const rows=locs.map(l=>{ const t=tally[l]; TP+=t.p;TA+=t.a;TL+=t.lv;TH+=t.h;THEAD+=head[l];TN+=t.n; const nm=Math.max(0,head[l]-t.n);
+    return `<tr><td><b>${attEsc(l)}</b></td><td style="text-align:center;color:${ATTCOL.present};font-weight:700;">${t.p}</td><td style="text-align:center;color:${ATTCOL.absent};font-weight:700;">${t.a}</td><td style="text-align:center;color:${ATTCOL.leave};font-weight:700;">${t.lv}</td><td style="text-align:center;color:${ATTCOL.holiday};">${t.h}</td><td style="text-align:center;color:var(--muted);">${nm}</td><td style="text-align:center;">${head[l]}</td></tr>`; }).join('');
+  const nmAll=Math.max(0,THEAD-TN);
+  box.innerHTML=`<div class="card" style="margin-bottom:14px;overflow:auto;">
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:14px 14px 0;">
+      <div class="card-title" style="margin:0;">Daily attendance by location</div>
+      <input class="filter-sel" type="date" value="${attDayDate}" onchange="attDayDate=this.value;attRenderDailyLoc()" style="width:160px;"/>
+      <span style="font-size:12px;color:var(--muted);">Totals for ${fmtDate(attDayDate)}.</span>
+    </div>
+    <div style="padding:12px 14px 14px;"><table><thead><tr><th>Location</th><th style="text-align:center;">Present</th><th style="text-align:center;">Absent</th><th style="text-align:center;">Leave</th><th style="text-align:center;">Holiday</th><th style="text-align:center;">Not marked</th><th style="text-align:center;">Headcount</th></tr></thead><tbody>
+      ${rows}
+      <tr style="border-top:2px solid var(--border);"><td><b>All${locFilter?' (filtered)':''}</b></td><td style="text-align:center;color:${ATTCOL.present};font-weight:800;">${TP}</td><td style="text-align:center;color:${ATTCOL.absent};font-weight:800;">${TA}</td><td style="text-align:center;color:${ATTCOL.leave};font-weight:800;">${TL}</td><td style="text-align:center;color:${ATTCOL.holiday};">${TH}</td><td style="text-align:center;color:var(--muted);">${nmAll}</td><td style="text-align:center;font-weight:700;">${THEAD}</td></tr>
+    </tbody></table></div></div>`;
 }
 function attRenderDashTable(){
   const [s,e]=attRange(); const emps=attDashEmps().slice().sort((a,b)=>(a.location+a.name).localeCompare(b.location+b.name));
@@ -2210,6 +2242,7 @@ function attRenderLeaveSection(){
 let pkTab='orders', pkOrder=null, pkResults=[], pkTripDate=null, pkTripRoad='', pkPendingTripOrder='';
 let pkTripSel=new Set(), pkListSel=new Set(), pkListKind='', pkRetCust='', pkPendingCarton='', pkRetGran='month', pkRetRoad='', pkTripPick=null, pkTripPickSel=new Set(), pkTripPickCarton=1;
 let pkDashView='ops', pkDashGran='day', pkDashRoad='', pkDashMonth='', pkDashLines=null, pkDashCharts={};
+let pkDashDelPlant='', pkDashSupPlant='', pkLineDelPlant='', pkLineSupPlant='';
 
 // ── DB ──
 async function dbPkLookup(orderNo){ const {data,error}=await sb.from('sample_lines').select('*').eq('order_no',orderNo); if(error)throw error; return data||[]; }
@@ -2571,14 +2604,25 @@ function pkRenderReturns(){
 // ── Logistics Dashboard ──
 async function dbPkAllLines(){
   let all=[], from=0; const size=1000;
-  while(true){ const {data,error}=await sb.from('sample_lines').select('ship_to,buyer,coats_brand_tex,brand,material_no,qty,creation_date,order_no,line_no').range(from,from+size-1); if(error)throw error; all=all.concat(data||[]); if(!data||data.length<size)break; from+=size; if(from>60000)break; }
+  while(true){ const {data,error}=await sb.from('sample_lines').select('ship_to,buyer,coats_brand_tex,brand,material_no,qty,creation_date,order_no,line_no,delivery_plant,supply_plant').range(from,from+size-1); if(error)throw error; all=all.concat(data||[]); if(!data||data.length<size)break; from+=size; if(from>60000)break; }
   return all;
+}
+async function pkLoadPlantMap(force){
+  if(CACHE._plantLoaded&&!force)return;
+  const map={}; const dp=new Set(), sp=new Set();
+  try{
+    let from=0; const size=1000;
+    while(true){ const {data,error}=await sb.from('sample_lines').select('order_no,delivery_plant,supply_plant').range(from,from+size-1); if(error)throw error;
+      (data||[]).forEach(r=>{ const on=(''+(r.order_no||'')).trim(); if(!on)return; const d=(''+(r.delivery_plant||'')).trim(), s=(''+(r.supply_plant||'')).trim(); if(!map[on])map[on]={dp:d,sp:s}; else { if(!map[on].dp&&d)map[on].dp=d; if(!map[on].sp&&s)map[on].sp=s; } if(d)dp.add(d); if(s)sp.add(s); });
+      if(!data||data.length<size)break; from+=size; if(from>60000)break; }
+    CACHE.plantMap=map; CACHE.plantDel=[...dp].sort(); CACHE.plantSup=[...sp].sort(); CACHE._plantLoaded=true;
+  }catch(e){ CACHE.plantMap=CACHE.plantMap||{}; CACHE.plantDel=CACHE.plantDel||[]; CACHE.plantSup=CACHE.plantSup||[]; CACHE._plantLoaded=false; }
 }
 function pkDashChart(id,cfg){ if(pkDashCharts[id]){try{pkDashCharts[id].destroy();}catch(e){}} const cv=document.getElementById(id); if(cv&&typeof Chart!=='undefined')pkDashCharts[id]=new Chart(cv,cfg); }
 function pkMonthKey(cd){ const s=(''+(cd==null?'':cd)).trim(); if(!s)return ''; let m=s.match(/^(\d{4})-(\d{2})/); if(m)return m[1]+'-'+m[2]; m=s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/); if(m)return m[3]+'-'+(''+m[2]).padStart(2,'0'); m=s.match(/(\d{4})[\/\-](\d{1,2})/); if(m)return m[1]+'-'+(''+m[2]).padStart(2,'0'); return ''; }
 function pkDashGranKey(d,gran){ const s=(''+(d||'')).slice(0,10); return gran==='month'?s.slice(0,7):s; }
 const PK_AXIS={ticks:{color:'#b0c6fa',precision:0},grid:{color:'rgba(255,255,255,.10)'}};
-async function renderLogDash(){ try{ await pkLoadTrips(); }catch(e){} if(!PKM.loaded){ try{ await dbPkmLoad(); }catch(e){} } pkRenderDash(); }
+async function renderLogDash(){ try{ await pkLoadTrips(); }catch(e){} try{ await pkLoadPlantMap(); }catch(e){} if(!PKM.loaded){ try{ await dbPkmLoad(); }catch(e){} } pkRenderDash(); }
 function pkRenderDash(){
   const b=document.getElementById('dash-root'); if(!b)return;
   b.innerHTML=`<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;">
@@ -2592,8 +2636,12 @@ function pkDashOps(){
   const trips=(CACHE.trips||[]).filter(t=>t.kind!=='return');
   const orders=(typeof getOrders==='function')?getOrders():[];
   const roads=[...new Set(trips.map(t=>t.road).filter(Boolean))].sort();
-  const gran=pkDashGran, road=pkDashRoad;
-  const tsrc=road?trips.filter(t=>(t.road||'')===road):trips;
+  const PM=CACHE.plantMap||{}; const tdp=t=>((PM[t.order_no]||{}).dp)||''; const tsp=t=>((PM[t.order_no]||{}).sp)||'';
+  const delPlants=(CACHE.plantDel&&CACHE.plantDel.length)?CACHE.plantDel:[...new Set(trips.map(tdp).filter(Boolean))].sort();
+  const supPlants=(CACHE.plantSup&&CACHE.plantSup.length)?CACHE.plantSup:[...new Set(trips.map(tsp).filter(Boolean))].sort();
+  const gran=pkDashGran, road=pkDashRoad, dPlant=pkDashDelPlant, sPlant=pkDashSupPlant;
+  const plantFiltered=trips.filter(t=>(!dPlant||tdp(t)===dPlant)&&(!sPlant||tsp(t)===sPlant));
+  const tsrc=road?plantFiltered.filter(t=>(t.road||'')===road):plantFiltered;
   const byPer={}; tsrc.forEach(t=>{ const k=pkDashGranKey(t.trip_date,gran)||'—'; if(!byPer[k])byPer[k]={n:0,orders:new Set(),qty:0}; byPer[k].n++; byPer[k].orders.add(t.order_no); byPer[k].qty+=parseFloat(t.total_qty)||0; });
   const perKeys=Object.keys(byPer).filter(k=>k!=='—').sort();
   const received=orders.filter(o=>o.noteFiles&&o.noteFiles.length);
@@ -2601,9 +2649,19 @@ function pkDashOps(){
   const pend={}; pending.forEach(o=>{ const k=(''+(o.date||'')).slice(0,10)||'—'; const rd=o.to||'—'; const key=k+'||'+rd; if(!pend[key])pend[key]={d:k,rd,n:0}; pend[key].n++; });
   const pendRows=Object.values(pend).sort((a,b)=>String(b.d).localeCompare(String(a.d))).map(x=>`<tr><td style="white-space:nowrap;">${x.d==='—'?'—':fmtDate(x.d)}</td><td>${attEsc(x.rd)}</td><td style="text-align:center;color:#ff9f5a;font-weight:700;">${x.n}</td></tr>`).join('')||`<tr><td colspan="3" style="text-align:center;color:var(--muted);padding:14px;">No pending DN.</td></tr>`;
   const totalDeliv=tsrc.length, totalOrders=new Set(tsrc.map(t=>t.order_no)).size, totalQty=tsrc.reduce((s,t)=>s+(parseFloat(t.total_qty)||0),0);
+  const byRoad={}; plantFiltered.forEach(t=>{ const rd=t.road||'—'; if(!byRoad[rd])byRoad[rd]={n:0,orders:new Set(),qty:0}; byRoad[rd].n++; byRoad[rd].orders.add(t.order_no); byRoad[rd].qty+=parseFloat(t.total_qty)||0; });
+  const roadRows=Object.keys(byRoad).sort((a,b)=>byRoad[b].qty-byRoad[a].qty).map(rd=>`<tr${road&&rd===road?' style="background:rgba(110,160,255,.10);"':''}><td>${attEsc(rd)}</td><td style="text-align:center;">${byRoad[rd].n}</td><td style="text-align:center;">${byRoad[rd].orders.size}</td><td style="text-align:right;font-weight:700;color:var(--accent2);">${byRoad[rd].qty}</td></tr>`).join('')||`<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:14px;">No deliveries yet.</td></tr>`;
+  const byDel={}, bySup={};
+  plantFiltered.forEach(t=>{ const d=tdp(t)||'—'; if(!byDel[d])byDel[d]={n:0,orders:new Set(),qty:0}; byDel[d].n++; byDel[d].orders.add(t.order_no); byDel[d].qty+=parseFloat(t.total_qty)||0;
+    const s=tsp(t)||'—'; if(!bySup[s])bySup[s]={n:0,orders:new Set(),qty:0}; bySup[s].n++; bySup[s].orders.add(t.order_no); bySup[s].qty+=parseFloat(t.total_qty)||0; });
+  const plantTbl=(obj,sel)=>Object.keys(obj).sort((a,b)=>obj[b].qty-obj[a].qty).map(p=>`<tr${sel&&p===sel?' style="background:rgba(110,160,255,.10);"':''}><td><b>${attEsc(p)}</b></td><td style="text-align:center;">${obj[p].n}</td><td style="text-align:center;">${obj[p].orders.size}</td><td style="text-align:right;font-weight:700;color:var(--accent2);">${obj[p].qty}</td></tr>`).join('')||`<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:14px;">No plant data — add the columns &amp; re-import.</td></tr>`;
+  const delPlantRows=plantTbl(byDel,dPlant), supPlantRows=plantTbl(bySup,sPlant);
+  const plantOpts=(list,cur)=>['<option value="">All plants</option>'].concat(list.map(p=>`<option ${p===cur?'selected':''}>${attEsc(p)}</option>`)).join('');
   box.innerHTML=`
     <div class="card" style="margin-bottom:14px;"><div style="padding:14px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
       <select class="filter-sel" onchange="pkDashRoad=this.value;pkRenderDash()"><option value="">All roads</option>${roads.map(rd=>`<option ${rd===road?'selected':''}>${attEsc(rd)}</option>`).join('')}</select>
+      <select class="filter-sel" title="Delivery Plant" onchange="pkDashDelPlant=this.value;pkRenderDash()">${plantOpts(delPlants,dPlant).replace('All plants','All delivery plants')}</select>
+      <select class="filter-sel" title="Supply Plant" onchange="pkDashSupPlant=this.value;pkRenderDash()">${plantOpts(supPlants,sPlant).replace('All plants','All supply plants')}</select>
       <select class="filter-sel" onchange="pkDashGran=this.value;pkRenderDash()"><option value="day" ${gran==='day'?'selected':''}>By day</option><option value="month" ${gran==='month'?'selected':''}>By month</option></select>
       <span style="font-size:12px;color:var(--muted);">Delivered = trip-list entries (by trip date).</span>
     </div></div>
@@ -2618,6 +2676,14 @@ function pkDashOps(){
       <div class="card"><div class="form-label" style="margin:0 0 6px;">Deliveries by ${gran==='month'?'month':'day'}${road?(' · '+attEsc(road)):''}</div><canvas id="pk-dash-deliv"></canvas></div>
       <div class="card"><div class="form-label" style="margin:0 0 6px;">DN received vs pending</div><canvas id="pk-dash-dn"></canvas></div>
     </div>
+    <div class="att-charts" style="margin-bottom:14px;">
+      <div class="card"><div class="card-header"><div><div class="card-title">Delivery quantity by Delivery Plant</div><div class="card-sub">Grouped by Delivery Plant (from import). Selected plant highlighted.</div></div></div>
+        <div style="overflow:auto;"><table><thead><tr><th>Delivery Plant</th><th style="text-align:center;">Deliveries</th><th style="text-align:center;">Orders</th><th style="text-align:right;">Total qty</th></tr></thead><tbody>${delPlantRows}</tbody></table></div></div>
+      <div class="card"><div class="card-header"><div><div class="card-title">Delivery quantity by Supply Plant</div><div class="card-sub">Grouped by Supply Plant (from import). Selected plant highlighted.</div></div></div>
+        <div style="overflow:auto;"><table><thead><tr><th>Supply Plant</th><th style="text-align:center;">Deliveries</th><th style="text-align:center;">Orders</th><th style="text-align:right;">Total qty</th></tr></thead><tbody>${supPlantRows}</tbody></table></div></div>
+    </div>
+    <div class="card" style="margin-bottom:14px;"><div class="card-header"><div><div class="card-title">Delivery quantity by road</div><div class="card-sub">All trip-list deliveries grouped by road / zone. Selected road is highlighted.</div></div></div>
+      <div style="overflow:auto;"><table><thead><tr><th>Road / Zone</th><th style="text-align:center;">Deliveries</th><th style="text-align:center;">Distinct orders</th><th style="text-align:right;">Total qty</th></tr></thead><tbody>${roadRows}</tbody></table></div></div>
     <div class="card"><div class="card-header"><div><div class="card-title">Pending DN by date &amp; road</div><div class="card-sub">Order Tracker orders that don't yet have a DN copy attached. Updates automatically as DN copies are uploaded.</div></div></div>
       <div style="overflow:auto;"><table><thead><tr><th>Date</th><th>Road / Zone</th><th style="text-align:center;">Pending</th></tr></thead><tbody>${pendRows}</tbody></table></div></div>`;
   setTimeout(()=>{
@@ -2632,15 +2698,27 @@ async function pkDashLinesView(){
   const months=[...new Set(rows.map(r=>pkMonthKey(r.creation_date)).filter(Boolean))].sort().reverse();
   if(!pkDashMonth&&months.length)pkDashMonth=months[0];
   const monthRows=pkDashMonth?rows.filter(r=>pkMonthKey(r.creation_date)===pkDashMonth):rows;
-  const agg={}; monthRows.forEach(r=>{ const cust=(r.ship_to||'').trim(), bp=(r.buyer||'').trim(), mat=(r.material_no||'').trim(); const key=[cust,bp,mat].join('|||'); if(!agg[key])agg[key]={cust,bp,mat,qty:0,lines:0}; agg[key].qty+=parseFloat(r.qty)||0; agg[key].lines++; });
+  const lp=r=>(''+(r.delivery_plant||'')).trim(), lsf=r=>(''+(r.supply_plant||'')).trim();
+  const delPlants=(CACHE.plantDel&&CACHE.plantDel.length)?CACHE.plantDel:[...new Set(rows.map(lp).filter(Boolean))].sort();
+  const supPlants=(CACHE.plantSup&&CACHE.plantSup.length)?CACHE.plantSup:[...new Set(rows.map(lsf).filter(Boolean))].sort();
+  const dPlant=pkLineDelPlant, sPlant=pkLineSupPlant;
+  const fRows=monthRows.filter(r=>(!dPlant||lp(r)===dPlant)&&(!sPlant||lsf(r)===sPlant));
+  const agg={}; fRows.forEach(r=>{ const cust=(r.ship_to||'').trim(), bp=(r.buyer||'').trim(), mat=(r.material_no||'').trim(); const key=[cust,bp,mat].join('|||'); if(!agg[key])agg[key]={cust,bp,mat,qty:0,lines:0}; agg[key].qty+=parseFloat(r.qty)||0; agg[key].lines++; });
   const aggListAll=Object.values(agg).sort((a,b)=>b.qty-a.qty); const aggList=aggListAll.slice(0,20);
   const totalQty=aggListAll.reduce((s,x)=>s+x.qty,0), totalLines=aggListAll.reduce((s,x)=>s+x.lines,0);
   const byMonth={}; rows.forEach(r=>{ const m=pkMonthKey(r.creation_date); if(!m)return; byMonth[m]=(byMonth[m]||0)+(parseFloat(r.qty)||0); });
   const trendKeys=Object.keys(byMonth).sort();
   const tableRows=aggList.map(x=>`<tr><td>${attEsc([x.cust||'—',x.bp||'—',x.mat||'—'].join(' - '))}</td><td style="text-align:center;">${x.lines}</td><td style="text-align:right;font-weight:700;color:var(--accent2);">${x.qty}</td></tr>`).join('')||`<tr><td colspan="3" style="text-align:center;color:var(--muted);padding:16px;">No order lines for this month.</td></tr>`;
+  const byDelL={}, bySupL={};
+  monthRows.forEach(r=>{ const q=parseFloat(r.qty)||0; const d=lp(r)||'—'; if(!byDelL[d])byDelL[d]={qty:0,lines:0}; byDelL[d].qty+=q; byDelL[d].lines++; const s=lsf(r)||'—'; if(!bySupL[s])bySupL[s]={qty:0,lines:0}; bySupL[s].qty+=q; bySupL[s].lines++; });
+  const plantTblL=(obj,sel)=>Object.keys(obj).sort((a,b)=>obj[b].qty-obj[a].qty).map(p=>`<tr${sel&&p===sel?' style="background:rgba(110,160,255,.10);"':''}><td><b>${attEsc(p)}</b></td><td style="text-align:center;">${obj[p].lines}</td><td style="text-align:right;font-weight:700;color:var(--accent2);">${obj[p].qty}</td></tr>`).join('')||`<tr><td colspan="3" style="text-align:center;color:var(--muted);padding:14px;">No plant data — add the columns &amp; re-import.</td></tr>`;
+  const delPlantRowsL=plantTblL(byDelL,dPlant), supPlantRowsL=plantTblL(bySupL,sPlant);
+  const plantOptsL=(list,cur,lbl)=>['<option value="">'+lbl+'</option>'].concat(list.map(p=>`<option ${p===cur?'selected':''}>${attEsc(p)}</option>`)).join('');
   box.innerHTML=`
     <div class="card" style="margin-bottom:14px;"><div style="padding:14px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
       <select class="filter-sel" onchange="pkDashMonth=this.value;pkRenderDash()"><option value="">All months</option>${months.map(m=>`<option value="${m}" ${m===pkDashMonth?'selected':''}>${monthLabel(m)}</option>`).join('')}</select>
+      <select class="filter-sel" title="Delivery Plant" onchange="pkLineDelPlant=this.value;pkRenderDash()">${plantOptsL(delPlants,dPlant,'All delivery plants')}</select>
+      <select class="filter-sel" title="Supply Plant" onchange="pkLineSupPlant=this.value;pkRenderDash()">${plantOptsL(supPlants,sPlant,'All supply plants')}</select>
       <span style="font-size:12px;color:var(--muted);">Grouped by Customer + Business Principal + Material No.</span>
       <button class="btn btn-ghost btn-sm" style="margin-left:auto;" onclick="pkDashLines=null;pkRenderDash()">↻ Reload</button>
     </div></div>
@@ -2650,6 +2728,12 @@ async function pkDashLinesView(){
       <div class="att-stat"><div class="v">${totalQty}</div><div class="l">Total qty</div></div>
     </div>
     <div class="card" style="margin-bottom:14px;"><div class="form-label" style="margin:0;padding:14px 14px 0;">Monthly total quantity (trend)</div><div style="padding:8px 14px 14px;"><canvas id="pk-dash-trend" height="90"></canvas></div></div>
+    <div class="att-charts" style="margin-bottom:14px;">
+      <div class="card"><div class="card-header"><div><div class="card-title">Order qty by Delivery Plant</div><div class="card-sub">${pkDashMonth?monthLabel(pkDashMonth):'all months'} · selected plant highlighted.</div></div></div>
+        <div style="overflow:auto;"><table><thead><tr><th>Delivery Plant</th><th style="text-align:center;">Lines</th><th style="text-align:right;">Total qty</th></tr></thead><tbody>${delPlantRowsL}</tbody></table></div></div>
+      <div class="card"><div class="card-header"><div><div class="card-title">Order qty by Supply Plant</div><div class="card-sub">${pkDashMonth?monthLabel(pkDashMonth):'all months'} · selected plant highlighted.</div></div></div>
+        <div style="overflow:auto;"><table><thead><tr><th>Supply Plant</th><th style="text-align:center;">Lines</th><th style="text-align:right;">Total qty</th></tr></thead><tbody>${supPlantRowsL}</tbody></table></div></div>
+    </div>
     <div class="card"><div class="card-header"><div><div class="card-title">Order lines placed — top 20 — ${pkDashMonth?monthLabel(pkDashMonth):'all months'}</div><div class="card-sub">Total quantity per Customer + Business Principal + Material No. (top 20 by quantity)</div></div></div>
       <div style="overflow:auto;"><table><thead><tr><th>Customer - Business Principal - Material No</th><th style="text-align:center;">Lines</th><th style="text-align:right;">Total Qty</th></tr></thead><tbody>${tableRows}</tbody></table></div></div>`;
   setTimeout(()=>{ pkDashChart('pk-dash-trend',{type:'line',data:{labels:trendKeys.map(m=>monthLabel(m)),datasets:[{label:'Qty',data:trendKeys.map(m=>byMonth[m]),borderColor:'#6ea0ff',backgroundColor:'rgba(110,160,255,.14)',borderWidth:2,fill:true,tension:.3,pointBackgroundColor:'#6ea0ff'}]},options:{plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{color:'#b0c6fa'},grid:{color:'rgba(255,255,255,.10)'}},x:{ticks:{color:'#b0c6fa'},grid:{color:'rgba(255,255,255,.06)'}}}}}); },40);
@@ -2725,8 +2809,20 @@ function pkRenderImportLog(){
   const el=document.getElementById('pk-import-log'); if(!el)return;
   const log=(typeof CONTACTS!=='undefined'&&CONTACTS&&Array.isArray(CONTACTS.importLog))?CONTACTS.importLog:[];
   if(!log.length){ el.innerHTML='<div style="font-size:12px;color:var(--dim);">No files imported yet — uploaded file names will appear here.</div>'; return; }
-  const rows=log.slice(0,12).map(e=>{ const names=(e.names||[]).map(n=>'📄 '+attEsc(n)).join(', '); return `<tr><td style="white-space:nowrap;color:var(--muted);">${e.at?fmtDateTime(e.at):''}</td><td>${names||'—'}</td><td style="text-align:center;color:var(--accent2);">${e.count||0}</td></tr>`; }).join('');
-  el.innerHTML=`<div style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:6px;">Recent imports (uploaded files)</div><div style="overflow:auto;border:1px solid var(--border);border-radius:10px;"><table style="font-size:12px;"><thead><tr><th>When</th><th>File(s)</th><th style="text-align:center;">Lines</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  const adm=(typeof isAdmin==='function'&&isAdmin());
+  const rows=log.slice(0,12).map((e,idx)=>{ const names=(e.names||[]).map(n=>'📄 '+attEsc(n)).join(', '); return `<tr><td style="white-space:nowrap;color:var(--muted);">${e.at?fmtDateTime(e.at):''}</td><td>${names||'—'}</td><td style="text-align:center;color:var(--accent2);">${e.count||0}</td>${adm?`<td style="text-align:center;"><button class="btn btn-reject btn-sm" title="Remove this import record (Super Admin only)" onclick="pkDeleteImportLog(${idx})">Delete</button></td>`:''}</tr>`; }).join('');
+  el.innerHTML=`<div style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:6px;">Recent imports (uploaded files)</div><div style="overflow:auto;border:1px solid var(--border);border-radius:10px;"><table style="font-size:12px;"><thead><tr><th>When</th><th>File(s)</th><th style="text-align:center;">Lines</th>${adm?'<th style="text-align:center;">Action</th>':''}</tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+async function pkDeleteImportLog(idx){
+  if(!(typeof isAdmin==='function'&&isAdmin())){ showToast('Only Super Admin can delete import records.','err'); return; }
+  if(!(typeof CONTACTS!=='undefined'&&CONTACTS&&Array.isArray(CONTACTS.importLog)))return;
+  const e=CONTACTS.importLog[idx]; if(!e)return;
+  const nm=(e.names||[]).join(', ')||'this entry';
+  if(!confirm('Remove import record:\n'+nm+'\n\nThis removes the history entry only — it does NOT delete the imported order lines. To wipe the actual data use "Clear ALL imported data" below.'))return;
+  CONTACTS.importLog.splice(idx,1);
+  try{ if(typeof dbSaveContacts==='function')await dbSaveContacts(); showToast('Import record removed.'); }
+  catch(err){ showToast('Cloud save failed: '+(err.message||err),'err'); }
+  pkRenderImportLog();
 }
 function fmtDateTime(iso){ try{ const d=new Date(iso); const p=n=>(''+n).padStart(2,'0'); return p(d.getDate())+'/'+p(d.getMonth()+1)+'/'+d.getFullYear()+' '+p(d.getHours())+':'+p(d.getMinutes()); }catch(e){ return ''; } }
 function pkSaveLogo(){
@@ -2766,6 +2862,8 @@ const PK_HMAP=[
  [['customer service executive'],'cs_exec'],[['styleno/productionno','style no','style/ref no','styleno'],'style_no'],
  [['comments/remarks','remarks','comments'],'remarks'],[['coats brand/ tex','coats brand/tex','coats brand / tex'],'coats_brand_tex'],
  [['product code'],'product_code'],[['customer service name'],'cs_name'],
+ [['delivery plant','delivery plant code','delivery plant name','del plant'],'delivery_plant'],
+ [['supply plant','supply plant code','supply plant name','sup plant','supplying plant'],'supply_plant'],
 ];
 function pkNorm(s){ return (''+(s==null?'':s)).trim().toLowerCase().replace(/\s+/g,' '); }
 // ── Master data for enrichment (Tex from ART/TKT, CS mobile from Customer Mapping) ──
@@ -2883,6 +2981,8 @@ async function pkDoImport(){
         o.order_no=(''+o.order_no).trim();
         o.line_no=o.line_no==null?'':(''+o.line_no).trim();
         o.qty=parseFloat(o.qty)||0;
+        if(o.delivery_plant!=null)o.delivery_plant=(''+o.delivery_plant).trim();
+        if(o.supply_plant!=null)o.supply_plant=(''+o.supply_plant).trim();
         if(o.creation_date instanceof Date)o.creation_date=o.creation_date.toISOString();
         else if(o.creation_date!=null)o.creation_date=(''+o.creation_date).trim();
         o.id=[o.order_no,o.line_no,(o.shade||''),(o.material_no||'')].join('|');
