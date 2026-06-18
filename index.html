@@ -752,8 +752,8 @@ async function refreshAll(){
       else { const lz=getZones(); if(lz.length){ await dbSaveZones(lz); } }
     }catch(ze){}
     try{
-      if(master && master.contacts){ CONTACTS={fce:master.contacts.fce||{},courier:master.contacts.courier||{},support:Array.isArray(master.contacts.support)?master.contacts.support:[],importLog:Array.isArray(master.contacts.importLog)?master.contacts.importLog:[]}; lsSet('sc_contacts',CONTACTS); }
-      else { const c=lsGet('sc_contacts',null); if(c)CONTACTS={fce:c.fce||{},courier:c.courier||{},support:Array.isArray(c.support)?c.support:[]}; }
+      if(master && master.contacts){ CONTACTS={fce:master.contacts.fce||{},courier:master.contacts.courier||{},support:Array.isArray(master.contacts.support)?master.contacts.support:[],importLog:Array.isArray(master.contacts.importLog)?master.contacts.importLog:[],plantNames:(master.contacts.plantNames&&typeof master.contacts.plantNames==='object')?master.contacts.plantNames:{}}; lsSet('sc_contacts',CONTACTS); }
+      else { const c=lsGet('sc_contacts',null); if(c)CONTACTS={fce:c.fce||{},courier:c.courier||{},support:Array.isArray(c.support)?c.support:[],plantNames:(c.plantNames&&typeof c.plantNames==='object')?c.plantNames:{}}; }
     }catch(ce){}
     try{ CACHE.announcements=await dbGetAnnouncements(); ANN_CLOUD=true; }catch(ae){ CACHE.announcements=null; ANN_CLOUD=false; }
     setSync(true,'Cloud synced');
@@ -2247,7 +2247,18 @@ let pkDashDelPlant='', pkDashSupPlant='', pkLineDelPlant='', pkLineSupPlant='';
 // ── DB ──
 async function dbPkLookup(orderNo){ const {data,error}=await sb.from('sample_lines').select('*').eq('order_no',orderNo); if(error)throw error; return data||[]; }
 async function dbPkSearch(term){ const t=term.replace(/[,()*%]/g,' ').trim(); const {data,error}=await sb.from('sample_lines').select('order_no,ship_to,buyer').or(`order_no.ilike.*${t}*,ship_to.ilike.*${t}*`).limit(120); if(error)throw error; return data||[]; }
-async function dbPkUpsert(rows){ const {error}=await sb.from('sample_lines').upsert(rows,{onConflict:'id'}); if(error)throw error; }
+async function dbPkUpsert(rows){
+  let {error}=await sb.from('sample_lines').upsert(rows,{onConflict:'id'});
+  if(error){
+    const m=(error.message||'')+' '+(error.details||'')+' '+(error.hint||'');
+    if(/delivery_plant|supply_plant|plant/i.test(m)){
+      const stripped=rows.map(r=>{ const c={...r}; delete c.delivery_plant; delete c.supply_plant; return c; });
+      const r2=await sb.from('sample_lines').upsert(stripped,{onConflict:'id'}); if(r2.error)throw r2.error;
+      window.__pkPlantColMissing=true; return;
+    }
+    throw error;
+  }
+}
 async function dbGetTrips(){ const {data,error}=await sb.from('trip_schedule').select('*').order('trip_date',{ascending:false}).limit(3000); if(error)throw error; return data||[]; }
 async function dbInsertTrip(rows){ const {error}=await sb.from('trip_schedule').insert(rows); if(error)throw error; }
 async function dbDeleteTrip(id){ const {error}=await sb.from('trip_schedule').delete().eq('id',id); if(error)throw error; }
@@ -2654,9 +2665,9 @@ function pkDashOps(){
   const byDel={}, bySup={};
   plantFiltered.forEach(t=>{ const d=tdp(t)||'—'; if(!byDel[d])byDel[d]={n:0,orders:new Set(),qty:0}; byDel[d].n++; byDel[d].orders.add(t.order_no); byDel[d].qty+=parseFloat(t.total_qty)||0;
     const s=tsp(t)||'—'; if(!bySup[s])bySup[s]={n:0,orders:new Set(),qty:0}; bySup[s].n++; bySup[s].orders.add(t.order_no); bySup[s].qty+=parseFloat(t.total_qty)||0; });
-  const plantTbl=(obj,sel)=>Object.keys(obj).sort((a,b)=>obj[b].qty-obj[a].qty).map(p=>`<tr${sel&&p===sel?' style="background:rgba(110,160,255,.10);"':''}><td><b>${attEsc(p)}</b></td><td style="text-align:center;">${obj[p].n}</td><td style="text-align:center;">${obj[p].orders.size}</td><td style="text-align:right;font-weight:700;color:var(--accent2);">${obj[p].qty}</td></tr>`).join('')||`<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:14px;">No plant data — add the columns &amp; re-import.</td></tr>`;
+  const plantTbl=(obj,sel)=>Object.keys(obj).sort((a,b)=>obj[b].qty-obj[a].qty).map(p=>`<tr${sel&&p===sel?' style="background:rgba(110,160,255,.10);"':''}><td><b>${attEsc(plantLabel(p))}</b></td><td style="text-align:center;">${obj[p].n}</td><td style="text-align:center;">${obj[p].orders.size}</td><td style="text-align:right;font-weight:700;color:var(--accent2);">${obj[p].qty}</td></tr>`).join('')||`<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:14px;">No plant data — add the columns &amp; re-import.</td></tr>`;
   const delPlantRows=plantTbl(byDel,dPlant), supPlantRows=plantTbl(bySup,sPlant);
-  const plantOpts=(list,cur)=>['<option value="">All plants</option>'].concat(list.map(p=>`<option ${p===cur?'selected':''}>${attEsc(p)}</option>`)).join('');
+  const plantOpts=(list,cur)=>['<option value="">All plants</option>'].concat(list.map(p=>`<option value="${attEsc(p)}" ${p===cur?'selected':''}>${attEsc(plantLabel(p))}</option>`)).join('');
   box.innerHTML=`
     <div class="card" style="margin-bottom:14px;"><div style="padding:14px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
       <select class="filter-sel" onchange="pkDashRoad=this.value;pkRenderDash()"><option value="">All roads</option>${roads.map(rd=>`<option ${rd===road?'selected':''}>${attEsc(rd)}</option>`).join('')}</select>
@@ -2711,9 +2722,9 @@ async function pkDashLinesView(){
   const tableRows=aggList.map(x=>`<tr><td>${attEsc([x.cust||'—',x.bp||'—',x.mat||'—'].join(' - '))}</td><td style="text-align:center;">${x.lines}</td><td style="text-align:right;font-weight:700;color:var(--accent2);">${x.qty}</td></tr>`).join('')||`<tr><td colspan="3" style="text-align:center;color:var(--muted);padding:16px;">No order lines for this month.</td></tr>`;
   const byDelL={}, bySupL={};
   monthRows.forEach(r=>{ const q=parseFloat(r.qty)||0; const d=lp(r)||'—'; if(!byDelL[d])byDelL[d]={qty:0,lines:0}; byDelL[d].qty+=q; byDelL[d].lines++; const s=lsf(r)||'—'; if(!bySupL[s])bySupL[s]={qty:0,lines:0}; bySupL[s].qty+=q; bySupL[s].lines++; });
-  const plantTblL=(obj,sel)=>Object.keys(obj).sort((a,b)=>obj[b].qty-obj[a].qty).map(p=>`<tr${sel&&p===sel?' style="background:rgba(110,160,255,.10);"':''}><td><b>${attEsc(p)}</b></td><td style="text-align:center;">${obj[p].lines}</td><td style="text-align:right;font-weight:700;color:var(--accent2);">${obj[p].qty}</td></tr>`).join('')||`<tr><td colspan="3" style="text-align:center;color:var(--muted);padding:14px;">No plant data — add the columns &amp; re-import.</td></tr>`;
+  const plantTblL=(obj,sel)=>Object.keys(obj).sort((a,b)=>obj[b].qty-obj[a].qty).map(p=>`<tr${sel&&p===sel?' style="background:rgba(110,160,255,.10);"':''}><td><b>${attEsc(plantLabel(p))}</b></td><td style="text-align:center;">${obj[p].lines}</td><td style="text-align:right;font-weight:700;color:var(--accent2);">${obj[p].qty}</td></tr>`).join('')||`<tr><td colspan="3" style="text-align:center;color:var(--muted);padding:14px;">No plant data — add the columns &amp; re-import.</td></tr>`;
   const delPlantRowsL=plantTblL(byDelL,dPlant), supPlantRowsL=plantTblL(bySupL,sPlant);
-  const plantOptsL=(list,cur,lbl)=>['<option value="">'+lbl+'</option>'].concat(list.map(p=>`<option ${p===cur?'selected':''}>${attEsc(p)}</option>`)).join('');
+  const plantOptsL=(list,cur,lbl)=>['<option value="">'+lbl+'</option>'].concat(list.map(p=>`<option value="${attEsc(p)}" ${p===cur?'selected':''}>${attEsc(plantLabel(p))}</option>`)).join('');
   box.innerHTML=`
     <div class="card" style="margin-bottom:14px;"><div style="padding:14px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
       <select class="filter-sel" onchange="pkDashMonth=this.value;pkRenderDash()"><option value="">All months</option>${months.map(m=>`<option value="${m}" ${m===pkDashMonth?'selected':''}>${monthLabel(m)}</option>`).join('')}</select>
@@ -2757,7 +2768,12 @@ function pkRenderImport(){
        </div>
        ${pkmSelfTest()}
      </div>
-     <div style="margin-top:14px;font-size:12px;color:var(--muted);line-height:1.6;">Matches your <b>DN RAW Sheet</b> columns (any order): Ship to Party Name · Ship to Party Address · Requester · Requester Mobile · Business Principal Name · Customer Order Ref. No · Customer Reference Line No. · Coats Material No. · Brand · Size/Tkt · Shade Code · Ordered Qty · Creation Date · Customer Service Executive · StyleNo/ProductionNo · Comments/Remarks · COATS BRAND/ Tex · PRODUCT CODE · Customer Service Name.<br>A first full import of many rows can take a minute — keep the tab open. Duplicate rows are merged automatically.</div>
+     <div style="margin-top:18px;border-top:1px solid var(--border);padding-top:14px;">
+       <div class="form-label">Plant name mapping <span style="float:right;font-weight:400;color:var(--muted);font-size:11px;">code → friendly name</span></div>
+       <div style="font-size:12px;color:var(--muted);margin:4px 0 10px;line-height:1.6;">Give each plant code (e.g. <b>BD11</b>, <b>BD12</b>) a readable name. Names show across the Logistics dashboards next to the code. Shared to all PCs.</div>
+       <div id="pk-plant-names"></div>
+     </div>
+     <div style="margin-top:14px;font-size:12px;color:var(--muted);line-height:1.6;">Matches your <b>DN RAW Sheet</b> columns (any order): Ship to Party Name · Ship to Party Address · Requester · Requester Mobile · Business Principal Name · Customer Order Ref. No · Customer Reference Line No. · Coats Material No. · Brand · Size/Tkt · Shade Code · Ordered Qty · Creation Date · Customer Service Executive · StyleNo/ProductionNo · Comments/Remarks · COATS BRAND/ Tex · PRODUCT CODE · Customer Service Name · Delivery Plant · Supply Plant.<br>A first full import of many rows can take a minute — keep the tab open. Duplicate rows are merged automatically.</div>
 
      <div style="margin-top:18px;border-top:1px solid var(--border);padding-top:14px;">
        <div class="form-label">Company logo for printed DN &amp; Sticker (optional)</div>
@@ -2804,6 +2820,7 @@ function pkRenderImport(){
    </div></div>`;
   pkLogoPreview();
   pkRenderImportLog();
+  pkRenderPlantNames();
 }
 function pkRenderImportLog(){
   const el=document.getElementById('pk-import-log'); if(!el)return;
@@ -2823,6 +2840,33 @@ async function pkDeleteImportLog(idx){
   try{ if(typeof dbSaveContacts==='function')await dbSaveContacts(); showToast('Import record removed.'); }
   catch(err){ showToast('Cloud save failed: '+(err.message||err),'err'); }
   pkRenderImportLog();
+}
+function plantLabel(code){ const c=(''+(code==null?'':code)).trim(); if(!c||c==='—')return c||'—'; const m=(typeof CONTACTS!=='undefined'&&CONTACTS&&CONTACTS.plantNames)||{}; const nm=m[c]; return nm?(c+' — '+nm):c; }
+function pkRenderPlantNames(){
+  const el=document.getElementById('pk-plant-names'); if(!el)return;
+  const map=(typeof CONTACTS!=='undefined'&&CONTACTS&&CONTACTS.plantNames)||{};
+  const codes=[...new Set([].concat(Object.keys(map),CACHE.plantDel||[],CACHE.plantSup||[]))].filter(Boolean).sort();
+  const adm=(typeof isAdmin==='function'&&isAdmin());
+  const rowsHtml=codes.map(c=>`<div style="display:flex;gap:8px;align-items:center;margin-bottom:6px;"><span class="mono" style="min-width:90px;font-weight:600;">${attEsc(c)}</span><input class="form-input" data-plant-code="${attEsc(c)}" value="${attEsc(map[c]||'')}" placeholder="Plant name" style="max-width:280px;" ${adm?'':'disabled'}/></div>`).join('');
+  el.innerHTML=`${codes.length?rowsHtml:'<div style="font-size:12px;color:var(--dim);">No plant codes found yet — import a file with Delivery/Supply Plant columns, or add a code below.</div>'}
+   ${adm?`<div style="display:flex;gap:8px;align-items:center;margin:8px 0;flex-wrap:wrap;"><input class="form-input" id="pk-plant-new-code" placeholder="New code (e.g. BD11)" style="max-width:160px;"/><input class="form-input" id="pk-plant-new-name" placeholder="Plant name" style="max-width:240px;"/><button class="btn btn-ghost btn-sm" onclick="pkAddPlantName()">Add</button></div>
+   <button class="btn btn-primary btn-sm" onclick="pkSavePlantNames()">Save plant names</button>`:'<span style="font-size:11px;color:var(--muted);">View only</span>'}`;
+}
+function pkAddPlantName(){
+  if(!(typeof isAdmin==='function'&&isAdmin()))return;
+  const c=(document.getElementById('pk-plant-new-code').value||'').trim();
+  const n=(document.getElementById('pk-plant-new-name').value||'').trim();
+  if(!c){ showToast('Enter a plant code.','err'); return; }
+  if(typeof CONTACTS==='undefined'||!CONTACTS)return; CONTACTS.plantNames=CONTACTS.plantNames||{}; CONTACTS.plantNames[c]=n;
+  pkRenderPlantNames();
+}
+async function pkSavePlantNames(){
+  if(!(typeof isAdmin==='function'&&isAdmin())){ showToast('Only Super Admin can edit plant names.','err'); return; }
+  if(typeof CONTACTS==='undefined'||!CONTACTS)return; CONTACTS.plantNames=CONTACTS.plantNames||{};
+  document.querySelectorAll('[data-plant-code]').forEach(el=>{ const c=el.getAttribute('data-plant-code'); const v=(el.value||'').trim(); if(v)CONTACTS.plantNames[c]=v; else delete CONTACTS.plantNames[c]; });
+  try{ if(typeof dbSaveContacts==='function')await dbSaveContacts(); showToast('Plant names saved (shared to all PCs).'); }
+  catch(e){ showToast('Cloud save failed: '+(e.message||e),'err'); }
+  pkRenderPlantNames();
 }
 function fmtDateTime(iso){ try{ const d=new Date(iso); const p=n=>(''+n).padStart(2,'0'); return p(d.getDate())+'/'+p(d.getMonth()+1)+'/'+d.getFullYear()+' '+p(d.getHours())+':'+p(d.getMinutes()); }catch(e){ return ''; } }
 function pkSaveLogo(){
@@ -2949,6 +2993,7 @@ async function pkDoImport(){
   const fi=document.getElementById('pk-file'); const files=fi?[...fi.files]:[];
   const st=document.getElementById('pk-import-status');
   if(!files.length){ showToast('Choose one or more files first.','err'); return; }
+  window.__pkPlantColMissing=false;
   st.textContent='Loading reader…';
   try{
     await pkLoadSheetJS();
@@ -3000,6 +3045,9 @@ async function pkDoImport(){
     const dupNote=dupMerged?` <span style="color:var(--muted);">${dupMerged} duplicate row${dupMerged>1?'s':''} across files ignored — newest kept.</span>`:'';
     const errNote=fileErrs.length?` <span style="color:var(--amber);">Skipped ${fileErrs.length} file(s) with no recognizable header.</span>`:'';
     st.innerHTML=`<span style="color:var(--green);font-weight:600;">Done — ${recs.length} order lines added / updated from ${files.length} file(s).</span>${dupNote}${errNote} <span style="color:var(--muted);">Kept cumulatively; lines older than 3 months auto-removed.</span>`;
+    if(window.__pkPlantColMissing){ st.innerHTML+=' <span style="color:#e0913a;">⚠ Delivery/Supply Plant was NOT saved — the database columns don\'t exist yet. Run the ALTER TABLE statements (add delivery_plant & supply_plant to sample_lines), then re-import to see plant breakdowns.</span>'; }
+    try{ if(typeof pkLoadPlantMap==='function')await pkLoadPlantMap(true); }catch(_){}
+    if(typeof pkDashLines!=='undefined')pkDashLines=null;
     try{
       if(typeof CONTACTS!=='undefined'&&CONTACTS){ if(!Array.isArray(CONTACTS.importLog))CONTACTS.importLog=[]; CONTACTS.importLog.unshift({names:files.map(f=>f.name), at:new Date().toISOString(), count:recs.length, by:(currentUser&&currentUser.name)||''}); CONTACTS.importLog=CONTACTS.importLog.slice(0,30); if(typeof dbSaveContacts==='function')await dbSaveContacts(); }
     }catch(_){}
