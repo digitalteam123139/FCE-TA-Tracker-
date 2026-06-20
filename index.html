@@ -463,7 +463,7 @@ body{
         <div class="month-bar" id="order-status-bar"></div>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
           <input class="filter-sel" type="text" id="order-no-filter" placeholder="Filter by Order No…" oninput="renderOrders()" style="width:160px;"/>
-          <select class="filter-sel" id="order-task-filter" onchange="renderOrders()"><option value="">All tasks</option><option>Swatch Collection</option><option>Sample Delivery</option></select>
+          <select class="filter-sel" id="order-task-filter" onchange="renderOrders()"><option value="">All tasks</option><option value="Swatch Collection">Collection</option><option value="Sample Delivery">Delivery</option></select>
           <select class="filter-sel" id="order-zone-filter" onchange="renderOrders()"><option value="">All zones</option></select>
           <select class="filter-sel" id="order-service-filter" onchange="renderOrders()"><option value="">All services</option></select>
           <input class="filter-sel" type="text" id="order-resp-filter" list="order-resp-list" placeholder="Responsibility to…" oninput="renderOrders()" style="width:165px;"/>
@@ -559,7 +559,7 @@ body{
    <div id="o-step1">
      <div class="form-grid">
        <div class="form-group"><label class="form-label">Date *</label><input class="form-input" type="date" id="o-date"/></div>
-       <div class="form-group"><label class="form-label">Task Type *</label><select class="form-input" id="o-task" onchange="onTaskChange()"><option value="">Select…</option><option>Swatch Collection</option><option>Sample Delivery</option></select></div>
+       <div class="form-group"><label class="form-label">Task Type *</label><select class="form-input" id="o-task" onchange="onTaskChange()"><option value="">Select…</option><option value="Swatch Collection">Collection</option><option value="Sample Delivery">Delivery</option></select></div>
      </div>
      <div style="margin-top:14px;color:var(--muted);font-size:12.5px;">Pick the <b>date</b> and <b>task type</b>, then continue — you can add many orders at once by uploading a file.</div>
    </div>
@@ -1160,6 +1160,7 @@ function renderCourierEmails(){
 function addCourier(){ if(!isAdmin()){ showToast('Only Super Admin can edit contacts.','err'); return; } const inp=document.getElementById('new-courier-input'); const v=(inp.value||'').trim(); if(!v)return; CONTACTS.courier=CONTACTS.courier||{}; if(!(v in CONTACTS.courier))CONTACTS.courier[v]=''; inp.value=''; renderCourierEmails(); }
 async function saveCourierEmails(){ if(!isAdmin()){ showToast('Only Super Admin can edit contacts.','err'); return; } const map={}; document.querySelectorAll('[id^=cremail-]').forEach(el=>{ const n=el.getAttribute('data-name'); const v=el.value.trim(); if(v)map[n]=v; }); CONTACTS.courier=map; try{ await dbSaveContacts(); showToast('Courier emails saved (shared to all PCs).'); }catch(e){ showToast('Cloud save failed: '+e.message,'err'); } }
 // ---- Send requirement (tap-to-send) ----
+function taskShort(t){ return t==='Swatch Collection'?'Collection':t==='Sample Delivery'?'Delivery':(t||''); }
 function orderResponsible(o){ return o.task==='Sample Delivery' ? (o.service||o.fce||'') : (o.fce||o.service||''); }
 function intlPhone(p){ let d=(''+p).replace(/[^0-9]/g,''); if(d.startsWith('880'))return d; if(d.startsWith('0'))return '88'+d; if(d.length===10)return '880'+d; return d; }
 function orderMsg(o){ const L=['Sample requirement ('+(o.task||'')+')']; if(o.orderNo)L.push('Order No: '+o.orderNo); if(o.customer)L.push('Customer: '+o.customer); if(o.buyer)L.push('Buyer: '+o.buyer); if(o.to)L.push('Zone/Road: '+o.to); if(o.status)L.push('Status: '+o.status); if(o.date)L.push('Date: '+fmtDate(o.date)); if(o.reqTime)L.push('Requested time: '+o.reqTime); if(o.deliveredAt)L.push('Delivery date: '+fmtDate(o.deliveredAt)); L.push('Remarks: '+(o.remarks||'-')); return L.join('\n'); }
@@ -1533,7 +1534,7 @@ function renderOrders(){
       ['Remarks',o.remarks]
     ].filter(x=>x[1]);
     const detail=`<tr id="detail-${o.id}" style="display:none;background:var(--surface2);"><td colspan="2"></td><td colspan="12" style="padding:12px 14px;"><div style="display:flex;flex-wrap:wrap;gap:8px 28px;">${detailItems.length?detailItems.map(([k,v])=>`<div style="min-width:120px;"><div style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-family:'DM Mono',monospace;">${k}</div><div style="font-size:13px;color:var(--text);margin-top:2px;">${v}</div></div>`).join(''):'<span style="font-size:12px;color:var(--muted);">No extra details.</span>'}</div></td></tr>`;
-    return `<tr style="background:${orderRowTint(o)};"><td style="text-align:center;">${canSend?`<input type="checkbox" class="ord-tick" value="${o.id}" onclick="event.stopPropagation()" style="cursor:pointer;" title="Select for combined send">`:''}</td><td>${chevron}</td><td class="mono" style="color:var(--muted);white-space:nowrap;">${d}</td><td style="font-size:12px;">${o.orderNo||'—'}</td><td style="font-size:12px;">${o.task||'—'}</td><td style="font-size:12px;">${o.customer||'—'}</td><td style="font-size:12px;">${o.buyer||'—'}</td><td style="font-size:12px;">${o.service||'—'}</td><td style="font-size:12px;">${o.fce||'—'}</td><td style="font-size:12px;">${o.to||'—'}</td><td style="font-size:12px;color:var(--muted);">${extra}</td><td>${orderStatusBadge(o.status)}</td><td>${note}</td><td><div style="display:flex;gap:4px;align-items:center;">${sendBtn}${editBtn}</div></td></tr>${detail}`;
+    return `<tr style="background:${orderRowTint(o)};"><td style="text-align:center;">${canSend?`<input type="checkbox" class="ord-tick" value="${o.id}" onclick="event.stopPropagation()" style="cursor:pointer;" title="Select for combined send">`:''}</td><td>${chevron}</td><td class="mono" style="color:var(--muted);white-space:nowrap;">${d}</td><td style="font-size:12px;">${o.orderNo||'—'}</td><td style="font-size:12px;">${o.task?attEsc(taskShort(o.task)):'—'}</td><td style="font-size:12px;">${o.customer||'—'}</td><td style="font-size:12px;">${o.buyer||'—'}</td><td style="font-size:12px;">${o.service||'—'}</td><td style="font-size:12px;">${o.fce||'—'}</td><td style="font-size:12px;">${o.to||'—'}</td><td style="font-size:12px;color:var(--muted);">${extra}</td><td>${orderStatusBadge(o.status)}</td><td>${note}</td><td><div style="display:flex;gap:4px;align-items:center;">${sendBtn}${editBtn}</div></td></tr>${detail}`;
   }).join('')||'<tr><td colspan="14" style="text-align:center;color:var(--muted);padding:24px;">No orders yet</td></tr>';
   // Hide the New Order button for view-only users
   const newBtn=document.getElementById('order-new-btn'); if(newBtn) newBtn.style.display=canEdit?'':'none';
@@ -2655,10 +2656,11 @@ function pkDashOps(){
   const tsrc=road?plantFiltered.filter(t=>(t.road||'')===road):plantFiltered;
   const byPer={}; tsrc.forEach(t=>{ const k=pkDashGranKey(t.trip_date,gran)||'—'; if(!byPer[k])byPer[k]={n:0,orders:new Set(),qty:0}; byPer[k].n++; byPer[k].orders.add(t.order_no); byPer[k].qty+=parseFloat(t.total_qty)||0; });
   const perKeys=Object.keys(byPer).filter(k=>k!=='—').sort();
-  const received=orders.filter(o=>o.noteFiles&&o.noteFiles.length);
-  const pending=orders.filter(o=>!(o.noteFiles&&o.noteFiles.length));
+  const delivOrders=orders.filter(o=>o.status==='Delivered');
+  const received=delivOrders.filter(o=>o.noteFiles&&o.noteFiles.length);
+  const pending=delivOrders.filter(o=>!(o.noteFiles&&o.noteFiles.length));
   const gdisp=k=>(k==='—'?'—':(gran==='month'?monthLabel(k):fmtDate(k)));
-  const dnG={}; orders.forEach(o=>{ const k=pkDashGranKey((''+(o.deliveredAt||o.date||'')).slice(0,10),gran)||'—'; const rd=o.to||'—'; const key=k+'||'+rd; if(!dnG[key])dnG[key]={d:k,rd,recv:0,pend:0}; if(o.noteFiles&&o.noteFiles.length)dnG[key].recv++; else dnG[key].pend++; });
+  const dnG={}; delivOrders.forEach(o=>{ const k=pkDashGranKey((''+(o.deliveredAt||o.date||'')).slice(0,10),gran)||'—'; const rd=o.to||'—'; const key=k+'||'+rd; if(!dnG[key])dnG[key]={d:k,rd,recv:0,pend:0}; if(o.noteFiles&&o.noteFiles.length)dnG[key].recv++; else dnG[key].pend++; });
   const dnList=Object.values(dnG).filter(x=>x.recv||x.pend).sort((a,b)=>String(b.d).localeCompare(String(a.d)));
   let tRecv=0,tPend=0; dnList.forEach(x=>{ tRecv+=x.recv; tPend+=x.pend; });
   const pendRows=dnList.map(x=>`<tr><td style="white-space:nowrap;">${gdisp(x.d)}</td><td>${attEsc(x.rd)}</td><td style="text-align:center;color:#46e6a0;font-weight:700;">${x.recv||0}</td><td style="text-align:center;color:#ff9f5a;font-weight:700;">${x.pend||0}</td></tr>`).join('')||`<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:14px;">No DN records.</td></tr>`;
@@ -2678,7 +2680,6 @@ function pkDashOps(){
     <div class="card" style="margin-bottom:14px;"><div style="padding:14px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
       <select class="filter-sel" onchange="pkDashRoad=this.value;pkRenderDash()"><option value="">All roads</option>${roads.map(rd=>`<option ${rd===road?'selected':''}>${attEsc(rd)}</option>`).join('')}</select>
       <select class="filter-sel" title="Delivery Plant" onchange="pkDashDelPlant=this.value;pkRenderDash()">${plantOpts(delPlants,dPlant).replace('All plants','All delivery plants')}</select>
-      <select class="filter-sel" title="Supply Plant" onchange="pkDashSupPlant=this.value;pkRenderDash()">${plantOpts(supPlants,sPlant).replace('All plants','All supply plants')}</select>
       <select class="filter-sel" onchange="pkDashGran=this.value;pkRenderDash()"><option value="day" ${gran==='day'?'selected':''}>By day</option><option value="month" ${gran==='month'?'selected':''}>By month</option></select>
       <span style="font-size:12px;color:var(--muted);">Delivered = trip-list entries (by trip date).</span>
     </div></div>
@@ -2695,7 +2696,7 @@ function pkDashOps(){
     <div class="att-charts" style="margin-bottom:14px;">
       <div class="card"><div class="card-header"><div><div class="card-title">Delivery quantity by entry date &amp; road</div><div class="card-sub">Trip-list deliveries grouped by entry date and road / zone. Selected road is highlighted.</div></div></div>
         <div style="overflow:auto;"><table><thead><tr><th>${gran==='month'?'Entry Month':'Entry Date'}</th><th>Road / Zone</th><th style="text-align:center;">Deliveries</th><th style="text-align:right;">Total qty</th></tr></thead><tbody>${roadRows}${roadTotal}</tbody></table></div></div>
-      <div class="card"><div class="card-header"><div><div class="card-title">DN status by delivery date &amp; road</div><div class="card-sub">Received vs pending DN per delivery date and road / zone. Updates automatically as DN copies are uploaded.</div></div></div>
+      <div class="card"><div class="card-header"><div><div class="card-title">DN status by delivery date &amp; road</div><div class="card-sub">Received vs pending DN per delivery date and road / zone — delivered orders only. Updates automatically as DN copies are uploaded.</div></div></div>
         <div style="overflow:auto;"><table><thead><tr><th>${gran==='month'?'Delivery Month':'Delivery Date'}</th><th>Road / Zone</th><th style="text-align:center;">Received DN</th><th style="text-align:center;">Pending</th></tr></thead><tbody>${pendRows}${pendTotal}</tbody></table></div></div>
     </div>`;
   setTimeout(()=>{
@@ -2730,7 +2731,6 @@ async function pkDashLinesView(){
     <div class="card" style="margin-bottom:14px;"><div style="padding:14px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
       <select class="filter-sel" onchange="pkDashMonth=this.value;pkRenderDash()"><option value="">All months</option>${months.map(m=>`<option value="${m}" ${m===pkDashMonth?'selected':''}>${monthLabel(m)}</option>`).join('')}</select>
       <select class="filter-sel" title="Delivery Plant" onchange="pkLineDelPlant=this.value;pkRenderDash()">${plantOptsL(delPlants,dPlant,'All delivery plants')}</select>
-      <select class="filter-sel" title="Supply Plant" onchange="pkLineSupPlant=this.value;pkRenderDash()">${plantOptsL(supPlants,sPlant,'All supply plants')}</select>
       <span style="font-size:12px;color:var(--muted);">Grouped by Customer + Business Principal + Material No.</span>
       <button class="btn btn-ghost btn-sm" style="margin-left:auto;" onclick="pkDashLines=null;pkRenderDash()">↻ Reload</button>
     </div></div>
