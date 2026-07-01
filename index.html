@@ -2243,7 +2243,7 @@ function attRenderLeaveSection(){
 let pkTab='orders', pkOrder=null, pkResults=[], pkTripDate=null, pkTripRoad='', pkPendingTripOrder='';
 let pkTripSel=new Set(), pkListSel=new Set(), pkListKind='', pkRetCust='', pkPendingCarton='', pkRetGran='month', pkRetRoad='', pkTripPick=null, pkTripPickSel=new Set(), pkTripPickCarton=1;
 let pkDashView='ops', pkDashGran='month', pkDashRoad='', pkDashMonth='', pkDashLines=null, pkDashCharts={};
-let pkDashDelPlant='', pkDashSupPlant='', pkLineDelPlant='', pkLineSupPlant='', pkRepeatsOnly=true;
+let pkDashDelPlant='', pkDashSupPlant='', pkLineDelPlant='', pkLineSupPlant='', pkRepeatsOnly=true, pkRepeatTopN=20;
 
 // ── DB ──
 async function dbPkLookup(orderNo){ const {data,error}=await sb.from('sample_lines').select('*').eq('order_no',orderNo); if(error)throw error; return data||[]; }
@@ -2721,7 +2721,8 @@ async function pkDashLinesView(){
   const aggListAll=Object.values(agg).sort((a,b)=>b.lines-a.lines||b.qty-a.qty);
   const repeatList=aggListAll.filter(x=>x.lines>=2);
   const totalQty=aggListAll.reduce((s,x)=>s+x.qty,0), totalLines=aggListAll.reduce((s,x)=>s+x.lines,0);
-  const matSrc=(pkRepeatsOnly?repeatList:aggListAll).slice(0,50);
+  const matBase=(pkRepeatsOnly?repeatList:aggListAll);
+  const matSrc=(pkRepeatTopN>0?matBase.slice(0,pkRepeatTopN):matBase);
   const matHead=`<th>Customer - Business Principal - Material No</th>${months2.map(m=>`<th style="text-align:center;">${monthLabel(m)}</th>`).join('')}<th style="text-align:center;">Total</th>`;
   const matRows=matSrc.map(x=>`<tr><td>${attEsc([x.cust||'—',x.bp||'—',x.mat||'—'].join(' - '))}</td>${months2.map(m=>`<td style="text-align:center;${x.pm[m]?'':'color:var(--dim);'}">${x.pm[m]||0}</td>`).join('')}<td style="text-align:center;font-weight:800;color:var(--accent2);">${x.lines}</td></tr>`).join('')||`<tr><td colspan="${months2.length+2}" style="text-align:center;color:var(--muted);padding:16px;">No ${pkRepeatsOnly?'repeat ':''}orders for this selection.</td></tr>`;
   const byMonth={}; rows.forEach(r=>{ const m=pkMonthKey(r.creation_date); if(!m)return; byMonth[m]=(byMonth[m]||0)+1; });
@@ -2736,6 +2737,7 @@ async function pkDashLinesView(){
       <select class="filter-sel" onchange="pkDashMonth=this.value;pkRenderDash()"><option value="">All months</option>${months.map(m=>`<option value="${m}" ${m===pkDashMonth?'selected':''}>${monthLabel(m)}</option>`).join('')}</select>
       <select class="filter-sel" title="Delivery Plant" onchange="pkLineDelPlant=this.value;pkRenderDash()">${plantOptsL(delPlants,dPlant,'All delivery plants')}</select>
       <label style="display:inline-flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;"><input type="checkbox" ${pkRepeatsOnly?'checked':''} onchange="pkRepeatsOnly=this.checked;pkRenderDash()"/> Repeats only (ordered ≥ 2×)</label>
+      <select class="filter-sel" title="How many rows to show" onchange="pkRepeatTopN=parseInt(this.value)||0;pkRenderDash()"><option value="0" ${pkRepeatTopN===0?'selected':''}>All</option><option value="5" ${pkRepeatTopN===5?'selected':''}>Top 5</option><option value="10" ${pkRepeatTopN===10?'selected':''}>Top 10</option><option value="20" ${pkRepeatTopN===20?'selected':''}>Top 20</option><option value="30" ${pkRepeatTopN===30?'selected':''}>Top 30</option></select>
       <span style="font-size:12px;color:var(--muted);">Count of order-lines per month, by Customer + Business Principal + Material No.</span>
       <button class="btn btn-ghost btn-sm" style="margin-left:auto;" onclick="pkDashLines=null;pkRenderDash()">↻ Reload</button>
     </div></div>
@@ -2746,7 +2748,7 @@ async function pkDashLinesView(){
       <div class="att-stat"><div class="v">${totalQty}</div><div class="l">Total qty</div></div>
     </div>
     <div class="card" style="margin-bottom:14px;"><div class="form-label" style="margin:0;padding:14px 14px 0;">Monthly order-line count (trend)</div><div style="padding:8px 14px 14px;"><canvas id="pk-dash-trend" height="90"></canvas></div></div>
-    <div class="card"><div class="card-header"><div><div class="card-title">Repeat orders — Customer / Material by month${pkDashMonth?(' — '+monthLabel(pkDashMonth)):''}</div><div class="card-sub">Times each Customer + Business Principal + Material No. was ordered per month. Total = total order-lines. ${pkRepeatsOnly?'Showing combinations ordered 2 or more times. ':''}Top ${matSrc.length} shown.</div></div></div>
+    <div class="card"><div class="card-header"><div><div class="card-title">Repeat orders — Customer / Material by month${pkDashMonth?(' — '+monthLabel(pkDashMonth)):''}</div><div class="card-sub">Times each Customer + Business Principal + Material No. was ordered per month. Total = total order-lines. ${pkRepeatsOnly?'Showing combinations ordered 2 or more times. ':''}${pkRepeatTopN>0?('Top '+pkRepeatTopN):'All'} shown (${matSrc.length}).</div></div></div>
       <div style="overflow:auto;"><table><thead><tr>${matHead}</tr></thead><tbody>${matRows}</tbody></table></div></div>`;
   setTimeout(()=>{ pkDashChart('pk-dash-trend',{type:'line',data:{labels:trendKeys.map(m=>monthLabel(m)),datasets:[{label:'Order lines',data:trendKeys.map(m=>byMonth[m]),borderColor:'#6ea0ff',backgroundColor:'rgba(110,160,255,.14)',borderWidth:2,fill:true,tension:.3,pointBackgroundColor:'#6ea0ff'}]},options:{plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{color:'#b0c6fa',precision:0},grid:{color:'rgba(255,255,255,.10)'}},x:{ticks:{color:'#b0c6fa'},grid:{color:'rgba(255,255,255,.06)'}}}}}); },40);
 }
