@@ -2242,7 +2242,7 @@ function attRenderLeaveSection(){
 // ═══════════════════════════════════════════════════════════════
 let pkTab='orders', pkOrder=null, pkResults=[], pkTripDate=null, pkTripRoad='', pkPendingTripOrder='';
 let pkTripSel=new Set(), pkListSel=new Set(), pkListKind='', pkRetCust='', pkPendingCarton='', pkRetGran='month', pkRetRoad='', pkTripPick=null, pkTripPickSel=new Set(), pkTripPickCarton=1;
-let pkDashView='ops', pkDashGran='month', pkDashRoad='', pkDashMonth='', pkDashLines=null, pkDashCharts={};
+let pkDashView='ops', pkDashGran='month', pkDashRoad='', pkDashMonth='', pkOpsMonth='', pkDashLines=null, pkDashCharts={};
 let pkDashDelPlant='', pkDashSupPlant='', pkLineDelPlant='', pkLineSupPlant='', pkRepeatsOnly=true, pkRepeatTopN=20;
 
 // ── DB ──
@@ -2651,12 +2651,15 @@ function pkDashOps(){
   const PM=CACHE.plantMap||{}; const tdp=t=>((PM[t.order_no]||{}).dp)||''; const tsp=t=>((PM[t.order_no]||{}).sp)||'';
   const delPlants=(CACHE.plantDel&&CACHE.plantDel.length)?CACHE.plantDel:[...new Set(trips.map(tdp).filter(Boolean))].sort();
   const supPlants=(CACHE.plantSup&&CACHE.plantSup.length)?CACHE.plantSup:[...new Set(trips.map(tsp).filter(Boolean))].sort();
-  const gran=pkDashGran, road=pkDashRoad, dPlant=pkDashDelPlant, sPlant=pkDashSupPlant;
-  const plantFiltered=trips.filter(t=>(!dPlant||tdp(t)===dPlant)&&(!sPlant||tsp(t)===sPlant));
+  const gran=pkDashGran, road=pkDashRoad, dPlant=pkDashDelPlant, sPlant=pkDashSupPlant, opsMonth=pkOpsMonth;
+  const tripMonth=t=>(''+(t.trip_date||'')).slice(0,7);
+  const ordMonth=o=>(''+(o.deliveredAt||o.date||'')).slice(0,7);
+  const opsMonths=[...new Set([].concat(trips.map(tripMonth),orders.filter(o=>o.status==='Delivered').map(ordMonth)).filter(Boolean))].sort().reverse();
+  const plantFiltered=trips.filter(t=>(!dPlant||tdp(t)===dPlant)&&(!sPlant||tsp(t)===sPlant)&&(!opsMonth||tripMonth(t)===opsMonth));
   const tsrc=road?plantFiltered.filter(t=>(t.road||'')===road):plantFiltered;
   const byPer={}; tsrc.forEach(t=>{ const k=pkDashGranKey(t.trip_date,gran)||'—'; if(!byPer[k])byPer[k]={n:0,orders:new Set(),qty:0}; byPer[k].n++; byPer[k].orders.add(t.order_no); byPer[k].qty+=parseFloat(t.total_qty)||0; });
   const perKeys=Object.keys(byPer).filter(k=>k!=='—').sort();
-  const delivOrders=orders.filter(o=>o.status==='Delivered');
+  const delivOrders=orders.filter(o=>o.status==='Delivered'&&(!opsMonth||ordMonth(o)===opsMonth));
   const received=delivOrders.filter(o=>o.noteFiles&&o.noteFiles.length);
   const pending=delivOrders.filter(o=>!(o.noteFiles&&o.noteFiles.length));
   const gdisp=k=>(k==='—'?'—':(gran==='month'?monthLabel(k):fmtDate(k)));
@@ -2680,6 +2683,7 @@ function pkDashOps(){
     <div class="card" style="margin-bottom:14px;"><div style="padding:14px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
       <select class="filter-sel" onchange="pkDashRoad=this.value;pkRenderDash()"><option value="">All roads</option>${roads.map(rd=>`<option ${rd===road?'selected':''}>${attEsc(rd)}</option>`).join('')}</select>
       <select class="filter-sel" title="Delivery Plant" onchange="pkDashDelPlant=this.value;pkRenderDash()">${plantOpts(delPlants,dPlant).replace('All plants','All delivery plants')}</select>
+      <select class="filter-sel" title="Month" onchange="pkOpsMonth=this.value;pkRenderDash()"><option value="">All months</option>${opsMonths.map(m=>`<option value="${m}" ${m===opsMonth?'selected':''}>${monthLabel(m)}</option>`).join('')}</select>
       <select class="filter-sel" onchange="pkDashGran=this.value;pkRenderDash()"><option value="day" ${gran==='day'?'selected':''}>By day</option><option value="month" ${gran==='month'?'selected':''}>By month</option></select>
       <span style="font-size:12px;color:var(--muted);">Delivered = trip-list entries (by trip date).</span>
     </div></div>
@@ -2709,7 +2713,6 @@ async function pkDashLinesView(){
   if(!pkDashLines){ box.innerHTML='<div class="card"><div style="padding:18px;color:var(--muted);">Loading order lines… <span class="loader"></span></div></div>'; try{ pkDashLines=await dbPkAllLines(); }catch(e){ box.innerHTML='<div class="card"><div style="padding:18px;color:var(--red);">Could not load order lines: '+attEsc(e.message)+'</div></div>'; return; } }
   const rows=pkDashLines||[];
   const months=[...new Set(rows.map(r=>pkMonthKey(r.creation_date)).filter(Boolean))].sort().reverse();
-  if(!pkDashMonth&&months.length)pkDashMonth=months[0];
   const monthRows=pkDashMonth?rows.filter(r=>pkMonthKey(r.creation_date)===pkDashMonth):rows;
   const lp=r=>(''+(r.delivery_plant||'')).trim(), lsf=r=>(''+(r.supply_plant||'')).trim();
   const delPlants=(CACHE.plantDel&&CACHE.plantDel.length)?CACHE.plantDel:[...new Set(rows.map(lp).filter(Boolean))].sort();
