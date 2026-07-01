@@ -2241,7 +2241,7 @@ function attRenderLeaveSection(){
 //  sample_lines + trip_schedule live in Supabase (run SAMPLE_PACKING_SETUP.sql)
 // ═══════════════════════════════════════════════════════════════
 let pkTab='orders', pkOrder=null, pkResults=[], pkTripDate=null, pkTripRoad='', pkPendingTripOrder='';
-let pkTripSel=new Set(), pkListSel=new Set(), pkListKind='', pkRetCust='', pkPendingCarton='', pkRetGran='month', pkRetRoad='', pkTripPick=null, pkTripPickSel=new Set(), pkTripPickCarton=1;
+let pkTripSel=new Set(), pkListSel=new Set(), pkListKind='', pkRetCust='', pkPendingCarton='', pkRetGran='month', pkRetRoad='', pkRetPlant='', pkRetMonth='', pkTripPick=null, pkTripPickSel=new Set(), pkTripPickCarton=1;
 let pkDashView='ops', pkDashGran='month', pkDashRoad='', pkDashMonth='', pkOpsMonth='', pkDashLines=null, pkDashCharts={};
 let pkDashDelPlant='', pkDashSupPlant='', pkLineDelPlant='', pkLineSupPlant='', pkRepeatsOnly=true, pkRepeatTopN=20;
 
@@ -2549,8 +2549,13 @@ let pkRetChart1=null, pkRetChart2=null;
 function pkReturns(){ return (CACHE.trips||[]).filter(t=>t.kind==='return'); }
 function pkRenderReturns(){
   const all=pkReturns();
+  if(!CACHE._plantLoaded){ try{ pkLoadPlantMap().then(()=>{ if(pkTab==='returns')pkRenderReturns(); }); }catch(e){} }
+  const PM=CACHE.plantMap||{}; const rdp=r=>((PM[r.order_no]||{}).dp)||'';
   const custList=[...new Set(all.map(r=>r.ship_to).filter(Boolean))].sort();
-  const rets=pkRetCust?all.filter(r=>(r.ship_to||'').toLowerCase().includes(pkRetCust.toLowerCase())):all;
+  const roadList=[...new Set(all.map(r=>r.road).filter(Boolean))].sort();
+  const delPlants=(CACHE.plantDel&&CACHE.plantDel.length)?CACHE.plantDel:[...new Set(all.map(rdp).filter(Boolean))].sort();
+  const retMonths=[...new Set(all.map(r=>(r.trip_date||'').slice(0,7)).filter(Boolean))].sort().reverse();
+  const rets=all.filter(r=>(!pkRetCust||(r.ship_to||'').toLowerCase().includes(pkRetCust.toLowerCase()))&&(!pkRetRoad||(r.road||'')===pkRetRoad)&&(!pkRetPlant||rdp(r)===pkRetPlant)&&(!pkRetMonth||(r.trip_date||'').slice(0,7)===pkRetMonth));
   const total=rets.length;
   const orders=new Set(rets.map(r=>r.order_no));
   const repeat=[...orders].filter(o=>rets.filter(r=>r.order_no===o).length>1).length;
@@ -2558,7 +2563,7 @@ function pkRenderReturns(){
   const thisMonth=rets.filter(r=>(r.trip_date||'').slice(0,7)===mNow).length;
   const qty=rets.reduce((s,r)=>s+(parseFloat(r.total_qty)||0),0);
   // group by month + by customer
-  const byMonth={}; rets.forEach(r=>{ const m=(r.trip_date||'').slice(0,7)||'—'; byMonth[m]=(byMonth[m]||0)+1; });
+  const byMonth={}; rets.forEach(r=>{ const m=(pkRetGran==='day'?((r.trip_date||'').slice(0,10)):((r.trip_date||'').slice(0,7)))||'—'; byMonth[m]=(byMonth[m]||0)+1; });
   const byCust={}; rets.forEach(r=>{ const c=r.ship_to||'—'; byCust[c]=(byCust[c]||0)+1; });
   const custTop=Object.entries(byCust).sort((a,b)=>b[1]-a[1]).slice(0,8);
   const tblData=rets.slice().sort((a,b)=>(''+b.trip_date).localeCompare(''+a.trip_date));
@@ -2571,14 +2576,18 @@ function pkRenderReturns(){
   const freqRows=freqDefs.map(([key,label])=>{ const list=freq[key]; const itemsHtml=list.length?`<div style="max-height:90px;overflow:auto;display:flex;flex-wrap:wrap;gap:4px;padding:2px 0;">${list.map(x=>`<span style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:1px 7px;font-size:11px;white-space:nowrap;">${attEsc(x.order)}${x.cust?` · ${attEsc(x.cust)}`:''}</span>`).join('')}</div>`:'<span style="color:var(--muted);">—</span>'; return `<tr><td style="white-space:nowrap;font-weight:600;">${label}</td><td class="mono" style="text-align:center;font-weight:700;color:${list.length?'#e0913a':'var(--muted)'};">${list.length}</td><td>${itemsHtml}</td></tr>`; }).join('');
   const tableRows=tblData.map(r=>`<tr><td><span style="font-size:11px;font-weight:600;color:#e0913a;">Return-${r.return_no||1}</span></td><td style="white-space:nowrap;">${fmtDate(r.trip_date)}</td><td>${attEsc(r.ship_to)}</td><td>${attEsc(r.order_no)}</td><td style="font-size:12px;">${attEsc(r.line_nos)}</td><td>${attEsc(r.road)||'—'}</td><td>${attEsc(r.total_qty)}</td><td>${(isAdmin()||isAuthorizer())?`<button class="btn btn-reject btn-sm" onclick="pkListDelete('${r.id}')">Delete</button>`:''}</td></tr>`).join('')||`<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:18px;">No returns recorded yet. Open an order and click “Add to Return”.</td></tr>`;
   // road-wise grouping (day / month)
-  const roadList=[...new Set(all.map(r=>r.road).filter(Boolean))].sort();
-  const roadSrc=pkRetRoad?rets.filter(r=>(r.road||'')===pkRetRoad):rets;
-  const byPR={}; roadSrc.forEach(r=>{ const per=pkRetGran==='day'?((r.trip_date||'').slice(0,10)||'—'):((r.trip_date||'').slice(0,7)||'—'); const rd=r.road||'—'; const key=per+'||'+rd; if(!byPR[key])byPR[key]={per,rd,n:0,q:0}; byPR[key].n++; byPR[key].q+=parseFloat(r.total_qty)||0; });
+  const byPR={}; rets.forEach(r=>{ const per=pkRetGran==='day'?((r.trip_date||'').slice(0,10)||'—'):((r.trip_date||'').slice(0,7)||'—'); const rd=r.road||'—'; const key=per+'||'+rd; if(!byPR[key])byPR[key]={per,rd,n:0,q:0}; byPR[key].n++; byPR[key].q+=parseFloat(r.total_qty)||0; });
   const roadRows=Object.values(byPR).sort((a,b)=>String(b.per).localeCompare(String(a.per))||String(a.rd).localeCompare(String(b.rd))).map(x=>`<tr><td style="white-space:nowrap;">${pkRetGran==='day'?(x.per==='—'?'—':fmtDate(x.per)):(x.per==='—'?'—':monthLabel(x.per))}</td><td>${attEsc(x.rd)}</td><td style="text-align:center;">${x.n}</td><td style="text-align:center;">${x.q}</td></tr>`).join('')||`<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:14px;">No road data.</td></tr>`;
   document.getElementById('pk-body').innerHTML=`
    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:14px;">
-     <div class="card-title" style="margin:0;">Returns Trend</div>
-     <input class="filter-sel" id="pk-ret-search" type="text" value="${attEsc(pkRetCust)}" placeholder="Search customer…" style="min-width:240px;" oninput="pkRetCust=this.value;pkRenderReturns()"/>
+     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+       <div class="card-title" style="margin:0;">Returns Trend</div>
+       <select class="filter-sel" onchange="pkRetRoad=this.value;pkRenderReturns()"><option value="">All roads</option>${roadList.map(rd=>`<option ${rd===pkRetRoad?'selected':''}>${attEsc(rd)}</option>`).join('')}</select>
+       <select class="filter-sel" title="Delivery Plant" onchange="pkRetPlant=this.value;pkRenderReturns()"><option value="">All delivery plants</option>${delPlants.map(p=>`<option value="${attEsc(p)}" ${p===pkRetPlant?'selected':''}>${attEsc(typeof plantLabel==='function'?plantLabel(p):p)}</option>`).join('')}</select>
+       <select class="filter-sel" title="Month" onchange="pkRetMonth=this.value;pkRenderReturns()"><option value="">All months</option>${retMonths.map(m=>`<option value="${m}" ${m===pkRetMonth?'selected':''}>${monthLabel(m)}</option>`).join('')}</select>
+       <select class="filter-sel" onchange="pkRetGran=this.value;pkRenderReturns()"><option value="month" ${pkRetGran==='month'?'selected':''}>By month</option><option value="day" ${pkRetGran==='day'?'selected':''}>By day</option></select>
+     </div>
+     <input class="filter-sel" id="pk-ret-search" type="text" value="${attEsc(pkRetCust)}" placeholder="Search customer…" style="min-width:220px;" oninput="pkRetCust=this.value;pkRenderReturns()"/>
    </div>
    <div class="att-stat-row" style="margin-bottom:14px;">
      <div class="att-stat"><div class="v">${total}</div><div class="l">Total return days</div></div>
@@ -2588,14 +2597,10 @@ function pkRenderReturns(){
      <div class="att-stat"><div class="v">${qty}</div><div class="l">Total returned qty</div></div>
    </div>
    <div class="att-charts" style="margin-bottom:14px;">
-     <div class="card"><div class="form-label" style="margin:0 0 6px;">Returns by month</div><canvas id="pk-ret-month"></canvas></div>
+     <div class="card"><div class="form-label" style="margin:0 0 6px;">Returns by ${pkRetGran==='day'?'day':'month'}</div><canvas id="pk-ret-month"></canvas></div>
      <div class="card"><div class="form-label" style="margin:0 0 6px;">Top customers by returns</div><canvas id="pk-ret-cust"></canvas></div>
    </div>
-   <div class="card" style="margin-bottom:14px;"><div class="card-header"><div><div class="card-title">Returns by road</div><div class="card-sub">Road-wise returns grouped by ${pkRetGran==='day'?'day':'month'}.</div></div>
-     <div class="card-actions" style="display:flex;gap:8px;flex-wrap:wrap;">
-       <select class="filter-sel" onchange="pkRetRoad=this.value;pkRenderReturns()"><option value="">All roads</option>${roadList.map(rd=>`<option ${rd===pkRetRoad?'selected':''}>${attEsc(rd)}</option>`).join('')}</select>
-       <select class="filter-sel" onchange="pkRetGran=this.value;pkRenderReturns()"><option value="month" ${pkRetGran==='month'?'selected':''}>By month</option><option value="day" ${pkRetGran==='day'?'selected':''}>By day</option></select>
-     </div></div>
+   <div class="card" style="margin-bottom:14px;"><div class="card-header"><div><div class="card-title">Returns by road</div><div class="card-sub">Road-wise returns grouped by ${pkRetGran==='day'?'day':'month'} — follows the filters above.</div></div></div>
      <div style="overflow:auto;"><table><thead><tr><th>${pkRetGran==='day'?'Day':'Month'}</th><th>Road</th><th style="text-align:center;">Returns</th><th style="text-align:center;">Qty</th></tr></thead><tbody>${roadRows}</tbody></table></div></div>
    <div class="card" style="margin-bottom:14px;"><div class="card-header"><div><div class="card-title">Repeat-return frequency</div><div class="card-sub">The same order returned more than once — grouped by how many times it came back (Return-2, Return-3 …), regardless of date. Long lists scroll inside the cell.</div></div></div>
      <div style="overflow:auto;"><table><thead><tr><th>Frequency</th><th style="text-align:center;">Orders</th><th>Order No (Customer)</th></tr></thead><tbody>${freqRows}</tbody></table></div></div>
@@ -2607,7 +2612,7 @@ function pkRenderReturns(){
   setTimeout(()=>{ try{
     if(pkRetChart1)pkRetChart1.destroy(); if(pkRetChart2)pkRetChart2.destroy();
     const mk=Object.keys(byMonth).sort(); 
-    const c1=document.getElementById('pk-ret-month'); if(c1)pkRetChart1=new Chart(c1,{type:'bar',data:{labels:mk.map(m=>m==='—'?m:monthLabel(m)),datasets:[{label:'Returns',data:mk.map(m=>byMonth[m]),backgroundColor:'#e0913a'}]},options:{plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{precision:0}}}}});
+    const c1=document.getElementById('pk-ret-month'); if(c1)pkRetChart1=new Chart(c1,{type:'bar',data:{labels:mk.map(m=>m==='—'?m:(pkRetGran==='day'?fmtDate(m):monthLabel(m))),datasets:[{label:'Returns',data:mk.map(m=>byMonth[m]),backgroundColor:'#e0913a'}]},options:{plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{precision:0}}}}});
     const c2=document.getElementById('pk-ret-cust'); if(c2)pkRetChart2=new Chart(c2,{type:'bar',data:{labels:custTop.map(x=>x[0].length>18?x[0].slice(0,18)+'…':x[0]),datasets:[{label:'Returns',data:custTop.map(x=>x[1]),backgroundColor:fceColorList(custTop.map(x=>x[0]))}]},options:{indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{beginAtZero:true,ticks:{precision:0}}}}});
   }catch(e){} },60);
 }
