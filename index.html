@@ -2886,7 +2886,9 @@ function pkDashOps(){
     </div>`;
   setTimeout(()=>{
     pkDashChart('pk-dash-deliv',{type:'bar',data:{labels:perKeys.map(k=>gran==='month'?monthLabel(k):fmtDate(k)),datasets:[{label:'Deliveries',data:perKeys.map(k=>byPer[k].n),backgroundColor:perKeys.map((k,i)=>['#6ea0ff','#46e6a0','#ff9f5a','#c792ea','#ffd166','#4ecdc4'][i%6])}]},options:{plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{color:'#b0c6fa',precision:0},grid:{color:'rgba(255,255,255,.10)'}},x:{ticks:{color:'#b0c6fa'},grid:{color:'rgba(255,255,255,.06)'}}}}});
-    pkDashChart('pk-dash-dn',{type:'doughnut',data:{labels:['Received','Pending'],datasets:[{data:[received.length,pending.length],backgroundColor:['#46e6a0','#ff9f5a'],borderColor:'rgba(0,0,0,0)'}]},options:{plugins:{legend:{labels:{color:'#b0c6fa'}}}}});
+    const dnTotal=received.length+pending.length;
+    const dnCenter={id:'dnCenter',afterDraw(chart){ const {ctx,chartArea}=chart; if(!chartArea)return; ctx.save(); const cx=(chartArea.left+chartArea.right)/2, cy=(chartArea.top+chartArea.bottom)/2; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillStyle='#e8f0ff'; ctx.font='700 22px sans-serif'; ctx.fillText(String(dnTotal),cx,cy-8); ctx.fillStyle='#8aa2c4'; ctx.font='11px sans-serif'; ctx.fillText('total entries',cx,cy+12); ctx.restore(); }};
+    pkDashChart('pk-dash-dn',{type:'doughnut',data:{labels:['Received','Pending'],datasets:[{data:[received.length,pending.length],backgroundColor:['#46e6a0','#ff9f5a'],borderColor:'rgba(0,0,0,0)'}]},options:{cutout:'62%',plugins:{legend:{labels:{color:'#b0c6fa'}}}},plugins:[dnCenter]});
   },40);
 }
 async function pkDashLinesView(){
@@ -2902,7 +2904,7 @@ async function pkDashLinesView(){
   const fRows=monthRows.filter(r=>(!dPlant||lp(r)===dPlant)&&(!sPlant||lsf(r)===sPlant));
   const months2=[...new Set(fRows.map(r=>pkMonthKey(r.creation_date)).filter(Boolean))].sort();
   const fullMat=r=>{ let m=(r.material_no||'').trim(); const sh=(r.shade||'').trim(); if(sh&&!m.toUpperCase().includes(sh.toUpperCase()))m=m+(m===''||m.endsWith('-')?'':'-')+sh; return m; };
-  const agg={}; fRows.forEach(r=>{ const cust=(r.customer_name||r.ship_to||'').trim(), bp=(r.buyer||'').trim(), mat=fullMat(r); const key=[cust,bp,mat].join('|||'); if(!agg[key])agg[key]={cust,bp,mat,qty:0,lines:0,pm:{}}; const m=pkMonthKey(r.creation_date); agg[key].qty+=parseFloat(r.qty)||0; agg[key].lines++; if(m)agg[key].pm[m]=(agg[key].pm[m]||0)+1; });
+  const agg={}; fRows.forEach(r=>{ const cust=(r.customer_name||r.ship_to||'').trim(), bp=(r.buyer||'').trim(), mat=fullMat(r); const key=[cust,bp,mat].join('|||'); if(!agg[key])agg[key]={cust,bp,mat,qty:0,lines:0,pm:{},pq:{}}; const m=pkMonthKey(r.creation_date); const q=parseFloat(r.qty)||0; agg[key].qty+=q; agg[key].lines++; if(m){ agg[key].pm[m]=(agg[key].pm[m]||0)+1; agg[key].pq[m]=(agg[key].pq[m]||0)+q; } });
   const aggListAll=Object.values(agg).sort((a,b)=>b.lines-a.lines||b.qty-a.qty);
   const repeatList=aggListAll.filter(x=>x.lines>=2);
   const totalQty=aggListAll.reduce((s,x)=>s+x.qty,0), totalLines=aggListAll.reduce((s,x)=>s+x.lines,0);
@@ -2911,7 +2913,7 @@ async function pkDashLinesView(){
   const matFiltered=term?matBase.filter(x=>(((x.cust||'')+' '+(x.bp||'')).toLowerCase().includes(term))):matBase;
   const matSrc=(pkRepeatTopN>0?matFiltered.slice(0,pkRepeatTopN):matFiltered);
   const matHead=`<th>Customer - Business Principal - Material No</th>${months2.map(m=>`<th style="text-align:center;">${monthLabel(m)}</th>`).join('')}<th style="text-align:center;">Total</th>`;
-  const matRows=matSrc.map(x=>`<tr><td>${attEsc([x.cust||'—',x.bp||'—',x.mat||'—'].join(' - '))}</td>${months2.map(m=>`<td style="text-align:center;${x.pm[m]?'':'color:var(--dim);'}">${x.pm[m]||0}</td>`).join('')}<td style="text-align:center;font-weight:800;color:var(--accent2);">${x.lines}</td></tr>`).join('')||`<tr><td colspan="${months2.length+2}" style="text-align:center;color:var(--muted);padding:16px;">No ${pkRepeatsOnly?'repeat ':''}orders for this selection.</td></tr>`;
+  const matRows=matSrc.map(x=>`<tr><td>${attEsc([x.cust||'—',x.bp||'—',x.mat||'—'].join(' - '))}</td>${months2.map(m=>`<td style="text-align:center;${x.pm[m]?'':'color:var(--dim);'}">${x.pm[m]?(x.pm[m]+'/'+(Math.round((x.pq[m]||0)*100)/100)):'0'}</td>`).join('')}<td style="text-align:center;font-weight:800;color:var(--accent2);">${x.lines}/${Math.round(x.qty*100)/100}</td></tr>`).join('')||`<tr><td colspan="${months2.length+2}" style="text-align:center;color:var(--muted);padding:16px;">No ${pkRepeatsOnly?'repeat ':''}orders for this selection.</td></tr>`;
   const byMonth={}; rows.forEach(r=>{ const m=pkMonthKey(r.creation_date); if(!m)return; byMonth[m]=(byMonth[m]||0)+1; });
   const trendKeys=Object.keys(byMonth).sort();
   const byDelL={}, bySupL={};
@@ -2936,7 +2938,7 @@ async function pkDashLinesView(){
       <div class="att-stat"><div class="v">${totalQty}</div><div class="l">Total qty</div></div>
     </div>
     <div class="card" style="margin-bottom:14px;"><div class="form-label" style="margin:0;padding:14px 14px 0;">Monthly order-line count (trend)</div><div style="padding:8px 14px 14px;"><canvas id="pk-dash-trend" height="90"></canvas></div></div>
-    <div class="card"><div class="card-header"><div><div class="card-title">Repeat orders — Customer / Material by month${pkDashMonth?(' — '+monthLabel(pkDashMonth)):''}</div><div class="card-sub">Times each Customer + Business Principal + Material No. was ordered per month. Total = total order-lines. ${pkRepeatsOnly?'Showing combinations ordered 2 or more times. ':''}${pkRepeatTopN>0?('Top '+pkRepeatTopN):'All'} shown (${matSrc.length}).</div></div></div>
+    <div class="card"><div class="card-header"><div><div class="card-title">Repeat orders — Customer / Material by month${pkDashMonth?(' — '+monthLabel(pkDashMonth)):''}</div><div class="card-sub">Each cell shows <b>Lines/Qty</b> — how many times ordered and total quantity that month, per Customer + Business Principal + Material No. Total = all order-lines/qty. ${pkRepeatsOnly?'Showing combinations ordered 2 or more times. ':''}${pkRepeatTopN>0?('Top '+pkRepeatTopN):'All'} shown (${matSrc.length}).</div></div></div>
       <div style="overflow:auto;"><table><thead><tr>${matHead}</tr></thead><tbody>${matRows}</tbody></table></div></div>`;
   setTimeout(()=>{ const si=document.getElementById('pk-rep-search'); if(si&&pkRepeatSearch&&document.activeElement!==si){ si.focus(); si.setSelectionRange(si.value.length,si.value.length); } pkDashChart('pk-dash-trend',{type:'line',data:{labels:trendKeys.map(m=>monthLabel(m)),datasets:[{label:'Order lines',data:trendKeys.map(m=>byMonth[m]),borderColor:'#6ea0ff',backgroundColor:'rgba(110,160,255,.14)',borderWidth:2,fill:true,tension:.3,pointBackgroundColor:'#6ea0ff'}]},options:{plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{color:'#b0c6fa',precision:0},grid:{color:'rgba(255,255,255,.10)'}},x:{ticks:{color:'#b0c6fa'},grid:{color:'rgba(255,255,255,.06)'}}}}}); },40);
 }
