@@ -522,7 +522,6 @@ body{
         <button class="att-tab active" data-pk="orders" onclick="pkSwitch('orders',this)">Orders · DN · Sticker Print</button>
         <button class="att-tab" data-pk="trip" onclick="pkSwitch('trip',this)">Trip Schedule Print</button>
         <button class="att-tab" data-pk="list" onclick="pkSwitch('list',this)">Trip List</button>
-        <button class="att-tab" data-pk="returns" onclick="pkSwitch('returns',this)">Returns Trend</button>
         <button class="att-tab" data-pk="import" onclick="pkSwitch('import',this)">Import Data Management</button>
       </div>
       <div id="pk-body"></div>
@@ -2449,10 +2448,10 @@ async function pkRender(){
   await pkLoadTrips();
   if(!PKM.loaded){ await dbPkmLoad(); }
   document.querySelectorAll('#page-packing .att-tab').forEach(b=>b.classList.toggle('active',b.getAttribute('data-pk')===pkTab));
+  if(pkTab==='returns')pkTab='orders'; // Returns Trend moved to the Logistics Dashboard
   if(pkTab==='orders')pkRenderOrders();
   else if(pkTab==='trip')pkRenderTrip();
   else if(pkTab==='list')pkRenderList();
-  else if(pkTab==='returns')pkRenderReturns();
   else pkRenderImport();
 }
 
@@ -2725,7 +2724,7 @@ let pkRetChart1=null, pkRetChart2=null;
 function pkReturns(){ return (CACHE.trips||[]).filter(t=>t.kind==='return'); }
 function pkRenderReturns(){
   const all=pkReturns();
-  if(!CACHE._plantLoaded){ try{ pkLoadPlantMap().then(()=>{ if(pkTab==='returns')pkRenderReturns(); }); }catch(e){} }
+  if(!CACHE._plantLoaded){ try{ pkLoadPlantMap().then(()=>{ if(pkDashView==='returns')pkRenderReturns(); }); }catch(e){} }
   const PM=CACHE.plantMap||{}; const rdp=r=>((PM[r.order_no]||{}).dp)||'';
   const custList=[...new Set(all.map(r=>r.ship_to).filter(Boolean))].sort();
   const roadList=[...new Set(all.map(r=>r.road).filter(Boolean))].sort();
@@ -2754,7 +2753,8 @@ function pkRenderReturns(){
   // road-wise grouping (day / month)
   const byPR={}; rets.forEach(r=>{ const per=pkRetGran==='day'?((r.trip_date||'').slice(0,10)||'—'):((r.trip_date||'').slice(0,7)||'—'); const rd=r.road||'—'; const key=per+'||'+rd; if(!byPR[key])byPR[key]={per,rd,n:0,q:0}; byPR[key].n++; byPR[key].q+=parseFloat(r.total_qty)||0; });
   const roadRows=Object.values(byPR).sort((a,b)=>String(b.per).localeCompare(String(a.per))||String(a.rd).localeCompare(String(b.rd))).map(x=>`<tr><td style="white-space:nowrap;">${pkRetGran==='day'?(x.per==='—'?'—':fmtDate(x.per)):(x.per==='—'?'—':monthLabel(x.per))}</td><td>${attEsc(x.rd)}</td><td style="text-align:center;">${x.n}</td><td style="text-align:center;">${x.q}</td></tr>`).join('')||`<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:14px;">No road data.</td></tr>`;
-  document.getElementById('pk-body').innerHTML=`
+  const retHost=document.getElementById('pk-dash-body')||document.getElementById('pk-body'); if(!retHost)return;
+  retHost.innerHTML=`
    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:14px;">
      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
        <div class="card-title" style="margin:0;">Returns Trend</div>
@@ -2821,8 +2821,9 @@ function pkRenderDash(){
   b.innerHTML=`<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;">
      <button class="att-tab ${pkDashView==='ops'?'active':''}" onclick="pkDashView='ops';pkRenderDash()">Deliveries &amp; DN</button>
      <button class="att-tab ${pkDashView==='lines'?'active':''}" onclick="pkDashView='lines';pkRenderDash()">Repeated Order</button>
+     <button class="att-tab ${pkDashView==='returns'?'active':''}" onclick="pkDashView='returns';pkRenderDash()">Returns Trend</button>
    </div><div id="pk-dash-body"></div>`;
-  if(pkDashView==='ops')pkDashOps(); else pkDashLinesView();
+  if(pkDashView==='ops')pkDashOps(); else if(pkDashView==='returns')pkRenderReturns(); else pkDashLinesView();
 }
 function pkDashOps(){
   const box=document.getElementById('pk-dash-body'); if(!box)return;
