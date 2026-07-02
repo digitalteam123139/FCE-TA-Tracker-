@@ -457,6 +457,37 @@ body{
       </div>
     </div>
 
+    <!-- PROFILE SETTINGS -->
+    <div class="page" id="page-profile">
+      <div class="section-hint">Your personal settings — language preference, display name, and password. Changes apply to your account only.</div>
+      <div class="card" style="max-width:560px;margin-bottom:14px;"><div class="card-header"><div class="card-title">Language</div></div>
+        <div style="padding:16px;">
+          <div class="form-group" style="max-width:280px;"><label class="form-label">Interface language</label>
+            <select class="form-input" id="pf-lang"><option value="en">English</option><option value="bn">বাংলা (Bangla)</option></select></div>
+          <button class="btn btn-primary btn-sm" onclick="pfSaveLang()">Save language</button>
+          <div style="font-size:11px;color:var(--muted);margin-top:8px;">Saved on this device for your account.</div>
+        </div></div>
+      <div class="card" style="max-width:560px;margin-bottom:14px;"><div class="card-header"><div class="card-title">Name</div></div>
+        <div style="padding:16px;">
+          <div class="form-grid">
+            <div class="form-group"><label class="form-label">First Name *</label><input class="form-input" type="text" id="pf-first" placeholder="First name"/></div>
+            <div class="form-group"><label class="form-label">Last Name</label><input class="form-input" type="text" id="pf-last" placeholder="Last name"/></div>
+          </div>
+          <button class="btn btn-primary btn-sm" onclick="pfSaveName()">Save name</button>
+          <span id="pf-name-err" style="font-size:12px;color:var(--red);margin-left:8px;"></span>
+        </div></div>
+      <div class="card" style="max-width:560px;"><div class="card-header"><div class="card-title">Change Password</div></div>
+        <div style="padding:16px;">
+          <div class="form-group" style="max-width:320px;"><label class="form-label">Current password *</label><input class="form-input" type="password" id="pf-old" autocomplete="current-password"/></div>
+          <div class="form-grid">
+            <div class="form-group"><label class="form-label">New password *</label><input class="form-input" type="password" id="pf-new" autocomplete="new-password"/></div>
+            <div class="form-group"><label class="form-label">Confirm new password *</label><input class="form-input" type="password" id="pf-new2" autocomplete="new-password"/></div>
+          </div>
+          <button class="btn btn-primary btn-sm" onclick="pfChangePassword()">Change password</button>
+          <span id="pf-pw-err" style="font-size:12px;color:var(--red);margin-left:8px;"></span>
+        </div></div>
+    </div>
+
     <!-- ORDER TRACKER -->
     <div class="page" id="page-orders">
       <div class="detail-meta">
@@ -482,7 +513,7 @@ body{
         <span style="display:inline-flex;align-items:center;gap:5px;"><span style="width:11px;height:11px;border-radius:3px;background:rgba(255,90,95,.98);"></span>3+ days due</span>
         <span style="display:inline-flex;align-items:center;gap:5px;"><span style="width:11px;height:11px;border-radius:3px;background:rgba(70,230,160,.95);"></span>DN uploaded</span>
       </div>
-      <div class="card" style="overflow:auto;"><table><thead><tr><th style="width:26px;text-align:center;"><input type="checkbox" id="ord-tick-all" onclick="toggleAllTicks(this)" title="Select all" style="cursor:pointer;"></th><th style="width:30px;"></th><th>Date</th><th>Order No</th><th>Task</th><th>Customer</th><th>Buyer</th><th>Service By</th><th>Responsibility To</th><th>Delivery Zone</th><th>Req. Time / Delivered</th><th>Status</th><th>DN Download</th><th>Actions</th></tr></thead><tbody id="orders-table"></tbody></table></div>
+      <div class="card" style="overflow:auto;"><table><thead><tr><th style="width:26px;text-align:center;"><input type="checkbox" id="ord-tick-all" onclick="toggleAllTicks(this)" title="Select all" style="cursor:pointer;"></th><th style="width:30px;"></th><th>Entry Date</th><th>Order No</th><th>Task</th><th>Customer</th><th>Buyer</th><th>Service By</th><th>Responsibility To</th><th>Delivery Zone</th><th>Req. Time / Delivered</th><th>Status</th><th>DN Download</th><th>Actions</th></tr></thead><tbody id="orders-table"></tbody></table></div>
     </div>
 
     <!-- SAMPLE PACKING -->
@@ -842,6 +873,7 @@ function userPages(u){
 }
 function canSee(pageId,u){
   u=u||currentUser;
+  if(pageId==='profile') return !!u; // every signed-in user can open Profile Settings
   const custom=userPages(u);
   if(custom){ return custom.includes(pageId); }
   const it=NAV_ITEMS.find(i=>i.id===pageId);
@@ -863,6 +895,7 @@ const NAV_ITEMS=[
   {id:'attendance',label:'Attendance',group:'Attendance',icon:'<path d="M8 2v4M16 2v4"/><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18"/><path d="M9 16l2 2 4-4"/>',roles:['admin','authorizer','teamleader']},
   {id:'masterdata',label:'Master Data',group:'Admin',icon:'<path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>',roles:['admin','authorizer']},
   {id:'users',label:'User Accounts',group:'Admin',icon:'<path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/>',roles:['admin']},
+  {id:'profile',label:'Profile Settings',group:'Account',icon:'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 11-4 0v-.09a1.65 1.65 0 00-1-1.51 1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 110-4h.09a1.65 1.65 0 001.51-1 1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33h0a1.65 1.65 0 001-1.51V3a2 2 0 114 0v.09a1.65 1.65 0 001 1.51h0a1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82v0a1.65 1.65 0 001.51 1H21a2 2 0 110 4h-.09a1.65 1.65 0 00-1.51 1z"/>',roles:['admin','authorizer','fce','logistics','teamleader','packer']},
 ];
 function buildNav(){
   const items=NAV_ITEMS.filter(it=>canSee(it.id));
@@ -1255,6 +1288,60 @@ async function editMasterItem(type,idx){
 }
 
 // ═══ USERS ═══
+// ═══ PROFILE SETTINGS ═══
+function pfLangKey(){ return 'app_lang_'+(currentUser?currentUser.id:''); }
+function renderProfile(){
+  if(!currentUser)return;
+  const langSel=document.getElementById('pf-lang'); if(langSel)langSel.value=localStorage.getItem(pfLangKey())||'en';
+  const parts=(currentUser.name||'').trim().split(/\s+/);
+  const first=parts.length>1?parts.slice(0,-1).join(' '):(parts[0]||'');
+  const last=parts.length>1?parts[parts.length-1]:'';
+  const f=document.getElementById('pf-first'), l=document.getElementById('pf-last');
+  if(f)f.value=first; if(l)l.value=last;
+  ['pf-old','pf-new','pf-new2'].forEach(id=>{ const el=document.getElementById(id); if(el)el.value=''; });
+  const e1=document.getElementById('pf-name-err'), e2=document.getElementById('pf-pw-err'); if(e1)e1.textContent=''; if(e2)e2.textContent='';
+}
+function pfSaveLang(){
+  const v=document.getElementById('pf-lang').value||'en';
+  localStorage.setItem(pfLangKey(),v);
+  document.documentElement.lang=v;
+  showToast(v==='bn'?'ভাষা সংরক্ষিত হয়েছে (Language saved).':'Language preference saved.');
+}
+async function pfSaveName(){
+  const err=document.getElementById('pf-name-err'); err.textContent='';
+  const first=(document.getElementById('pf-first').value||'').trim();
+  const last=(document.getElementById('pf-last').value||'').trim();
+  if(!first){ err.textContent='First name is required.'; return; }
+  const full=(first+' '+last).trim();
+  try{
+    const {error}=await sb.from('app_users').update({name:full}).eq('id',currentUser.id);
+    if(error)throw error;
+    currentUser.name=full;
+    const lbl=document.getElementById('current-user-label'); if(lbl)lbl.textContent=full;
+    showToast('Name updated.');
+  }catch(e){ err.textContent='Failed: '+(e.message||e); }
+}
+async function pfChangePassword(){
+  const err=document.getElementById('pf-pw-err'); err.textContent='';
+  const oldPw=document.getElementById('pf-old').value;
+  const nw=document.getElementById('pf-new').value;
+  const nw2=document.getElementById('pf-new2').value;
+  if(!oldPw||!nw||!nw2){ err.textContent='Fill in all three fields.'; return; }
+  if(nw!==nw2){ err.textContent='New passwords do not match.'; return; }
+  if(nw.length<4){ err.textContent='New password must be at least 4 characters.'; return; }
+  if(nw===oldPw){ err.textContent='New password must be different from the current one.'; return; }
+  try{
+    // verify current password against the freshest DB value
+    const {data,error}=await sb.from('app_users').select('password').eq('id',currentUser.id).single();
+    if(error||!data)throw (error||new Error('Account not found'));
+    if(data.password!==oldPw){ err.textContent='Current password is incorrect.'; return; }
+    const r=await sb.from('app_users').update({password:nw}).eq('id',currentUser.id);
+    if(r.error)throw r.error;
+    currentUser.password=nw;
+    ['pf-old','pf-new','pf-new2'].forEach(id=>document.getElementById(id).value='');
+    showToast('Password changed. Use the new password next time you sign in.');
+  }catch(e){ err.textContent='Failed: '+(e.message||e); }
+}
 function onRoleChange(){ const r=document.getElementById('nu-role').value; document.getElementById('nu-fce-wrap').style.display=r==='fce'?'flex':'none'; const st=document.getElementById('nu-station'); if(st){ if(r==='teamleader'){ st.placeholder='Location (must match employees): Chattogram / Gazipur / Dhaka H/O'; } else { st.placeholder='e.g. Chittagong, Rajendrapur'; } } }
 function renderUsers(){
   if(!isAdmin())return;
@@ -1401,7 +1488,7 @@ function downloadChartsTable(){
 }
 
 // ═══ NAV ═══
-const PAGE_META={dashboard:['Dashboard','FCE TA performance overview'],visitlog:['Visit Log','All daily visit records'],charts:['Charts','Visual analytics & summary table'],perfce:['Per FCE','Individual FCE breakdown'],addentry:['Add Entry','Record a new TA visit'],approval:['Approvals','Review and approve TA claims'],masterdata:['Master Data','Manage lists used in forms'],users:['User Accounts','Manage user access'],orders:['Order Tracker','Swatch collection & sample delivery'],packing:['Sample Packing','Delivery notes, stickers & trip schedules'],logdash:['Logistics Dashboard','Deliveries, DN status & order lines placed'],attendance:['Attendance Tracker','Daily attendance, dashboards & Packer bonus']};
+const PAGE_META={dashboard:['Dashboard','FCE TA performance overview'],visitlog:['Visit Log','All daily visit records'],charts:['Charts','Visual analytics & summary table'],perfce:['Per FCE','Individual FCE breakdown'],addentry:['Add Entry','Record a new TA visit'],approval:['Approvals','Review and approve TA claims'],masterdata:['Master Data','Manage lists used in forms'],users:['User Accounts','Manage user access'],orders:['Order Tracker','Swatch collection & sample delivery'],packing:['Sample Packing','Delivery notes, stickers & trip schedules'],logdash:['Logistics Dashboard','Deliveries, DN status & order lines placed'],attendance:['Attendance Tracker','Daily attendance, dashboards & Packer bonus'],profile:['Profile Settings','Language, name & password']};
 let activePage='dashboard';
 function showPage(name,btn){
   if(!canSee(name)){ showToast('You don\'t have access to this page.','err'); return; }
@@ -1438,6 +1525,7 @@ function rerenderActive(){
   if(name==='approval')renderApprovalQueue();
   if(name==='masterdata')renderMasterData();
   if(name==='users')renderUsers();
+  if(name==='profile')renderProfile();
   if(name==='orders')renderOrders();
   if(name==='packing')pkRender();
   if(name==='logdash')renderLogDash();
@@ -2130,7 +2218,7 @@ function renderAnnounceBar(){
   // LED scrolling ticker — shows ALL announcements the user may see (logistics: their own + everyone)
   bar.classList.add('led');
   t.className='ann-text ann-neon';
-  const seg=a=>`<span class="seg-tag${a.audience==='logistics'?' log':''}">◉ ${a.audience==='logistics'?'LOGISTICS':'OTHERS'}</span>&nbsp;—&nbsp;${attEsc(a.text)}`;
+  const seg=a=>`<span class="seg-tag${a.audience==='logistics'?' log':''}">◉ Notice/Announcements</span>&nbsp;—&nbsp;${attEsc(a.text)}`;
   let block=list.map(seg).join('<span class="seg-sep">✦</span>')+'<span class="seg-sep">✦</span>';
   // pad short content so the loop stays gap-free
   const plain=list.map(a=>a.text+a.audience).join('   ');
@@ -2492,7 +2580,7 @@ function pkRenderList(){
       <button class="btn btn-ghost btn-sm" onclick="pkPrintSelectedList()">🖨 Print selected</button>
       <button class="btn btn-ghost btn-sm" onclick="pkExportList()">Download CSV</button>
     </div></div>
-    <div style="overflow:auto;"><table><thead><tr><th style="width:30px;text-align:center;"><input type="checkbox" id="pk-list-all" onchange="pkListTickAll(this.checked)" title="Tick all"/></th><th>Serial</th><th>Type</th><th>Date</th><th>Ship to Party</th><th>Order No</th><th>Line Nos</th><th>Total Qty</th><th>Carton Qty</th><th>Road</th><th>Actions</th></tr></thead><tbody id="pk-list-rows"></tbody></table></div></div>`;
+    <div style="overflow:auto;"><table><thead><tr><th style="width:30px;text-align:center;"><input type="checkbox" id="pk-list-all" onchange="pkListTickAll(this.checked)" title="Tick all"/></th><th>Serial</th><th>Type</th><th>Schedule Date</th><th>Ship to Party</th><th>Order No</th><th>Line Nos</th><th>Total Qty</th><th>Carton Qty</th><th>Road</th><th>Actions</th></tr></thead><tbody id="pk-list-rows"></tbody></table></div></div>`;
   pkRenderListRows();
 }
 function pkListFiltered(){
