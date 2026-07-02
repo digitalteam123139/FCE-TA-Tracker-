@@ -2243,7 +2243,7 @@ function attRenderLeaveSection(){
 let pkTab='orders', pkOrder=null, pkResults=[], pkTripDate=null, pkTripRoad='', pkPendingTripOrder='';
 let pkTripSel=new Set(), pkListSel=new Set(), pkListKind='', pkRetCust='', pkPendingCarton='', pkRetGran='month', pkRetRoad='', pkRetPlant='', pkRetMonth='', pkTripPick=null, pkTripPickSel=new Set(), pkTripPickCarton=1;
 let pkDashView='ops', pkDashGran='month', pkDashRoad='', pkDashMonth='', pkOpsMonth='', pkDashLines=null, pkDashCharts={};
-let pkDashDelPlant='', pkDashSupPlant='', pkLineDelPlant='', pkLineSupPlant='', pkRepeatsOnly=true, pkRepeatTopN=20;
+let pkDashDelPlant='', pkDashSupPlant='', pkLineDelPlant='', pkLineSupPlant='', pkRepeatsOnly=true, pkRepeatTopN=20, pkRepeatSearch='';
 
 // ── DB ──
 async function dbPkLookup(orderNo){ const {data,error}=await sb.from('sample_lines').select('*').eq('order_no',orderNo); if(error)throw error; return data||[]; }
@@ -2252,8 +2252,8 @@ async function dbPkUpsert(rows){
   let {error}=await sb.from('sample_lines').upsert(rows,{onConflict:'id'});
   if(error){
     const m=(error.message||'')+' '+(error.details||'')+' '+(error.hint||'');
-    if(/delivery_plant|supply_plant|plant/i.test(m)){
-      const stripped=rows.map(r=>{ const c={...r}; delete c.delivery_plant; delete c.supply_plant; return c; });
+    if(/delivery_plant|supply_plant|customer_name|plant/i.test(m)){
+      const stripped=rows.map(r=>{ const c={...r}; delete c.delivery_plant; delete c.supply_plant; delete c.customer_name; return c; });
       const r2=await sb.from('sample_lines').upsert(stripped,{onConflict:'id'}); if(r2.error)throw r2.error;
       window.__pkPlantColMissing=true; return;
     }
@@ -2621,7 +2621,7 @@ function pkRenderReturns(){
 // ── Logistics Dashboard ──
 async function dbPkAllLines(){
   let all=[], from=0; const size=1000;
-  while(true){ const {data,error}=await sb.from('sample_lines').select('ship_to,buyer,coats_brand_tex,brand,material_no,qty,creation_date,order_no,line_no,delivery_plant,supply_plant').range(from,from+size-1); if(error)throw error; all=all.concat(data||[]); if(!data||data.length<size)break; from+=size; if(from>60000)break; }
+  while(true){ const {data,error}=await sb.from('sample_lines').select('ship_to,buyer,coats_brand_tex,brand,material_no,qty,creation_date,order_no,line_no,delivery_plant,supply_plant,customer_name').range(from,from+size-1); if(error)throw error; all=all.concat(data||[]); if(!data||data.length<size)break; from+=size; if(from>60000)break; }
   return all;
 }
 async function pkLoadPlantMap(force){
@@ -2725,12 +2725,14 @@ async function pkDashLinesView(){
   const dPlant=pkLineDelPlant, sPlant=pkLineSupPlant;
   const fRows=monthRows.filter(r=>(!dPlant||lp(r)===dPlant)&&(!sPlant||lsf(r)===sPlant));
   const months2=[...new Set(fRows.map(r=>pkMonthKey(r.creation_date)).filter(Boolean))].sort();
-  const agg={}; fRows.forEach(r=>{ const cust=(r.ship_to||'').trim(), bp=(r.buyer||'').trim(), mat=(r.material_no||'').trim(); const key=[cust,bp,mat].join('|||'); if(!agg[key])agg[key]={cust,bp,mat,qty:0,lines:0,pm:{}}; const m=pkMonthKey(r.creation_date); agg[key].qty+=parseFloat(r.qty)||0; agg[key].lines++; if(m)agg[key].pm[m]=(agg[key].pm[m]||0)+1; });
+  const agg={}; fRows.forEach(r=>{ const cust=(r.customer_name||r.ship_to||'').trim(), bp=(r.buyer||'').trim(), mat=(r.material_no||'').trim(); const key=[cust,bp,mat].join('|||'); if(!agg[key])agg[key]={cust,bp,mat,qty:0,lines:0,pm:{}}; const m=pkMonthKey(r.creation_date); agg[key].qty+=parseFloat(r.qty)||0; agg[key].lines++; if(m)agg[key].pm[m]=(agg[key].pm[m]||0)+1; });
   const aggListAll=Object.values(agg).sort((a,b)=>b.lines-a.lines||b.qty-a.qty);
   const repeatList=aggListAll.filter(x=>x.lines>=2);
   const totalQty=aggListAll.reduce((s,x)=>s+x.qty,0), totalLines=aggListAll.reduce((s,x)=>s+x.lines,0);
   const matBase=(pkRepeatsOnly?repeatList:aggListAll);
-  const matSrc=(pkRepeatTopN>0?matBase.slice(0,pkRepeatTopN):matBase);
+  const term=(pkRepeatSearch||'').trim().toLowerCase();
+  const matFiltered=term?matBase.filter(x=>(((x.cust||'')+' '+(x.bp||'')).toLowerCase().includes(term))):matBase;
+  const matSrc=(pkRepeatTopN>0?matFiltered.slice(0,pkRepeatTopN):matFiltered);
   const matHead=`<th>Customer - Business Principal - Material No</th>${months2.map(m=>`<th style="text-align:center;">${monthLabel(m)}</th>`).join('')}<th style="text-align:center;">Total</th>`;
   const matRows=matSrc.map(x=>`<tr><td>${attEsc([x.cust||'—',x.bp||'—',x.mat||'—'].join(' - '))}</td>${months2.map(m=>`<td style="text-align:center;${x.pm[m]?'':'color:var(--dim);'}">${x.pm[m]||0}</td>`).join('')}<td style="text-align:center;font-weight:800;color:var(--accent2);">${x.lines}</td></tr>`).join('')||`<tr><td colspan="${months2.length+2}" style="text-align:center;color:var(--muted);padding:16px;">No ${pkRepeatsOnly?'repeat ':''}orders for this selection.</td></tr>`;
   const byMonth={}; rows.forEach(r=>{ const m=pkMonthKey(r.creation_date); if(!m)return; byMonth[m]=(byMonth[m]||0)+1; });
@@ -2747,7 +2749,8 @@ async function pkDashLinesView(){
       <label style="display:inline-flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;"><input type="checkbox" ${pkRepeatsOnly?'checked':''} onchange="pkRepeatsOnly=this.checked;pkRenderDash()"/> Repeats only (ordered ≥ 2×)</label>
       <select class="filter-sel" title="How many rows to show" onchange="pkRepeatTopN=parseInt(this.value)||0;pkRenderDash()"><option value="0" ${pkRepeatTopN===0?'selected':''}>All</option><option value="5" ${pkRepeatTopN===5?'selected':''}>Top 5</option><option value="10" ${pkRepeatTopN===10?'selected':''}>Top 10</option><option value="20" ${pkRepeatTopN===20?'selected':''}>Top 20</option><option value="30" ${pkRepeatTopN===30?'selected':''}>Top 30</option></select>
       <span style="font-size:12px;color:var(--muted);">Count of order-lines per month, by Customer + Business Principal + Material No.</span>
-      <button class="btn btn-ghost btn-sm" style="margin-left:auto;" onclick="pkDashLines=null;pkRenderDash()">↻ Reload</button>
+      <input class="filter-sel" id="pk-rep-search" type="text" value="${attEsc(pkRepeatSearch)}" placeholder="Search customer / buyer…" style="margin-left:auto;min-width:220px;" oninput="pkRepeatSearch=this.value;pkRenderDash()"/>
+      <button class="btn btn-ghost btn-sm" onclick="pkDashLines=null;pkRenderDash()">↻ Reload</button>
     </div></div>
     <div class="att-stat-row" style="margin-bottom:14px;">
       <div class="att-stat"><div class="v">${aggListAll.length}</div><div class="l">Combinations</div></div>
@@ -2758,7 +2761,7 @@ async function pkDashLinesView(){
     <div class="card" style="margin-bottom:14px;"><div class="form-label" style="margin:0;padding:14px 14px 0;">Monthly order-line count (trend)</div><div style="padding:8px 14px 14px;"><canvas id="pk-dash-trend" height="90"></canvas></div></div>
     <div class="card"><div class="card-header"><div><div class="card-title">Repeat orders — Customer / Material by month${pkDashMonth?(' — '+monthLabel(pkDashMonth)):''}</div><div class="card-sub">Times each Customer + Business Principal + Material No. was ordered per month. Total = total order-lines. ${pkRepeatsOnly?'Showing combinations ordered 2 or more times. ':''}${pkRepeatTopN>0?('Top '+pkRepeatTopN):'All'} shown (${matSrc.length}).</div></div></div>
       <div style="overflow:auto;"><table><thead><tr>${matHead}</tr></thead><tbody>${matRows}</tbody></table></div></div>`;
-  setTimeout(()=>{ pkDashChart('pk-dash-trend',{type:'line',data:{labels:trendKeys.map(m=>monthLabel(m)),datasets:[{label:'Order lines',data:trendKeys.map(m=>byMonth[m]),borderColor:'#6ea0ff',backgroundColor:'rgba(110,160,255,.14)',borderWidth:2,fill:true,tension:.3,pointBackgroundColor:'#6ea0ff'}]},options:{plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{color:'#b0c6fa',precision:0},grid:{color:'rgba(255,255,255,.10)'}},x:{ticks:{color:'#b0c6fa'},grid:{color:'rgba(255,255,255,.06)'}}}}}); },40);
+  setTimeout(()=>{ const si=document.getElementById('pk-rep-search'); if(si&&pkRepeatSearch&&document.activeElement!==si){ si.focus(); si.setSelectionRange(si.value.length,si.value.length); } pkDashChart('pk-dash-trend',{type:'line',data:{labels:trendKeys.map(m=>monthLabel(m)),datasets:[{label:'Order lines',data:trendKeys.map(m=>byMonth[m]),borderColor:'#6ea0ff',backgroundColor:'rgba(110,160,255,.14)',borderWidth:2,fill:true,tension:.3,pointBackgroundColor:'#6ea0ff'}]},options:{plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{color:'#b0c6fa',precision:0},grid:{color:'rgba(255,255,255,.10)'}},x:{ticks:{color:'#b0c6fa'},grid:{color:'rgba(255,255,255,.06)'}}}}}); },40);
 }
 function pkRenderImport(){
   const hasLogo=!!lsGet('sc_print_logo','');
@@ -2911,6 +2914,7 @@ const PK_HMAP=[
  [['customer service executive'],'cs_exec'],[['styleno/productionno','style no','style/ref no','styleno'],'style_no'],
  [['comments/remarks','remarks','comments'],'remarks'],[['coats brand/ tex','coats brand/tex','coats brand / tex'],'coats_brand_tex'],
  [['product code'],'product_code'],[['customer service name'],'cs_name'],
+ [['customer name','customer','sold to party name','sold-to party name','sold to party','customer group','customer group name'],'customer_name'],
  [['delivery plant','delivery plant code','delivery plant name','del plant'],'delivery_plant'],
  [['supply plant','supply plant code','supply plant name','sup plant','supplying plant'],'supply_plant'],
 ];
@@ -3043,6 +3047,7 @@ async function pkDoImport(){
         o.qty=parseFloat(o.qty)||0;
         if(o.delivery_plant!=null)o.delivery_plant=(''+o.delivery_plant).trim();
         if(o.supply_plant!=null)o.supply_plant=(''+o.supply_plant).trim();
+        if(o.customer_name!=null)o.customer_name=(''+o.customer_name).trim();
         if(o.creation_date instanceof Date)o.creation_date=o.creation_date.toISOString();
         else if(o.creation_date!=null)o.creation_date=(''+o.creation_date).trim();
         o.id=[o.order_no,o.line_no,(o.shade||''),(o.material_no||'')].join('|');
