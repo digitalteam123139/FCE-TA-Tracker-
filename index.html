@@ -285,6 +285,11 @@ body{
 @supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){
   :root{--surface:rgba(17,40,100,.88);--surface2:rgba(28,56,135,.92);}
 }
+.search-pill{background:rgba(10,20,45,.55) url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="%238aa2c4" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>') no-repeat 12px center;border:1px solid var(--border);border-radius:999px;color:var(--text);padding:8px 14px 8px 34px;font-size:13px;outline:none;transition:border-color .15s;}
+.search-pill::placeholder{color:var(--dim);}
+.search-pill:focus{border-color:var(--accent);background-color:rgba(14,26,56,.8);}
+.tbl-scroll{max-height:68vh;overflow:auto;}
+.tbl-scroll thead th{position:sticky;top:0;z-index:3;background:var(--surface2);}
 </style>
 </head>
 <body>
@@ -428,7 +433,7 @@ body{
       <div class="section-hint">Manage master lists used in entry forms. The customer list, purposes, and FCE list all feed the dropdowns. Editable by authorizers and admin.</div>
       <div class="master-grid">
         <div class="card"><div class="card-header"><div class="card-title">FCE List</div></div><div style="padding:14px;"><div class="master-list" id="master-fce-list"></div><div class="add-item-row"><input class="form-input" type="text" id="new-fce-input" placeholder="New FCE name…"/><button class="btn btn-primary btn-sm" onclick="addMasterItem('fce')">Add</button></div></div></div>
-        <div class="card"><div class="card-header"><div class="card-title">Customer List (<span id="cust-count">0</span>)</div></div><div style="padding:14px;"><input class="form-input" type="text" id="master-cust-search" placeholder="Search customers…" oninput="renderMasterData()" style="margin-bottom:10px;"/><div class="master-list" id="master-customer-list"></div><div class="add-item-row"><input class="form-input" type="text" id="new-customer-input" placeholder="New customer name…"/><button class="btn btn-primary btn-sm" onclick="addMasterItem('customer')">Add</button></div></div></div>
+        <div class="card"><div class="card-header"><div class="card-title">Customer List (<span id="cust-count">0</span>)</div></div><div style="padding:14px;"><input class="search-pill" type="text" id="master-cust-search" placeholder="Search customers…" oninput="renderMasterData()" style="margin-bottom:10px;width:100%;"/><div class="master-list" id="master-customer-list"></div><div class="add-item-row"><input class="form-input" type="text" id="new-customer-input" placeholder="New customer name…"/><button class="btn btn-primary btn-sm" onclick="addMasterItem('customer')">Add</button></div></div></div>
         <div class="card"><div class="card-header"><div><div class="card-title">Complete Delivery Customers (<span id="cd-count">0</span>)</div><div class="card-sub">Ship-to names listed here are treated as Complete Delivery at DN / Sticker printing — their orders must be posted to a bin. All other customers are Partial Delivery.</div></div></div><div style="padding:14px;"><div class="master-list" id="master-cd-list"></div><div class="add-item-row"><input class="form-input" type="text" id="new-cd-input" placeholder="Ship to Party name (exact, as in orders)…"/><button class="btn btn-primary btn-sm" onclick="cdAddCustomer()">Add</button></div></div></div>
         <div class="card"><div class="card-header"><div class="card-title">Visit Purpose Dropdown</div></div><div style="padding:14px;"><div class="master-list" id="master-purpose-list"></div><div class="add-item-row"><input class="form-input" type="text" id="new-purpose-input" placeholder="New purpose option…"/><button class="btn btn-primary btn-sm" onclick="addMasterItem('purpose')">Add</button></div></div></div>
         <div class="card"><div class="card-header"><div class="card-title">Rejection / Failure Reasons</div></div><div style="padding:14px;"><div class="master-list" id="master-reason-list"></div><div class="add-item-row"><input class="form-input" type="text" id="new-reason-input" placeholder="New rejection reason…"/><button class="btn btn-primary btn-sm" onclick="addMasterItem('reason')">Add</button></div></div></div>
@@ -494,11 +499,11 @@ body{
       <div class="detail-meta">
         <div class="month-bar" id="order-status-bar"></div>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-          <input class="filter-sel" type="text" id="order-no-filter" placeholder="Filter by Order No…" oninput="renderOrders()" style="width:160px;"/>
+          <input class="search-pill" type="text" id="order-no-filter" placeholder="Search Order No…" oninput="renderOrders()" style="width:180px;"/>
           <select class="filter-sel" id="order-task-filter" onchange="renderOrders()"><option value="">All tasks</option><option value="Swatch Collection">Collection</option><option value="Sample Delivery">Delivery</option></select>
           <select class="filter-sel" id="order-zone-filter" onchange="renderOrders()"><option value="">All zones</option></select>
           <select class="filter-sel" id="order-service-filter" onchange="renderOrders()"><option value="">All services</option></select>
-          <input class="filter-sel" type="text" id="order-resp-filter" list="order-resp-list" placeholder="Responsibility to…" oninput="renderOrders()" style="width:165px;"/>
+          <input class="search-pill" type="text" id="order-resp-filter" list="order-resp-list" placeholder="Responsibility to…" oninput="renderOrders()" style="width:185px;"/>
           <datalist id="order-resp-list"></datalist>
           <span class="count-badge" id="order-count">—</span>
           <button class="btn btn-ghost btn-sm" onclick="openServiceReview()" title="Service performance review — by month, service & task"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Service Review</button>
@@ -515,7 +520,7 @@ body{
         <span style="display:inline-flex;align-items:center;gap:5px;"><span style="width:11px;height:11px;border-radius:3px;background:rgba(255,90,95,.98);"></span>3+ days due</span>
         <span style="display:inline-flex;align-items:center;gap:5px;"><span style="width:11px;height:11px;border-radius:3px;background:rgba(70,230,160,.95);"></span>DN uploaded</span>
       </div>
-      <div class="card" style="overflow:auto;"><table><thead><tr><th style="width:26px;text-align:center;"><input type="checkbox" id="ord-tick-all" onclick="toggleAllTicks(this)" title="Select all" style="cursor:pointer;"></th><th style="width:30px;"></th><th>Entry Date</th><th>Order No</th><th>Task</th><th>Customer</th><th>Buyer</th><th>Service By</th><th>Responsibility To</th><th>Delivery Zone</th><th>Req. Time / Delivered</th><th>Status</th><th>DN Download</th><th>Actions</th></tr></thead><tbody id="orders-table"></tbody></table></div>
+      <div class="card tbl-scroll"><table><thead><tr><th style="width:26px;text-align:center;"><input type="checkbox" id="ord-tick-all" onclick="toggleAllTicks(this)" title="Select all" style="cursor:pointer;"></th><th style="width:30px;"></th><th>Entry Date</th><th>Order No</th><th>Task</th><th>Customer</th><th>Buyer</th><th>Service By</th><th>Responsibility To</th><th>Delivery Zone</th><th>Req. Time / Delivered</th><th>Status</th><th>DN Download</th><th>Actions</th></tr></thead><tbody id="orders-table"></tbody></table></div>
     </div>
 
     <!-- SAMPLE PACKING -->
@@ -752,7 +757,7 @@ async function dbDeleteUser(id){ const {error}=await sb.from('app_users').delete
 async function dbSaveMaster(m){ const {error}=await sb.from('master_data').upsert({id:1,fce:m.fce,customers:m.customers,purposes:m.purposes,reasons:m.reasons,buyers:m.buyers,updated_at:new Date().toISOString()}); if(error)throw error; }
 async function dbSaveZones(zones){ const {error}=await sb.from('master_data').upsert({id:1,zones:zones,updated_at:new Date().toISOString()}); if(error)throw error; }
 // ── Order Tracker DB ──
-async function dbGetOrders(){ const {data,error}=await sb.from('sample_orders').select('*').order('date',{ascending:false}); if(error)throw error; return data; }
+async function dbGetOrders(){ let all=[],from=0; const size=1000; while(true){ const {data,error}=await sb.from('sample_orders').select('*').order('date',{ascending:false}).range(from,from+size-1); if(error)throw error; all=all.concat(data||[]); if(!data||data.length<size)break; from+=size; if(from>30000)break; } return all; }
 async function dbUpsertOrder(o){ const {error}=await sb.from('sample_orders').upsert(o); if(error)throw error; }
 async function dbDeleteOrder(id){ const {error}=await sb.from('sample_orders').delete().eq('id',id); if(error)throw error; }
 async function dbUploadNote(file, path){ const {error}=await sb.storage.from('delivery-notes').upload(path,file,{upsert:true}); if(error)throw error; return path; }
@@ -2135,7 +2140,7 @@ function attRenderMark(){
       <input class="filter-sel" type="date" value="${attDate}" ${(isAdmin()||isAuthorizer())?'onchange="attSetDate(this.value)"':'disabled title="Date is fixed to today — only Super Admin / Authorizer can change it"'} style="width:160px;"/>
       ${locCtl}
       <select class="filter-sel" onchange="attTitle=this.value;attRenderRows()">${titOpts}</select>
-      <input class="filter-sel" type="text" placeholder="Search name / ID…" value="${attEsc(attSearch)}" oninput="attSearch=this.value;attRenderRows()" style="width:160px;"/>
+      <input class="search-pill" type="text" placeholder="Search name / ID…" value="${attEsc(attSearch)}" oninput="attSearch=this.value;attRenderRows()" style="width:180px;"/>
       <span class="count-badge" id="att-mark-count">—</span>
       ${attCanEdit()?`<button class="btn btn-ghost btn-sm" id="att-markall-btn" title="Marks everyone present; click again to clear all" onclick="attMarkAll('present')">Mark all present</button>
       <button class="btn btn-primary btn-sm" onclick="attSaveDay()">Save day</button>`:'<span style="font-size:11px;color:var(--muted);">View only</span>'}
@@ -2512,7 +2517,7 @@ let pkTab='orders', pkOrder=null, pkResults=[], pkTripDate=null, pkTripRoad='', 
 // ═══ COMPLETE DELIVERY MANAGEMENT ═══
 const CD_BINS=['Tiger','Astra Ecoverde','Epic Ecoverde','Dual Duty Ecoverde','Dymax','Sylko Ecoverde','Eloflex Ecoverde'];
 const CD_BIN_CAP=14; // cartons per bin
-let cdBinFilter='', cdStatusFilter='open';
+let cdBinFilter='', cdStatusFilter='open', cdSearch='';
 function cdCanEditBin(){ return isAdmin()||isAuthorizer()||isPacker(); } // carton/bin-level edit access
 function cdBinUsage(){ const u={}; CD_BINS.forEach(b=>u[b]=0); cdPosts().forEach(p=>{ if(p.status==='open'&&u[p.bin]!=null)u[p.bin]+=(parseInt(p.cartons)||1); }); return u; }
 function cdList(){ return (typeof CONTACTS!=='undefined'&&CONTACTS&&Array.isArray(CONTACTS.cdCustomers))?CONTACTS.cdCustomers:[]; }
@@ -2661,12 +2666,13 @@ function renderCDM(){
       <div style="height:5px;border-radius:999px;background:rgba(255,255,255,.08);overflow:hidden;"><div style="height:100%;width:${pct}%;background:${col};border-radius:999px;"></div></div>
       <div style="font-size:11px;color:var(--dim);">${n} order${n===1?'':'s'} posted</div>
     </div>`; }).join('');
-  const list=posts.filter(p=>(!cdBinFilter||p.bin===cdBinFilter)&&(cdStatusFilter==='all'||p.status===(cdStatusFilter==='open'?'open':'done')));
+  const _cq=(cdSearch||'').trim().toLowerCase();
+  const list=posts.filter(p=>(!cdBinFilter||p.bin===cdBinFilter)&&(cdStatusFilter==='all'||p.status===(cdStatusFilter==='open'?'open':'done'))&&(!_cq||((p.orderNo||'')+' '+(p.soldToName||'')+' '+(p.shipTo||'')+' '+(p.bin||'')).toLowerCase().includes(_cq)));
   const rows=list.map(p=>{
     const notes=(p.notes||[]).map(n=>`<div style="font-size:12px;color:var(--text);margin-bottom:3px;">• ${attEsc(n.text)} <span style="color:var(--dim);font-size:11px;">(${attEsc(n.by)}, ${fmtDateTime(n.at)})</span></div>`).join('');
     const main=`<tr>
       <td style="width:34px;"><button class="btn-icon" onclick="cdToggleRow('${p.id}')" title="Expand — remarks & notes"><svg id="cd-chev-${p.id}" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="transition:transform .15s;"><polyline points="9 18 15 12 9 6"/></svg></button></td>
-      <td style="white-space:nowrap;">${fmtDateTime(p.postedAt)}</td><td style="font-family:'DM Mono',monospace;"><b>${attEsc(p.orderNo)}</b></td><td style="min-width:170px;">${attEsc(p.soldToName||p.shipTo)}${p.soldToName&&p.shipTo&&p.soldToName!==p.shipTo?`<div style="font-size:10px;color:var(--dim);">ship-to: ${attEsc(p.shipTo)}</div>`:''}</td><td style="white-space:nowrap;">${attEsc(p.bin)}</td><td style="text-align:center;font-weight:700;color:var(--accent2);">${(p.cartonNos&&p.cartonNos.length)?attEsc(p.cartonNos.join(', ')):(p.cartons||1)}</td><td><div style="max-width:340px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:11.5px;color:var(--muted);" title="${attEsc(p.lineNos||'')}">${attEsc(p.lineNos||'—')}</div></td><td style="text-align:center;font-weight:700;">${p.totalQty||0}</td>
+      <td style="white-space:nowrap;">${fmtDateTime(p.postedAt)}</td><td style="font-family:'DM Mono',monospace;"><b>${attEsc(p.orderNo)}</b></td><td style="min-width:170px;">${attEsc(p.soldToName||p.shipTo)}</td><td style="white-space:nowrap;">${attEsc(p.bin)}</td><td style="text-align:center;font-weight:700;color:var(--accent2);">${(p.cartonNos&&p.cartonNos.length)?attEsc(p.cartonNos.join(', ')):(p.cartons||1)}</td><td><div style="max-width:420px;min-width:200px;white-space:normal;word-break:break-word;font-size:11px;line-height:1.6;color:var(--muted);">${attEsc(p.lineNos||'—')}</div></td><td style="text-align:center;font-weight:700;">${p.totalQty||0}</td>
       <td>${p.status==='open'?'<span class="badge" style="background:rgba(255,159,90,.15);color:#ff9f5a;">Incomplete</span>':`<span class="badge" style="background:rgba(70,230,160,.15);color:#46e6a0;">Acknowledged</span><div style="font-size:10px;color:var(--dim);">${attEsc(p.ackBy||'')} ${p.ackAt?fmtDate(p.ackAt):''}</div>`}</td>
       <td style="white-space:nowrap;">${p.status==='open'&&canBin?`<button class="btn btn-ghost btn-sm" onclick="cdEditPost('${p.id}')" title="Edit bin / carton no.">✎ Bin/Ctn</button> `:''}${p.status==='open'&&adm?`<button class="btn btn-primary btn-sm" onclick="cdAck('${p.id}')">Acknowledge</button> `:''}<button class="btn btn-ghost btn-sm" onclick="cdAddNote('${p.id}')">+ Note</button>${adm?` <button class="btn btn-sm" style="background:rgba(255,107,107,.14);color:#ff6b6b;border:1px solid rgba(255,107,107,.4);" onclick="cdDeletePost('${p.id}')" title="Super Admin only — delete this posting">🗑</button>`:''}</td></tr>`;
     const detail=`<tr id="cd-detail-${p.id}" style="display:none;"><td style="background:var(--surface2);"></td><td colspan="9" style="padding:10px 14px 14px;background:var(--surface2);">
@@ -2684,12 +2690,12 @@ function renderCDM(){
    <div class="section-hint">Complete-Delivery orders are posted to bins (capacity <b>${CD_BIN_CAP} cartons</b> each). Bin cards show cartons used. Packers &amp; Authorizers can edit bin/carton; only Super Admin can acknowledge or delete. Expand a row (›) for remarks &amp; notes. Customer type comes from the Customer Mapping (Sold-to code).</div>
    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:14px;">${binCards}</div>
    <div class="card"><div class="card-header"><div><div class="card-title">Posted orders</div><div class="card-sub">${open.length} incomplete · ${posts.length-open.length} acknowledged${cdBinFilter?(' · filtered: '+attEsc(cdBinFilter)):''}</div></div>
-     <div class="card-actions"><select class="filter-sel" onchange="cdStatusFilter=this.value;renderCDM()"><option value="open" ${cdStatusFilter==='open'?'selected':''}>Incomplete</option><option value="done" ${cdStatusFilter==='done'?'selected':''}>Acknowledged</option><option value="all" ${cdStatusFilter==='all'?'selected':''}>All</option></select></div></div>
+     <div class="card-actions" style="display:flex;gap:8px;align-items:center;"><input class="search-pill" id="cd-search" type="text" value="${attEsc(cdSearch)}" placeholder="Search…" style="min-width:200px;" oninput="cdSearch=this.value;renderCDM();setTimeout(()=>{const i=document.getElementById('cd-search');if(i){i.focus();i.setSelectionRange(i.value.length,i.value.length);}},0);"/><select class="filter-sel" onchange="cdStatusFilter=this.value;renderCDM()"><option value="open" ${cdStatusFilter==='open'?'selected':''}>Incomplete</option><option value="done" ${cdStatusFilter==='done'?'selected':''}>Acknowledged</option><option value="all" ${cdStatusFilter==='all'?'selected':''}>All</option></select></div></div>
      <div style="overflow:auto;"><table><thead><tr><th style="width:34px;"></th><th style="white-space:nowrap;">Posted</th><th style="white-space:nowrap;">Order No</th><th style="white-space:nowrap;">Customer (Sold-to)</th><th style="white-space:nowrap;">Bin</th><th style="text-align:center;white-space:nowrap;">Carton No.</th><th>Lines</th><th style="text-align:center;">Qty</th><th>Status</th><th style="white-space:nowrap;">Actions</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
 }
 let pkTripSel=new Set(), pkListSel=new Set(), pkListKind='', pkRetCust='', pkPendingCarton='', pkRetGran='month', pkRetRoad='', pkRetPlant='', pkRetMonth='', pkTripPick=null, pkTripPickSel=new Set(), pkTripPickCarton=1;
 let pkDashView='ops', pkDashGran='month', pkDashRoad='', pkDashMonth='', pkOpsMonth='', pkDashLines=null, pkDashCharts={};
-let pkDashDelPlant='', pkDashSupPlant='', pkLineDelPlant='', pkLineSupPlant='', pkRepeatsOnly=true, pkRepeatTopN=20, pkRepeatSearch='', pkRepeatGroup='cbm', pkLineStatusF='';
+let pkDashDelPlant='', pkDashSupPlant='', pkLineDelPlant='', pkLineSupPlant='', pkRepeatsOnly=true, pkRepeatTopN=20, pkRepeatSearch='', pkRepeatGroup='cbm', pkLineStatusF='__disp';
 
 // ── DB ──
 async function dbPkLookup(orderNo){ const {data,error}=await sb.from('sample_lines').select('*').eq('order_no',orderNo); if(error)throw error; return data||[]; }
@@ -2758,7 +2764,7 @@ function pkLogoImg(big){ const l=lsGet('sc_print_logo','');
 function pkRenderOrders(){
   document.getElementById('pk-body').innerHTML=`
    <div class="card" style="margin-bottom:14px;"><div style="padding:14px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-     <input class="form-input" id="pk-search" placeholder="Search Order No (RS…) or factory name…" style="flex:1;min-width:220px;" onkeydown="if(event.key==='Enter')pkSearch()"/>
+     <input class="search-pill" id="pk-search" placeholder="Search Order No (RS…) or factory name…" style="flex:1;min-width:220px;" onkeydown="if(event.key==='Enter')pkSearch()"/>
      <button class="btn btn-primary btn-sm" onclick="pkSearch()">Search</button>
    </div><div id="pk-results" style="padding:0 14px 12px;"></div></div>
    <div id="pk-order-view"></div>`;
@@ -2889,7 +2895,7 @@ function pkRenderTripRows(){
   if(!pkTripRoad){ box.innerHTML='<div class="card"><div style="padding:16px;color:var(--muted);">Select a road to start building this trip.</div></div>'; return; }
   const rows=(CACHE.trips||[]).filter(t=>t.kind!=='return'&&t.trip_date===pkTripDate&&(t.road||'')===pkTripRoad).sort((a,b)=>(a.serial||0)-(b.serial||0));
   let tq=0,tc=0;
-  const body=rows.map((t,i)=>{tq+=+t.total_qty||0;tc+=+t.carton_qty||0;return `<tr><td style="text-align:center;"><input type="checkbox" ${pkTripSel.has(t.id)?'checked':''} onchange="pkTripTick('${t.id}')"/></td><td>${i+1}</td><td>${attEsc(t.ship_to)}</td><td>${attEsc(t.order_no)}</td><td style="font-size:12px;">${attEsc(t.line_nos)}</td><td>${attEsc(t.total_qty)}</td><td><input type="number" min="0" value="${t.carton_qty||0}" onchange="pkTripSetCarton('${t.id}',this.value)" class="filter-sel" style="width:72px;padding:4px 6px;" title="Carton qty (editable)"/></td><td>${(isPacker()||isFCE())?'':`<button class="btn btn-reject btn-sm" onclick="pkTripDelete('${t.id}')">Remove</button>`}</td></tr>`;}).join('')||`<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:16px;">No orders added yet.</td></tr>`;
+  const body=rows.map((t,i)=>{tq+=+t.total_qty||0;tc+=+t.carton_qty||0;return `<tr><td style="text-align:center;"><input type="checkbox" ${pkTripSel.has(t.id)?'checked':''} onchange="pkTripTick('${t.id}')"/></td><td>${i+1}</td><td>${attEsc(t.ship_to)}</td><td>${attEsc(t.order_no)}</td><td><div style="max-width:380px;min-width:160px;white-space:normal;word-break:break-word;font-size:11px;line-height:1.6;color:var(--muted);">${attEsc(t.line_nos)}</div></td><td>${attEsc(t.total_qty)}</td><td><input type="number" min="0" value="${t.carton_qty||0}" onchange="pkTripSetCarton('${t.id}',this.value)" class="filter-sel" style="width:72px;padding:4px 6px;" title="Carton qty (editable)"/></td><td>${(isPacker()||isFCE())?'':`<button class="btn btn-reject btn-sm" onclick="pkTripDelete('${t.id}')">Remove</button>`}</td></tr>`;}).join('')||`<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:16px;">No orders added yet.</td></tr>`;
   const allOn=rows.length&&rows.every(t=>pkTripSel.has(t.id));
   box.innerHTML=`<div class="card"><div class="card-header"><div><div class="card-title">Trip — ${fmtDate(pkTripDate)} · ${attEsc(pkTripRoad)}</div><div class="card-sub">Total Qty ${tq} · Cartons ${tc} · tick rows to print only those (renumbered 1,2,3…)</div></div><div class="card-actions"><button class="btn btn-ghost btn-sm" onclick="pkPrintTrip()">🖨 Print Trip</button></div></div>
    <div style="overflow:auto;"><table><thead><tr><th style="width:30px;text-align:center;"><input type="checkbox" ${allOn?'checked':''} onchange="pkTripTickAll(this.checked)" title="Tick all"/></th><th>Serial</th><th>Ship to Party</th><th>Order No</th><th>Line Nos</th><th>Qty</th><th>Cartons</th><th></th></tr></thead><tbody>${body}</tbody></table></div></div>`;
@@ -2940,7 +2946,7 @@ function pkRenderList(){
     <div class="card-actions" style="display:flex;gap:6px;flex-wrap:wrap;">
       <select class="filter-sel" id="pk-list-kind" onchange="pkListKind=this.value;pkRenderListRows()"><option value="">All types</option><option value="trip" ${pkListKind==='trip'?'selected':''}>Trips only</option><option value="return" ${pkListKind==='return'?'selected':''}>Returns only</option></select>
       <select class="filter-sel" id="pk-list-road" onchange="pkRenderListRows()"><option value="">All roads</option>${zones.map(z=>`<option>${attEsc(z)}</option>`).join('')}</select>
-      <input class="filter-sel" type="text" id="pk-list-search" placeholder="Search Order No…" oninput="pkRenderListRows()" style="width:165px;"/>
+      <input class="search-pill" type="text" id="pk-list-search" placeholder="Search Order No…" oninput="pkRenderListRows()" style="width:185px;"/>
       <input class="filter-sel" type="date" id="pk-list-date" onchange="pkRenderListRows()" style="width:150px;"/>
       <button class="btn btn-ghost btn-sm" onclick="pkPrintSelectedList()">🖨 Print selected</button>
       <button class="btn btn-ghost btn-sm" onclick="pkExportList()">Download CSV</button>
@@ -2965,7 +2971,7 @@ function pkListType(t){ return t.kind==='return'?('Return-'+(t.return_no||1)):'R
 function pkRenderListRows(){
   const tb=document.getElementById('pk-list-rows'); if(!tb)return;
   const rows=pkListFiltered();
-  tb.innerHTML=rows.map((t,i)=>{ const isRet=t.kind==='return'; const typeBadge=`<span style="font-size:11px;font-weight:600;color:${isRet?'#e0913a':'#4ecdc4'};">${pkListType(t)}</span>`; return `<tr><td style="text-align:center;"><input type="checkbox" ${pkListSel.has(t.id)?'checked':''} onchange="pkListTick('${t.id}')"/></td><td>${i+1}</td><td>${typeBadge}</td><td style="white-space:nowrap;">${fmtDate(t.trip_date)}</td><td>${attEsc(t.ship_to)}</td><td>${attEsc(t.order_no)}</td><td style="font-size:12px;">${attEsc(t.line_nos)}</td><td>${attEsc(t.total_qty)}</td><td>${attEsc(t.carton_qty)}</td><td>${attEsc(t.road)||(isRet?'—':'')}</td><td style="white-space:nowrap;"><button class="btn btn-ghost btn-sm" onclick="pkListEdit('${t.id}')">Edit</button> ${(isPacker()||isFCE())?'':`<button class="btn btn-reject btn-sm" onclick="pkListDelete('${t.id}')">Delete</button>`}</td></tr>`;}).join('')||`<tr><td colspan="11" style="text-align:center;color:var(--muted);padding:16px;">No entries yet.</td></tr>`;
+  tb.innerHTML=rows.map((t,i)=>{ const isRet=t.kind==='return'; const typeBadge=`<span style="font-size:11px;font-weight:600;color:${isRet?'#e0913a':'#4ecdc4'};">${pkListType(t)}</span>`; return `<tr><td style="text-align:center;"><input type="checkbox" ${pkListSel.has(t.id)?'checked':''} onchange="pkListTick('${t.id}')"/></td><td>${i+1}</td><td>${typeBadge}</td><td style="white-space:nowrap;">${fmtDate(t.trip_date)}</td><td>${attEsc(t.ship_to)}</td><td>${attEsc(t.order_no)}</td><td><div style="max-width:380px;min-width:160px;white-space:normal;word-break:break-word;font-size:11px;line-height:1.6;color:var(--muted);">${attEsc(t.line_nos)}</div></td><td>${attEsc(t.total_qty)}</td><td>${attEsc(t.carton_qty)}</td><td>${attEsc(t.road)||(isRet?'—':'')}</td><td style="white-space:nowrap;"><button class="btn btn-ghost btn-sm" onclick="pkListEdit('${t.id}')">Edit</button> ${(isPacker()||isFCE())?'':`<button class="btn btn-reject btn-sm" onclick="pkListDelete('${t.id}')">Delete</button>`}</td></tr>`;}).join('')||`<tr><td colspan="11" style="text-align:center;color:var(--muted);padding:16px;">No entries yet.</td></tr>`;
 }
 function pkListTick(id){ if(pkListSel.has(id))pkListSel.delete(id); else pkListSel.add(id); pkRenderListRows(); }
 function pkListTickAll(on){ pkListSel=new Set(on?pkListFiltered().map(t=>t.id):[]); pkRenderListRows(); }
@@ -3041,7 +3047,7 @@ function pkRenderReturns(){
        <select class="filter-sel" title="Month" onchange="pkRetMonth=this.value;pkRenderReturns()"><option value="">All months</option>${retMonths.map(m=>`<option value="${m}" ${m===pkRetMonth?'selected':''}>${monthLabel(m)}</option>`).join('')}</select>
        <select class="filter-sel" onchange="pkRetGran=this.value;pkRenderReturns()"><option value="month" ${pkRetGran==='month'?'selected':''}>By month</option><option value="day" ${pkRetGran==='day'?'selected':''}>By day</option></select>
      </div>
-     <input class="filter-sel" id="pk-ret-search" type="text" value="${attEsc(pkRetCust)}" placeholder="Search customer…" style="min-width:220px;" oninput="pkRetCust=this.value;pkRenderReturns()"/>
+     <input class="search-pill" id="pk-ret-search" type="text" value="${attEsc(pkRetCust)}" placeholder="Search customer…" style="min-width:220px;" oninput="pkRetCust=this.value;pkRenderReturns()"/>
    </div>
    <div class="att-stat-row" style="margin-bottom:14px;">
      <div class="att-stat"><div class="v">${total}</div><div class="l">Total return days</div></div>
@@ -3184,7 +3190,10 @@ async function pkDashLinesView(){
   const dPlant=pkLineDelPlant, sPlant=pkLineSupPlant;
   const lst=r=>(''+(r.line_status||'')).trim();
   const statusList=[...new Set(rows.map(lst).filter(Boolean))].sort();
-  const fRows=monthRows.filter(r=>(!dPlant||lp(r)===dPlant)&&(!sPlant||lsf(r)===sPlant)&&(!pkLineStatusF||lst(r)===pkLineStatusF));
+  const anyStatus=statusList.length>0;
+  const dispRe=/despatch|dispatch/i;
+  const stPass=r=>{ if(!pkLineStatusF)return true; if(pkLineStatusF==='__disp')return !anyStatus||dispRe.test(lst(r)); return lst(r)===pkLineStatusF; };
+  const fRows=monthRows.filter(r=>(!dPlant||lp(r)===dPlant)&&(!sPlant||lsf(r)===sPlant)&&stPass(r));
   const months2=[...new Set(fRows.map(r=>pkMonthKey(r.creation_date)).filter(Boolean))].sort();
   const fullMat=r=>{ let m=(r.material_no||'').trim(); const sh=(r.shade||'').trim(); if(sh&&!m.toUpperCase().includes(sh.toUpperCase()))m=m+(m===''||m.endsWith('-')?'':'-')+sh; return m; };
   const agg={}; fRows.forEach(r=>{ const cust=(r.customer_name||r.ship_to||'').trim(), bp=(pkRepeatGroup==='cm'?'':(r.buyer||'').trim()), mat=fullMat(r); const key=[cust,bp,mat].join('|||'); if(!agg[key])agg[key]={cust,bp,mat,qty:0,lines:0,pm:{},pq:{}}; const m=pkMonthKey(r.creation_date); const q=parseFloat(r.qty)||0; agg[key].qty+=q; agg[key].lines++; if(m){ agg[key].pm[m]=(agg[key].pm[m]||0)+1; agg[key].pq[m]=(agg[key].pq[m]||0)+q; } });
@@ -3197,7 +3206,7 @@ async function pkDashLinesView(){
   const matSrc=(pkRepeatTopN>0?matFiltered.slice(0,pkRepeatTopN):matFiltered);
   const matHead=`<th>${pkRepeatGroup==='cm'?'Customer - Material No':'Customer - Business Principal - Material No'}</th>${months2.map(m=>`<th style="text-align:center;">${monthLabel(m)}</th>`).join('')}<th style="text-align:center;">Total</th>`;
   const matRows=matSrc.map(x=>`<tr><td>${attEsc([x.cust||'—'].concat(pkRepeatGroup==='cm'?[]:[x.bp||'—']).concat([x.mat||'—']).join(' - '))}</td>${months2.map(m=>`<td style="text-align:center;${x.pm[m]?'':'color:var(--dim);'}">${x.pm[m]?(x.pm[m]+'/'+(Math.round((x.pq[m]||0)*100)/100)):'0'}</td>`).join('')}<td style="text-align:center;font-weight:800;color:var(--accent2);">${x.lines}/${Math.round(x.qty*100)/100}</td></tr>`).join('')||`<tr><td colspan="${months2.length+2}" style="text-align:center;color:var(--muted);padding:16px;">No ${pkRepeatsOnly?'repeat ':''}orders for this selection.</td></tr>`;
-  const byMonth={}; rows.filter(r=>(!dPlant||lp(r)===dPlant)).forEach(r=>{ const m=pkMonthKey(r.creation_date); if(!m)return; byMonth[m]=(byMonth[m]||0)+1; });
+  const byMonth={}; rows.filter(r=>(!dPlant||lp(r)===dPlant)&&stPass(r)).forEach(r=>{ const m=pkMonthKey(r.creation_date); if(!m)return; byMonth[m]=(byMonth[m]||0)+1; });
   const trendKeys=Object.keys(byMonth).sort();
   const byDelL={}, bySupL={};
   monthRows.forEach(r=>{ const q=parseFloat(r.qty)||0; const d=lp(r)||'—'; if(!byDelL[d])byDelL[d]={qty:0,lines:0}; byDelL[d].qty+=q; byDelL[d].lines++; const s=lsf(r)||'—'; if(!bySupL[s])bySupL[s]={qty:0,lines:0}; bySupL[s].qty+=q; bySupL[s].lines++; });
@@ -3208,12 +3217,12 @@ async function pkDashLinesView(){
     <div class="card" style="margin-bottom:14px;"><div style="padding:14px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
       <select class="filter-sel" onchange="pkDashMonth=this.value;pkRenderDash()"><option value="">All months</option>${months.map(m=>`<option value="${m}" ${m===pkDashMonth?'selected':''}>${monthLabel(m)}</option>`).join('')}</select>
       <select class="filter-sel" title="Delivery Plant" onchange="pkLineDelPlant=this.value;pkRenderDash()">${plantOptsL(delPlants,dPlant,'All delivery plants')}</select>
-      <select class="filter-sel" title="Line status" onchange="pkLineStatusF=this.value;pkRenderDash()"><option value="">All line statuses</option>${statusList.map(s=>`<option value="${attEsc(s)}" ${s===pkLineStatusF?'selected':''}>${attEsc(s)}</option>`).join('')}</select>
+      <select class="filter-sel" title="Line status" onchange="pkLineStatusF=this.value;pkRenderDash()"><option value="__disp" ${pkLineStatusF==='__disp'?'selected':''}>Despatched only</option><option value="" ${pkLineStatusF===''?'selected':''}>All line statuses</option>${statusList.map(s=>`<option value="${attEsc(s)}" ${s===pkLineStatusF?'selected':''}>${attEsc(s)}</option>`).join('')}</select>
       <label style="display:inline-flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;"><input type="checkbox" ${pkRepeatsOnly?'checked':''} onchange="pkRepeatsOnly=this.checked;pkRenderDash()"/> Repeats only (ordered ≥ 2×)</label>
       <select class="filter-sel" title="Group by" onchange="pkRepeatGroup=this.value;pkRenderDash()"><option value="cbm" ${pkRepeatGroup==='cbm'?'selected':''}>Customer + BP + Material</option><option value="cm" ${pkRepeatGroup==='cm'?'selected':''}>Customer + Material</option></select>
       <select class="filter-sel" title="How many rows to show" onchange="pkRepeatTopN=parseInt(this.value)||0;pkRenderDash()"><option value="0" ${pkRepeatTopN===0?'selected':''}>All</option><option value="5" ${pkRepeatTopN===5?'selected':''}>Top 5</option><option value="10" ${pkRepeatTopN===10?'selected':''}>Top 10</option><option value="20" ${pkRepeatTopN===20?'selected':''}>Top 20</option><option value="30" ${pkRepeatTopN===30?'selected':''}>Top 30</option></select>
       <span style="font-size:12px;color:var(--muted);">Count of order-lines per month, by Customer + Business Principal + Material No.</span>
-      <input class="filter-sel" id="pk-rep-search" type="text" value="${attEsc(pkRepeatSearch)}" placeholder="Search customer / buyer…" style="margin-left:auto;min-width:220px;" oninput="pkRepeatSearch=this.value;pkRenderDash()"/>
+      <input class="search-pill" id="pk-rep-search" type="text" value="${attEsc(pkRepeatSearch)}" placeholder="Search customer / buyer…" style="margin-left:auto;min-width:220px;" oninput="pkRepeatSearch=this.value;pkRenderDash()"/>
       <button class="btn btn-ghost btn-sm" onclick="pkDashLines=null;pkRenderDash()">↻ Reload</button>
     </div></div>
     <div class="att-stat-row" style="margin-bottom:14px;">
@@ -3507,13 +3516,13 @@ async function pkAutoCreateOrders(recs){
     const existing=new Set(getOrders().map(x=>(x.orderNo||'').trim().toLowerCase()).filter(Boolean));
     const byOrder={};
     recs.forEach(r=>{ const ono=(r.order_no||'').trim(); if(!ono)return; const k=ono.toLowerCase(); if(existing.has(k))return;
-      if(!byOrder[k])byOrder[k]={ono,ship:(r.ship_to||'').trim(),buyer:(r.buyer||'').trim(),cd:(''+(r.creation_date||'')).slice(0,10),sc:(r.ship_to_code||'').trim(),so:(r.sold_to_code||'').trim()};
-      else{ const b=byOrder[k]; const d=(''+(r.creation_date||'')).slice(0,10); if(d&&(!b.cd||d<b.cd))b.cd=d; if(!b.sc&&r.ship_to_code)b.sc=(''+r.ship_to_code).trim(); if(!b.so&&r.sold_to_code)b.so=(''+r.sold_to_code).trim(); } });
+      if(!byOrder[k])byOrder[k]={ono,ship:(r.ship_to||'').trim(),cn:(r.customer_name||'').trim(),buyer:(r.buyer||'').trim(),cd:(''+(r.creation_date||'')).slice(0,10),sc:(r.ship_to_code||'').trim(),so:(r.sold_to_code||'').trim()};
+      else{ const b=byOrder[k]; const d=(''+(r.creation_date||'')).slice(0,10); if(d&&(!b.cd||d<b.cd))b.cd=d; if(!b.cn&&r.customer_name)b.cn=(''+r.customer_name).trim(); if(!b.sc&&r.ship_to_code)b.sc=(''+r.ship_to_code).trim(); if(!b.so&&r.sold_to_code)b.so=(''+r.sold_to_code).trim(); } });
     const list=Object.values(byOrder); if(!list.length)return 0;
     const today=new Date().toISOString().slice(0,10);
     const rows=list.map(b=>orderToRow({ id:'o_imp_'+b.ono.replace(/[^A-Za-z0-9]/g,'').slice(0,24)+'_'+Math.random().toString(36).slice(2,5),
       date:(b.cd&&/^\d{4}-\d{2}-\d{2}$/.test(b.cd))?b.cd:today, task:'Sample Delivery', orderNo:b.ono,
-      customer:b.ship, buyer:b.buyer, fce:pkRespFor(b.ship,b.so)||'', service:'', reqTime:'',
+      customer:(b.cn||b.ship), buyer:b.buyer, fce:pkRespFor(b.ship,b.so)||'', service:'', reqTime:'',
       to:pkRoadFor(b.ship,b.sc)||null, status:'Requested', deliveredAt:null, remarks:'Auto-created from import', createdBy:currentUser?currentUser.id:'' }));
     for(let i=0;i<rows.length;i+=400){ const {error}=await sb.from('sample_orders').upsert(rows.slice(i,i+400)); if(error)throw error; }
     try{ await refreshAll(); }catch(_){}
