@@ -429,6 +429,7 @@ body{
       <div class="master-grid">
         <div class="card"><div class="card-header"><div class="card-title">FCE List</div></div><div style="padding:14px;"><div class="master-list" id="master-fce-list"></div><div class="add-item-row"><input class="form-input" type="text" id="new-fce-input" placeholder="New FCE name…"/><button class="btn btn-primary btn-sm" onclick="addMasterItem('fce')">Add</button></div></div></div>
         <div class="card"><div class="card-header"><div class="card-title">Customer List (<span id="cust-count">0</span>)</div></div><div style="padding:14px;"><input class="form-input" type="text" id="master-cust-search" placeholder="Search customers…" oninput="renderMasterData()" style="margin-bottom:10px;"/><div class="master-list" id="master-customer-list"></div><div class="add-item-row"><input class="form-input" type="text" id="new-customer-input" placeholder="New customer name…"/><button class="btn btn-primary btn-sm" onclick="addMasterItem('customer')">Add</button></div></div></div>
+        <div class="card"><div class="card-header"><div><div class="card-title">Complete Delivery Customers (<span id="cd-count">0</span>)</div><div class="card-sub">Ship-to names listed here are treated as Complete Delivery at DN / Sticker printing — their orders must be posted to a bin. All other customers are Partial Delivery.</div></div></div><div style="padding:14px;"><div class="master-list" id="master-cd-list"></div><div class="add-item-row"><input class="form-input" type="text" id="new-cd-input" placeholder="Ship to Party name (exact, as in orders)…"/><button class="btn btn-primary btn-sm" onclick="cdAddCustomer()">Add</button></div></div></div>
         <div class="card"><div class="card-header"><div class="card-title">Visit Purpose Dropdown</div></div><div style="padding:14px;"><div class="master-list" id="master-purpose-list"></div><div class="add-item-row"><input class="form-input" type="text" id="new-purpose-input" placeholder="New purpose option…"/><button class="btn btn-primary btn-sm" onclick="addMasterItem('purpose')">Add</button></div></div></div>
         <div class="card"><div class="card-header"><div class="card-title">Rejection / Failure Reasons</div></div><div style="padding:14px;"><div class="master-list" id="master-reason-list"></div><div class="add-item-row"><input class="form-input" type="text" id="new-reason-input" placeholder="New rejection reason…"/><button class="btn btn-primary btn-sm" onclick="addMasterItem('reason')">Add</button></div></div></div>
         <div class="card"><div class="card-header"><div class="card-title">Buyer List (Order Tracker)</div></div><div style="padding:14px;"><div class="master-list" id="master-buyer-list"></div><div class="add-item-row"><input class="form-input" type="text" id="new-buyer-input" placeholder="New buyer name…"/><button class="btn btn-primary btn-sm" onclick="addMasterItem('buyer')">Add</button></div></div></div>
@@ -525,6 +526,11 @@ body{
         <button class="att-tab" data-pk="import" onclick="pkSwitch('import',this)">Import Data Management</button>
       </div>
       <div id="pk-body"></div>
+    </div>
+
+    <!-- COMPLETE DELIVERY MANAGEMENT -->
+    <div class="page" id="page-cdm">
+      <div id="cdm-root"></div>
     </div>
 
     <!-- LOGISTICS DASHBOARD -->
@@ -782,8 +788,8 @@ async function refreshAll(){
       else { const lz=getZones(); if(lz.length){ await dbSaveZones(lz); } }
     }catch(ze){}
     try{
-      if(master && master.contacts){ CONTACTS={fce:master.contacts.fce||{},courier:master.contacts.courier||{},support:Array.isArray(master.contacts.support)?master.contacts.support:[],importLog:Array.isArray(master.contacts.importLog)?master.contacts.importLog:[],plantNames:(master.contacts.plantNames&&typeof master.contacts.plantNames==='object')?master.contacts.plantNames:{}}; lsSet('sc_contacts',CONTACTS); }
-      else { const c=lsGet('sc_contacts',null); if(c)CONTACTS={fce:c.fce||{},courier:c.courier||{},support:Array.isArray(c.support)?c.support:[],plantNames:(c.plantNames&&typeof c.plantNames==='object')?c.plantNames:{}}; }
+      if(master && master.contacts){ CONTACTS={fce:master.contacts.fce||{},courier:master.contacts.courier||{},support:Array.isArray(master.contacts.support)?master.contacts.support:[],importLog:Array.isArray(master.contacts.importLog)?master.contacts.importLog:[],plantNames:(master.contacts.plantNames&&typeof master.contacts.plantNames==='object')?master.contacts.plantNames:{},cdCustomers:Array.isArray(master.contacts.cdCustomers)?master.contacts.cdCustomers:[],cdPosts:Array.isArray(master.contacts.cdPosts)?master.contacts.cdPosts:[]}; lsSet('sc_contacts',CONTACTS); }
+      else { const c=lsGet('sc_contacts',null); if(c)CONTACTS={fce:c.fce||{},courier:c.courier||{},support:Array.isArray(c.support)?c.support:[],plantNames:(c.plantNames&&typeof c.plantNames==='object')?c.plantNames:{},cdCustomers:Array.isArray(c.cdCustomers)?c.cdCustomers:[],cdPosts:Array.isArray(c.cdPosts)?c.cdPosts:[]}; }
     }catch(ce){}
     try{ CACHE.announcements=await dbGetAnnouncements(); ANN_CLOUD=true; }catch(ae){ CACHE.announcements=null; ANN_CLOUD=false; }
     setSync(true,'Cloud synced');
@@ -978,6 +984,7 @@ const NAV_ITEMS=[
   {id:'orders',label:'Order Tracker',group:'Logistics',icon:'<rect x="1" y="3" width="15" height="13" rx="1"/><path d="M16 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/>',roles:['admin','authorizer','logistics','teamleader','packer']},
   {id:'packing',label:'Sample Packing',group:'Logistics',icon:'<path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><path d="M3.27 6.96L12 12.01l8.73-5.05M12 22.08V12"/>',roles:['admin','logistics']},
   {id:'logdash',label:'Dashboard',group:'Logistics',icon:'<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>',roles:['admin','authorizer','logistics']},
+  {id:'cdm',label:'Complete Delivery',group:'Logistics',icon:'<path d="M21 8l-9-5-9 5v8l9 5 9-5V8z"/><path d="M3 8l9 5 9-5M12 22V13"/><path d="M8 10.5l8-4.5"/>',roles:['admin','authorizer','logistics']},
   {id:'attendance',label:'Attendance',group:'Attendance',icon:'<path d="M8 2v4M16 2v4"/><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18"/><path d="M9 16l2 2 4-4"/>',roles:['admin','authorizer','teamleader']},
   {id:'masterdata',label:'Master Data',group:'Admin',icon:'<path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>',roles:['admin','authorizer']},
   {id:'users',label:'User Accounts',group:'Admin',icon:'<path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/>',roles:['admin']},
@@ -1250,6 +1257,7 @@ function closeModal(id){ document.getElementById(id).classList.remove('open'); }
 function renderMasterData(){
   if(!isAuthorizer())return;
   const m=getMaster();
+  cdRenderMaster();
   renderMasterList('master-fce-list',m.fce,'fce');
   const search=(document.getElementById('master-cust-search')?.value||'').toLowerCase();
   const custs=search?m.customers.filter(c=>c.toLowerCase().includes(search)):m.customers;
@@ -1262,6 +1270,27 @@ function renderMasterData(){
   renderFcePhones(); renderCourierEmails();
 }
 function renderMasterList(id,items,type){ document.getElementById(id).innerHTML=items.map((item,i)=>masterItemHTML(item,type,i)).join(''); }
+function cdRenderMaster(){
+  const el=document.getElementById('master-cd-list'); if(!el)return;
+  const list=cdList(); const cnt=document.getElementById('cd-count'); if(cnt)cnt.textContent=list.length;
+  el.innerHTML=list.map((c,i)=>`<div class="master-item"><span>${attEsc(c)}</span><button class="btn-icon" title="Remove" onclick="cdRemoveCustomer(${i})"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>`).join('')||'<div class="combo-empty">No Complete Delivery customers yet — all customers are Partial Delivery.</div>';
+}
+async function cdAddCustomer(){
+  const inp=document.getElementById('new-cd-input'); const v=(inp.value||'').trim(); if(!v)return;
+  if(typeof CONTACTS==='undefined'||!CONTACTS)return; if(!Array.isArray(CONTACTS.cdCustomers))CONTACTS.cdCustomers=[];
+  if(CONTACTS.cdCustomers.some(c=>pkmKey(c)===pkmKey(v))){ showToast('Already in the list.','err'); return; }
+  CONTACTS.cdCustomers.push(v); inp.value='';
+  try{ if(typeof dbSaveContacts==='function')await dbSaveContacts(); showToast('"'+v+'" marked as Complete Delivery customer.'); }catch(e){ showToast('Cloud save failed: '+(e.message||e),'err'); }
+  cdRenderMaster();
+}
+async function cdRemoveCustomer(i){
+  if(typeof CONTACTS==='undefined'||!CONTACTS||!Array.isArray(CONTACTS.cdCustomers))return;
+  const c=CONTACTS.cdCustomers[i]; if(c==null)return;
+  if(!confirm('Remove "'+c+'" from Complete Delivery customers? Their orders will be treated as Partial Delivery.'))return;
+  CONTACTS.cdCustomers.splice(i,1);
+  try{ if(typeof dbSaveContacts==='function')await dbSaveContacts(); showToast('Removed.'); }catch(e){ showToast('Cloud save failed: '+(e.message||e),'err'); }
+  cdRenderMaster();
+}
 function masterItemHTML(item,type,i){ const del=isAdmin()?`<button class="btn-icon" style="padding:3px 6px;color:var(--red);" onclick="deleteMasterItem('${type}',${i})" title="Remove"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>`:''; return `<div class="master-item"><span class="mi-name">${item}</span><div style="display:flex;gap:6px;"><button class="btn-icon" style="padding:3px 6px;" onclick="editMasterItem('${type}',${i})" title="Edit"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.828 2.828 0 114 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg></button>${del}</div></div>`; }
 let CONTACTS={fce:{},courier:{}}; let __sendMsg='';
 function getContacts(){ return CONTACTS||{fce:{},courier:{}}; }
@@ -1575,7 +1604,7 @@ function downloadChartsTable(){
 }
 
 // ═══ NAV ═══
-const PAGE_META={dashboard:['Dashboard','FCE TA performance overview'],visitlog:['Visit Log','All daily visit records'],charts:['Charts','Visual analytics & summary table'],perfce:['Per FCE','Individual FCE breakdown'],addentry:['Add Entry','Record a new TA visit'],approval:['Approvals','Review and approve TA claims'],masterdata:['Master Data','Manage lists used in forms'],users:['User Accounts','Manage user access'],orders:['Order Tracker','Swatch collection & sample delivery'],packing:['Sample Packing','Delivery notes, stickers & trip schedules'],logdash:['Logistics Dashboard','Deliveries, DN status & order lines placed'],attendance:['Attendance Tracker','Daily attendance, dashboards & Packer bonus'],profile:['Profile Settings','Language, name & password']};
+const PAGE_META={dashboard:['Dashboard','FCE TA performance overview'],visitlog:['Visit Log','All daily visit records'],charts:['Charts','Visual analytics & summary table'],perfce:['Per FCE','Individual FCE breakdown'],addentry:['Add Entry','Record a new TA visit'],approval:['Approvals','Review and approve TA claims'],masterdata:['Master Data','Manage lists used in forms'],users:['User Accounts','Manage user access'],orders:['Order Tracker','Swatch collection & sample delivery'],packing:['Sample Packing','Delivery notes, stickers & trip schedules'],logdash:['Logistics Dashboard','Deliveries, DN status & order lines placed'],attendance:['Attendance Tracker','Daily attendance, dashboards & Packer bonus'],profile:['Profile Settings','Language, name & password'],cdm:['Complete Delivery Management','Bin posting, acknowledgement & incomplete-order follow-up']};
 let activePage='dashboard';
 function showPage(name,btn){
   if(!canSee(name)){ showToast('You don\'t have access to this page.','err'); return; }
@@ -1613,6 +1642,7 @@ function rerenderActive(){
   if(name==='masterdata')renderMasterData();
   if(name==='users')renderUsers();
   if(name==='profile')renderProfile();
+  if(name==='cdm')renderCDM();
   if(name==='orders')renderOrders();
   if(name==='packing')pkRender();
   if(name==='logdash')renderLogDash();
@@ -2416,9 +2446,76 @@ function attRenderLeaveSection(){
 //  sample_lines + trip_schedule live in Supabase (run SAMPLE_PACKING_SETUP.sql)
 // ═══════════════════════════════════════════════════════════════
 let pkTab='orders', pkOrder=null, pkResults=[], pkTripDate=null, pkTripRoad='', pkPendingTripOrder='';
+// ═══ COMPLETE DELIVERY MANAGEMENT ═══
+const CD_BINS=['Tiger','Astra Ecoverde','Epic Ecoverde','Dual Duty Ecoverde','Dymax','Sylko Ecoverde','Eloflex Ecoverde'];
+let cdBinFilter='', cdStatusFilter='open';
+function cdList(){ return (typeof CONTACTS!=='undefined'&&CONTACTS&&Array.isArray(CONTACTS.cdCustomers))?CONTACTS.cdCustomers:[]; }
+function cdPosts(){ if(typeof CONTACTS==='undefined'||!CONTACTS)return []; if(!Array.isArray(CONTACTS.cdPosts))CONTACTS.cdPosts=[]; return CONTACTS.cdPosts; }
+function cdIsComplete(shipTo){ const k=pkmKey(shipTo); return cdList().some(c=>pkmKey(c)===k); }
+function cdOpenPostFor(orderNo){ return cdPosts().find(p=>p.orderNo===orderNo&&p.status==='open'); }
+function cdShowBinPopup(){
+  if(!pkOrder)return; const o=pkOrder;
+  const ex=cdOpenPostFor(o.orderNo); if(ex){ showToast('Order '+o.orderNo+' is already posted to bin "'+ex.bin+'" (open).','err'); return; }
+  const old=document.getElementById('cd-bin-overlay'); if(old)old.remove();
+  const ov=document.createElement('div'); ov.id='cd-bin-overlay';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(4,10,30,.72);z-index:999;display:flex;align-items:center;justify-content:center;';
+  ov.innerHTML=`<div class="card" style="max-width:420px;width:92%;padding:18px;">
+    <div class="card-title" style="margin-bottom:4px;">Post to bin — Complete Delivery</div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:12px;">Order <b>${attEsc(o.orderNo)}</b> · ${attEsc(o.shipTo)}. Choose the bin for posting:</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">${CD_BINS.map(b=>`<button class="btn btn-ghost" style="justify-content:center;" onclick="cdPostToBin('${attEsc(b)}')">${attEsc(b)}</button>`).join('')}</div>
+    <div style="text-align:right;margin-top:14px;"><button class="btn btn-ghost btn-sm" onclick="document.getElementById('cd-bin-overlay').remove()">Cancel</button></div></div>`;
+  ov.addEventListener('click',e=>{ if(e.target===ov)ov.remove(); });
+  document.body.appendChild(ov);
+}
+async function cdPostToBin(bin){
+  const ovl=document.getElementById('cd-bin-overlay'); if(ovl)ovl.remove();
+  if(!pkOrder)return; const o=pkOrder;
+  const sel=pkSelectedLines(); const usedLines=(sel.length?sel:o.lines);
+  const rec={ id:'cd_'+Date.now()+'_'+Math.random().toString(36).slice(2,6), orderNo:o.orderNo, shipTo:o.shipTo, buyer:o.buyer||'',
+    bin, lineNos:usedLines.map(l=>l.line_no).filter(x=>x!=null&&x!=='').join(','), totalQty:usedLines.reduce((s,l)=>s+(parseFloat(l.qty)||0),0),
+    postedAt:new Date().toISOString(), postedBy:(currentUser&&currentUser.name)||'', status:'open', notes:[] };
+  cdPosts().unshift(rec);
+  try{ if(typeof dbSaveContacts==='function')await dbSaveContacts(); showToast('Order '+o.orderNo+' posted to bin "'+bin+'".'); }
+  catch(e){ showToast('Cloud save failed: '+(e.message||e),'err'); }
+  if(pkTab==='orders')pkRenderOrders();
+}
+async function cdAck(id){
+  const p=cdPosts().find(x=>x.id===id); if(!p)return;
+  if(!confirm('Acknowledge order '+p.orderNo+'?\n\nThis confirms all order lines are completed and removes it from bin "'+p.bin+'".'))return;
+  p.status='done'; p.ackAt=new Date().toISOString(); p.ackBy=(currentUser&&currentUser.name)||'';
+  try{ if(typeof dbSaveContacts==='function')await dbSaveContacts(); showToast('Order '+p.orderNo+' acknowledged — removed from bin.'); }
+  catch(e){ showToast('Cloud save failed: '+(e.message||e),'err'); }
+  renderCDM();
+}
+async function cdAddNote(id){
+  const p=cdPosts().find(x=>x.id===id); if(!p)return;
+  const t=prompt('Add remark / note for incomplete order '+p.orderNo+':'); if(t==null)return; const txt=t.trim(); if(!txt)return;
+  p.notes=p.notes||[]; p.notes.push({at:new Date().toISOString(),by:(currentUser&&currentUser.name)||'',text:txt});
+  try{ if(typeof dbSaveContacts==='function')await dbSaveContacts(); showToast('Note added.'); }
+  catch(e){ showToast('Cloud save failed: '+(e.message||e),'err'); }
+  renderCDM();
+}
+function renderCDM(){
+  const box=document.getElementById('cdm-root'); if(!box)return;
+  const posts=cdPosts();
+  const open=posts.filter(p=>p.status==='open');
+  const binCards=CD_BINS.map(b=>{ const n=open.filter(p=>p.bin===b).length; return `<div class="att-stat" style="cursor:pointer;${cdBinFilter===b?'outline:2px solid var(--accent);':''}" onclick="cdBinFilter=cdBinFilter==='${attEsc(b)}'?'':'${attEsc(b)}';renderCDM()"><div class="v" style="color:${n?'#ff9f5a':'var(--green)'};">${n}</div><div class="l">${attEsc(b)}</div></div>`; }).join('');
+  const list=posts.filter(p=>(!cdBinFilter||p.bin===cdBinFilter)&&(cdStatusFilter==='all'||p.status===(cdStatusFilter==='open'?'open':'done')));
+  const rows=list.map(p=>{ const notes=(p.notes||[]).map(n=>`<div style="font-size:11px;color:var(--muted);">• ${attEsc(n.text)} <span style="color:var(--dim);">(${attEsc(n.by)}, ${fmtDate(n.at)})</span></div>`).join('');
+    return `<tr><td style="white-space:nowrap;">${fmtDateTime(p.postedAt)}</td><td><b>${attEsc(p.orderNo)}</b></td><td>${attEsc(p.shipTo)}</td><td>${attEsc(p.bin)}</td><td style="text-align:center;">${attEsc(p.lineNos||'—')}</td><td style="text-align:center;">${p.totalQty||0}</td>
+    <td>${p.status==='open'?'<span class="badge" style="background:rgba(255,159,90,.15);color:#ff9f5a;">Incomplete</span>':`<span class="badge" style="background:rgba(70,230,160,.15);color:#46e6a0;">Acknowledged</span><div style="font-size:10px;color:var(--dim);">${attEsc(p.ackBy||'')} ${p.ackAt?fmtDate(p.ackAt):''}</div>`}</td>
+    <td style="min-width:160px;">${notes||'<span style="color:var(--dim);font-size:11px;">—</span>'}</td>
+    <td style="white-space:nowrap;">${p.status==='open'?`<button class="btn btn-primary btn-sm" onclick="cdAck('${p.id}')">Acknowledge</button> `:''}<button class="btn btn-ghost btn-sm" onclick="cdAddNote('${p.id}')">+ Note</button></td></tr>`; }).join('')||`<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:18px;">No ${cdStatusFilter==='open'?'incomplete ':cdStatusFilter==='done'?'acknowledged ':''}posted orders${cdBinFilter?(' in bin "'+attEsc(cdBinFilter)+'"'):''}.</td></tr>`;
+  box.innerHTML=`
+   <div class="section-hint">Complete-Delivery customers' orders are posted to a bin after DN / Sticker printing. Acknowledge an order when all lines are completed to remove it from the bin; unacknowledged orders stay listed as incomplete. Customer type is maintained in Master Data → Complete Delivery Customers.</div>
+   <div class="att-stat-row" style="margin-bottom:14px;">${binCards}</div>
+   <div class="card"><div class="card-header"><div><div class="card-title">Posted orders</div><div class="card-sub">${open.length} incomplete · ${posts.length-open.length} acknowledged${cdBinFilter?(' · filtered: '+attEsc(cdBinFilter)):''}</div></div>
+     <div class="card-actions"><select class="filter-sel" onchange="cdStatusFilter=this.value;renderCDM()"><option value="open" ${cdStatusFilter==='open'?'selected':''}>Incomplete</option><option value="done" ${cdStatusFilter==='done'?'selected':''}>Acknowledged</option><option value="all" ${cdStatusFilter==='all'?'selected':''}>All</option></select></div></div>
+     <div style="overflow:auto;"><table><thead><tr><th>Posted</th><th>Order No</th><th>Customer</th><th>Bin</th><th style="text-align:center;">Lines</th><th style="text-align:center;">Qty</th><th>Status</th><th>Remarks / Notes</th><th>Actions</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
+}
 let pkTripSel=new Set(), pkListSel=new Set(), pkListKind='', pkRetCust='', pkPendingCarton='', pkRetGran='month', pkRetRoad='', pkRetPlant='', pkRetMonth='', pkTripPick=null, pkTripPickSel=new Set(), pkTripPickCarton=1;
 let pkDashView='ops', pkDashGran='month', pkDashRoad='', pkDashMonth='', pkOpsMonth='', pkDashLines=null, pkDashCharts={};
-let pkDashDelPlant='', pkDashSupPlant='', pkLineDelPlant='', pkLineSupPlant='', pkRepeatsOnly=true, pkRepeatTopN=20, pkRepeatSearch='';
+let pkDashDelPlant='', pkDashSupPlant='', pkLineDelPlant='', pkLineSupPlant='', pkRepeatsOnly=true, pkRepeatTopN=20, pkRepeatSearch='', pkRepeatGroup='cbm';
 
 // ── DB ──
 async function dbPkLookup(orderNo){ const {data,error}=await sb.from('sample_lines').select('*').eq('order_no',orderNo); if(error)throw error; return data||[]; }
@@ -2517,12 +2614,14 @@ function pkRenderOrderView(){
   const sel=o._sel||new Set();
   const rows=o.lines.map((l,i)=>`<tr><td style="text-align:center;"><input type="checkbox" ${sel.has(i)?'checked':''} onchange="pkToggleLine(${i})"/></td><td>${attEsc(l.line_no)}</td><td>${attEsc(l.coats_brand_tex)}</td><td>${attEsc(l.product_code)}</td><td>${attEsc(l.shade)}</td><td>${attEsc(l.qty)}</td><td>${attEsc(l.style_no)}</td><td style="font-size:12px;">${attEsc(l.remarks)}</td></tr>`).join('');
   const allChecked=o.lines.length&&sel.size===o.lines.length;
-  v.innerHTML=`<div class="card"><div class="card-header"><div><div class="card-title">Order ${attEsc(o.orderNo)}</div><div class="card-sub">${attEsc(o.shipTo)} · ${attEsc(o.buyer||'')}</div></div>
+  const _cdFull=cdIsComplete(o.shipTo); const _cdPosted=cdOpenPostFor(o.orderNo);
+  v.innerHTML=`<div class="card"><div class="card-header"><div><div class="card-title">Order ${attEsc(o.orderNo)}</div><div class="card-sub">${attEsc(o.shipTo)} · ${attEsc(o.buyer||'')} · <span class="badge" style="${_cdFull?'background:rgba(255,159,90,.15);color:#ff9f5a;':'background:rgba(110,160,255,.12);color:#9fb8e8;'}">${_cdFull?'Complete Delivery':'Partial Delivery'}</span>${_cdPosted?` <span class="badge" style="background:rgba(70,230,160,.12);color:#46e6a0;">In bin: ${attEsc(_cdPosted.bin)}</span>`:''}</div></div>
     <div class="card-actions" style="display:flex;gap:6px;flex-wrap:wrap;">
       <button class="btn btn-ghost btn-sm" onclick="pkPrintDN()">🖨 DN Copy</button>
       <button class="btn btn-ghost btn-sm" onclick="pkPrintSticker()">🖨 Sticker</button>
       <button class="btn btn-primary btn-sm" onclick="pkOpenRoadModal('trip')">Add to Trip</button>
       <button class="btn btn-primary btn-sm" onclick="pkOpenRoadModal('return')" title="Record this order as a return">↩ Add to Return</button>
+      ${_cdFull&&!_cdPosted?'<button class="btn btn-sm" style="background:#ff9f5a;color:#1a1005;font-weight:700;" onclick="cdShowBinPopup()" title="Complete Delivery — post this order to a bin">📦 Complete Delivery — Post to Bin</button>':''}
     </div></div>
     <div style="padding:0 16px 8px;"><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:4px 18px;font-size:13px;padding:8px 0;">
       <div><span style="color:var(--muted);">Creation:</span> ${pkFmtDate(o.creationDate)}</div>
@@ -2905,7 +3004,7 @@ async function pkDashLinesView(){
   const fRows=monthRows.filter(r=>(!dPlant||lp(r)===dPlant)&&(!sPlant||lsf(r)===sPlant));
   const months2=[...new Set(fRows.map(r=>pkMonthKey(r.creation_date)).filter(Boolean))].sort();
   const fullMat=r=>{ let m=(r.material_no||'').trim(); const sh=(r.shade||'').trim(); if(sh&&!m.toUpperCase().includes(sh.toUpperCase()))m=m+(m===''||m.endsWith('-')?'':'-')+sh; return m; };
-  const agg={}; fRows.forEach(r=>{ const cust=(r.customer_name||r.ship_to||'').trim(), bp=(r.buyer||'').trim(), mat=fullMat(r); const key=[cust,bp,mat].join('|||'); if(!agg[key])agg[key]={cust,bp,mat,qty:0,lines:0,pm:{},pq:{}}; const m=pkMonthKey(r.creation_date); const q=parseFloat(r.qty)||0; agg[key].qty+=q; agg[key].lines++; if(m){ agg[key].pm[m]=(agg[key].pm[m]||0)+1; agg[key].pq[m]=(agg[key].pq[m]||0)+q; } });
+  const agg={}; fRows.forEach(r=>{ const cust=(r.customer_name||r.ship_to||'').trim(), bp=(pkRepeatGroup==='cm'?'':(r.buyer||'').trim()), mat=fullMat(r); const key=[cust,bp,mat].join('|||'); if(!agg[key])agg[key]={cust,bp,mat,qty:0,lines:0,pm:{},pq:{}}; const m=pkMonthKey(r.creation_date); const q=parseFloat(r.qty)||0; agg[key].qty+=q; agg[key].lines++; if(m){ agg[key].pm[m]=(agg[key].pm[m]||0)+1; agg[key].pq[m]=(agg[key].pq[m]||0)+q; } });
   const aggListAll=Object.values(agg).sort((a,b)=>b.lines-a.lines||b.qty-a.qty);
   const repeatList=aggListAll.filter(x=>x.lines>=2);
   const totalQty=aggListAll.reduce((s,x)=>s+x.qty,0), totalLines=aggListAll.reduce((s,x)=>s+x.lines,0);
@@ -2913,9 +3012,9 @@ async function pkDashLinesView(){
   const term=(pkRepeatSearch||'').trim().toLowerCase();
   const matFiltered=term?matBase.filter(x=>(((x.cust||'')+' '+(x.bp||'')).toLowerCase().includes(term))):matBase;
   const matSrc=(pkRepeatTopN>0?matFiltered.slice(0,pkRepeatTopN):matFiltered);
-  const matHead=`<th>Customer - Business Principal - Material No</th>${months2.map(m=>`<th style="text-align:center;">${monthLabel(m)}</th>`).join('')}<th style="text-align:center;">Total</th>`;
-  const matRows=matSrc.map(x=>`<tr><td>${attEsc([x.cust||'—',x.bp||'—',x.mat||'—'].join(' - '))}</td>${months2.map(m=>`<td style="text-align:center;${x.pm[m]?'':'color:var(--dim);'}">${x.pm[m]?(x.pm[m]+'/'+(Math.round((x.pq[m]||0)*100)/100)):'0'}</td>`).join('')}<td style="text-align:center;font-weight:800;color:var(--accent2);">${x.lines}/${Math.round(x.qty*100)/100}</td></tr>`).join('')||`<tr><td colspan="${months2.length+2}" style="text-align:center;color:var(--muted);padding:16px;">No ${pkRepeatsOnly?'repeat ':''}orders for this selection.</td></tr>`;
-  const byMonth={}; rows.forEach(r=>{ const m=pkMonthKey(r.creation_date); if(!m)return; byMonth[m]=(byMonth[m]||0)+1; });
+  const matHead=`<th>${pkRepeatGroup==='cm'?'Customer - Material No':'Customer - Business Principal - Material No'}</th>${months2.map(m=>`<th style="text-align:center;">${monthLabel(m)}</th>`).join('')}<th style="text-align:center;">Total</th>`;
+  const matRows=matSrc.map(x=>`<tr><td>${attEsc([x.cust||'—'].concat(pkRepeatGroup==='cm'?[]:[x.bp||'—']).concat([x.mat||'—']).join(' - '))}</td>${months2.map(m=>`<td style="text-align:center;${x.pm[m]?'':'color:var(--dim);'}">${x.pm[m]?(x.pm[m]+'/'+(Math.round((x.pq[m]||0)*100)/100)):'0'}</td>`).join('')}<td style="text-align:center;font-weight:800;color:var(--accent2);">${x.lines}/${Math.round(x.qty*100)/100}</td></tr>`).join('')||`<tr><td colspan="${months2.length+2}" style="text-align:center;color:var(--muted);padding:16px;">No ${pkRepeatsOnly?'repeat ':''}orders for this selection.</td></tr>`;
+  const byMonth={}; rows.filter(r=>(!dPlant||lp(r)===dPlant)).forEach(r=>{ const m=pkMonthKey(r.creation_date); if(!m)return; byMonth[m]=(byMonth[m]||0)+1; });
   const trendKeys=Object.keys(byMonth).sort();
   const byDelL={}, bySupL={};
   monthRows.forEach(r=>{ const q=parseFloat(r.qty)||0; const d=lp(r)||'—'; if(!byDelL[d])byDelL[d]={qty:0,lines:0}; byDelL[d].qty+=q; byDelL[d].lines++; const s=lsf(r)||'—'; if(!bySupL[s])bySupL[s]={qty:0,lines:0}; bySupL[s].qty+=q; bySupL[s].lines++; });
@@ -2927,6 +3026,7 @@ async function pkDashLinesView(){
       <select class="filter-sel" onchange="pkDashMonth=this.value;pkRenderDash()"><option value="">All months</option>${months.map(m=>`<option value="${m}" ${m===pkDashMonth?'selected':''}>${monthLabel(m)}</option>`).join('')}</select>
       <select class="filter-sel" title="Delivery Plant" onchange="pkLineDelPlant=this.value;pkRenderDash()">${plantOptsL(delPlants,dPlant,'All delivery plants')}</select>
       <label style="display:inline-flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;"><input type="checkbox" ${pkRepeatsOnly?'checked':''} onchange="pkRepeatsOnly=this.checked;pkRenderDash()"/> Repeats only (ordered ≥ 2×)</label>
+      <select class="filter-sel" title="Group by" onchange="pkRepeatGroup=this.value;pkRenderDash()"><option value="cbm" ${pkRepeatGroup==='cbm'?'selected':''}>Customer + BP + Material</option><option value="cm" ${pkRepeatGroup==='cm'?'selected':''}>Customer + Material</option></select>
       <select class="filter-sel" title="How many rows to show" onchange="pkRepeatTopN=parseInt(this.value)||0;pkRenderDash()"><option value="0" ${pkRepeatTopN===0?'selected':''}>All</option><option value="5" ${pkRepeatTopN===5?'selected':''}>Top 5</option><option value="10" ${pkRepeatTopN===10?'selected':''}>Top 10</option><option value="20" ${pkRepeatTopN===20?'selected':''}>Top 20</option><option value="30" ${pkRepeatTopN===30?'selected':''}>Top 30</option></select>
       <span style="font-size:12px;color:var(--muted);">Count of order-lines per month, by Customer + Business Principal + Material No.</span>
       <input class="filter-sel" id="pk-rep-search" type="text" value="${attEsc(pkRepeatSearch)}" placeholder="Search customer / buyer…" style="margin-left:auto;min-width:220px;" oninput="pkRepeatSearch=this.value;pkRenderDash()"/>
@@ -3112,7 +3212,7 @@ function pkmBuild(at,cm){
     PKM.tex.set(k,(tex==null?'':(''+tex).trim())); PKM.brand.set(k,brand||''); });
   PKM.csMob=new Map(); PKM.csMobByName=new Map(); PKM.shipRoad=new Map(); PKM.shipRoadLoose=new Map(); PKM.shipRoadEx=null;
   (cm||[]).forEach(r=>{ if(!Array.isArray(r))return;
-    if(r[0]==='#ROAD'){ const rd=(r[2]==null?'':(''+r[2]).trim()); const k=pkmKey(r[1]); if(k&&rd){ if(!PKM.shipRoad.has(k))PKM.shipRoad.set(k,rd); const lk=pkmRoadLoose(r[1]); if(lk&&!PKM.shipRoadLoose.has(lk))PKM.shipRoadLoose.set(lk,rd); if(!PKM.shipRoadEx)PKM.shipRoadEx={name:(''+r[1]).trim(),road:rd}; } return; }
+    if(r[0]==='#ROAD'){ const rd=(r[2]==null?'':(''+r[2]).trim()); const k=pkmKey(r[1]); if(k&&rd){ if(!PKM.shipRoad.has(k))PKM.shipRoad.set(k,rd); const lk=pkmRoadLoose(r[1]); if(lk&&!PKM.shipRoadLoose.has(lk))PKM.shipRoadLoose.set(lk,rd); if(!PKM.shipRoadEx)PKM.shipRoadEx={name:(''+r[1]).trim(),road:rd}; } const rp=(r[3]==null?'':(''+r[3]).trim()); if(k&&rp){ if(!PKM.shipResp)PKM.shipResp=new Map(); if(!PKM.shipResp.has(k))PKM.shipResp.set(k,rp); } return; }
     const e=(''+(r[0]||'')).trim().toLowerCase();
     if(e.indexOf('@')<0)return; // only [email,mobile] rows; ignore legacy customer rows
     const mob=(r[1]==null?'':(''+r[1]).trim());
@@ -3147,8 +3247,8 @@ async function pkmUpload(kind,input){
       const e=col('CS Mail ID','CS Mail','CS Email','Mail ID'),m=col('CS Mobile No.','CS Mobile','Mobile'); if(e<0||m<0){ showToast('Could not find CS Mail ID / CS Mobile columns.','err'); return; }
       const seen={}, arr=[]; for(let i=1;i<rows.length;i++){ const r=rows[i]; if(!r||r[e]==null)continue; const em=(''+r[e]).trim().toLowerCase(); if(!em||seen[em])continue; seen[em]=1; arr.push([em,(r[m]==null?'':(''+r[m]).trim())]); }
       // Ship-to → Road mapping (optional columns in the same file)
-      const sShip=col('Ship to Party Name','Ship To Party Name','Ship to Party','Ship to Name','Ship To','Ship to','Customer Name'),sRoad=col('Road Name','Road','Delivery Road','Road / Zone','Road Zone','Zone','Delivery Zone');
-      let roadRows=[]; if(sShip>=0&&sRoad>=0){ const rs={}; for(let i=1;i<rows.length;i++){ const r=rows[i]; if(!r)continue; const st=(''+(r[sShip]==null?'':r[sShip])).trim(), rd=(''+(r[sRoad]==null?'':r[sRoad])).trim(); if(!st||!rd)continue; const k=pkmKey(st); if(rs[k])continue; rs[k]=1; roadRows.push(['#ROAD',st,rd]); } }
+      const sShip=col('Ship to Party Name','Ship To Party Name','Ship to Party','Ship to Name','Ship To','Ship to','Customer Name'),sRoad=col('Road Name','Road','Delivery Road','Road / Zone','Road Zone','Zone','Delivery Zone'),sResp=col('Responsibility To','Responsibility','Responsible','FCE','FCE Name');
+      let roadRows=[]; if(sShip>=0&&sRoad>=0){ const rs={}; for(let i=1;i<rows.length;i++){ const r=rows[i]; if(!r)continue; const st=(''+(r[sShip]==null?'':r[sShip])).trim(), rd=(''+(r[sRoad]==null?'':r[sRoad])).trim(), rp=(sResp>=0?(''+(r[sResp]==null?'':r[sResp])).trim():''); if(!st||!rd)continue; const k=pkmKey(st); if(rs[k])continue; rs[k]=1; roadRows.push(['#ROAD',st,rd,rp]); } }
       else { roadRows=(c.cm||[]).filter(r=>Array.isArray(r)&&r[0]==='#ROAD'); } // keep existing road map if this file has no road columns
       const finalArr=arr.concat(roadRows);
       showToast('Saving '+arr.length.toLocaleString()+' CS contacts'+(roadRows.length?(' + '+roadRows.length+' road mappings'):'')+'…'); await dbPkmSaveCs(finalArr);
@@ -3185,6 +3285,26 @@ function pkmSelfTest(){
   return '<div style="margin-top:12px;font-size:12px;color:var(--green);line-height:1.6;">✓ <b>Mobile lookup ready.</b> e.g. '+attEsc(e)+' → '+attEsc(m)+(tam?(' · tamanna.hannan → '+attEsc(tam)):'')+'. The DN fills the mobile from the CS name automatically.</div>';
 }
 function pkmRoadLoose(s){ let k=pkmKey(s); k=k.replace(/(?:LIMITED|LTD|PVT|PRIVATE|COMPANY)+$/,''); return k; }
+function pkRespFor(shipTo){ if(!PKM.shipResp)return ''; return PKM.shipResp.get(pkmKey(shipTo))||''; }
+async function pkAutoCreateOrders(recs){
+  // Populate Order Tracker from imported data: Created Date, Order No, Customer, Buyer, Delivery Zone, Responsibility To
+  try{
+    const existing=new Set(getOrders().map(x=>(x.orderNo||'').trim().toLowerCase()).filter(Boolean));
+    const byOrder={};
+    recs.forEach(r=>{ const ono=(r.order_no||'').trim(); if(!ono)return; const k=ono.toLowerCase(); if(existing.has(k))return;
+      if(!byOrder[k])byOrder[k]={ono,ship:(r.ship_to||'').trim(),buyer:(r.buyer||'').trim(),cd:(''+(r.creation_date||'')).slice(0,10)};
+      else{ const b=byOrder[k]; const d=(''+(r.creation_date||'')).slice(0,10); if(d&&(!b.cd||d<b.cd))b.cd=d; } });
+    const list=Object.values(byOrder); if(!list.length)return 0;
+    const today=new Date().toISOString().slice(0,10);
+    const rows=list.map(b=>orderToRow({ id:'o_imp_'+b.ono.replace(/[^A-Za-z0-9]/g,'').slice(0,24)+'_'+Math.random().toString(36).slice(2,5),
+      date:(b.cd&&/^\d{4}-\d{2}-\d{2}$/.test(b.cd))?b.cd:today, task:'Sample Delivery', orderNo:b.ono,
+      customer:b.ship, buyer:b.buyer, fce:pkRespFor(b.ship)||'', service:'', reqTime:'',
+      to:pkRoadFor(b.ship)||null, status:'Requested', deliveredAt:null, remarks:'Auto-created from import', createdBy:currentUser?currentUser.id:'' }));
+    for(let i=0;i<rows.length;i+=400){ const {error}=await sb.from('sample_orders').upsert(rows.slice(i,i+400)); if(error)throw error; }
+    try{ await refreshAll(); }catch(_){}
+    return rows.length;
+  }catch(e){ console.error('auto-create orders',e); showToast('Order Tracker auto-population failed: '+(e.message||e),'err'); return 0; }
+}
 function pkRoadFor(shipTo){ if(!PKM.shipRoad)return ''; const k=pkmKey(shipTo); let r=PKM.shipRoad.get(k); if(r)return r; const lk=pkmRoadLoose(shipTo); r=PKM.shipRoadLoose&&PKM.shipRoadLoose.get(lk); return r||''; }
 function pkmRoadTest(){ const n=(PKM.shipRoad&&PKM.shipRoad.size)||0; if(!n) return '<div style="margin-top:8px;font-size:12px;color:var(--red);line-height:1.6;">⚠ <b>No ship-to → road mappings loaded.</b> In the Customer Mapping file add columns <b>Ship to Party Name</b> + <b>Road Name</b> (first sheet, one row per ship-to) and re-upload via <b>Upload Customer Mapping</b>.</div>'; const ex=PKM.shipRoadEx; return '<div style="margin-top:8px;font-size:12px;color:var(--green);line-height:1.6;">✓ <b>'+n+' ship-to → road mappings loaded.</b>'+(ex?(' e.g. <b>'+attEsc(ex.name)+'</b> → <b>'+attEsc(ex.road)+'</b>.'):'')+' DN &amp; Sticker fill Road Name by Ship to Party Name (ignores case, spaces &amp; Ltd/Limited).</div>'; }
 function pkFieldFor(header){ const h=pkNorm(header); const h2=h.replace(/[.\s]+$/,'').replace(/\.$/,''); for(const [keys,field] of PK_HMAP){ if(keys.includes(h)||keys.includes(h2)||keys.some(k=>k.replace(/[.\s]+$/,'')===h2))return field; } return null; }
@@ -3253,6 +3373,7 @@ async function pkDoImport(){
     if(window.__pkPlantColMissing){ st.innerHTML+=' <span style="color:#e0913a;">⚠ Delivery/Supply Plant was NOT saved — the database columns don\'t exist yet. Run the ALTER TABLE statements (add delivery_plant & supply_plant to sample_lines), then re-import to see plant breakdowns.</span>'; }
     try{ if(typeof pkLoadPlantMap==='function')await pkLoadPlantMap(true); }catch(_){}
     if(typeof pkDashLines!=='undefined')pkDashLines=null;
+    try{ const nOrd=await pkAutoCreateOrders(recs); if(nOrd)st.innerHTML+=' <span style="color:var(--accent2);">＋ '+nOrd+' new order(s) added to Order Tracker (Created Date, Order No, Customer, Buyer, Delivery Zone & Responsibility auto-mapped).</span>'; }catch(_){}
     try{
       if(typeof CONTACTS!=='undefined'&&CONTACTS){ if(!Array.isArray(CONTACTS.importLog))CONTACTS.importLog=[]; CONTACTS.importLog.unshift({names:files.map(f=>f.name), at:new Date().toISOString(), count:recs.length, by:(currentUser&&currentUser.name)||''}); CONTACTS.importLog=CONTACTS.importLog.slice(0,30); if(typeof dbSaveContacts==='function')await dbSaveContacts(); }
     }catch(_){}
