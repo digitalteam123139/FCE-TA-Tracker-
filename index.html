@@ -2597,7 +2597,7 @@ async function cdSaveSel(){
   if(cdSel.mode==='post'){
     if(!pkOrder)return; const o=pkOrder;
     const sel=pkSelectedLines(); const usedLines=(sel.length?sel:o.lines);
-    const rec={ id:'cd_'+Date.now()+'_'+Math.random().toString(36).slice(2,6), orderNo:o.orderNo, shipTo:o.shipTo, buyer:o.buyer||'',
+    const rec={ id:'cd_'+Date.now()+'_'+Math.random().toString(36).slice(2,6), orderNo:o.orderNo, shipTo:o.shipTo, soldToName:(o.soldToName||''), buyer:o.buyer||'',
       bin:cdSel.bin, cartons:nos.length, cartonNos:nos, lineNos:usedLines.map(l=>l.line_no).filter(x=>x!=null&&x!=='').join(','), totalQty:usedLines.reduce((s,l)=>s+(parseFloat(l.qty)||0),0),
       postedAt:new Date().toISOString(), postedBy:(currentUser&&currentUser.name)||'', status:'open', notes:[] };
     cdPosts().unshift(rec);
@@ -2633,6 +2633,21 @@ async function cdAddNote(id){
   catch(e){ showToast('Cloud save failed: '+(e.message||e),'err'); }
   renderCDM();
 }
+async function cdDeletePost(id){
+  if(!isAdmin()){ showToast('Only Super Admin can delete posted orders.','err'); return; }
+  const p=cdPosts().find(x=>x.id===id); if(!p)return;
+  if(!confirm('Delete posted order '+p.orderNo+' from bin "'+p.bin+'"?\n\nThis removes the posting record permanently (the order itself is not affected).'))return;
+  const i=cdPosts().findIndex(x=>x.id===id); if(i>=0)cdPosts().splice(i,1);
+  try{ if(typeof dbSaveContacts==='function')await dbSaveContacts(); showToast('Posting deleted.'); }
+  catch(e){ showToast('Cloud save failed: '+(e.message||e),'err'); }
+  renderCDM();
+}
+function cdToggleRow(id){
+  const r=document.getElementById('cd-detail-'+id); const ch=document.getElementById('cd-chev-'+id);
+  if(!r)return; const open=r.style.display!=='none';
+  r.style.display=open?'none':'table-row';
+  if(ch)ch.style.transform=open?'rotate(0deg)':'rotate(90deg)';
+}
 function renderCDM(){
   const box=document.getElementById('cdm-root'); if(!box)return;
   const posts=cdPosts();
@@ -2641,17 +2656,30 @@ function renderCDM(){
   const binCards=CD_BINS.map(b=>{ const n=open.filter(p=>p.bin===b).length; const u=use[b]||0; const full=u>=CD_BIN_CAP;
     return `<div class="att-stat" style="cursor:pointer;${cdBinFilter===b?'outline:2px solid var(--accent);':''}" onclick="cdBinFilter=cdBinFilter==='${attEsc(b)}'?'':'${attEsc(b)}';renderCDM()"><div class="v" style="color:${full?'#ff6b6b':u>=CD_BIN_CAP-3?'#ff9f5a':'#46e6a0'};">${u}<span style="font-size:13px;color:var(--muted);">/${CD_BIN_CAP}</span></div><div class="l">${attEsc(b)} · ${n} order${n===1?'':'s'}${full?' · FULL':''}</div></div>`; }).join('');
   const list=posts.filter(p=>(!cdBinFilter||p.bin===cdBinFilter)&&(cdStatusFilter==='all'||p.status===(cdStatusFilter==='open'?'open':'done')));
-  const rows=list.map(p=>{ const notes=(p.notes||[]).map(n=>`<div style="font-size:11px;color:var(--muted);">• ${attEsc(n.text)} <span style="color:var(--dim);">(${attEsc(n.by)}, ${fmtDate(n.at)})</span></div>`).join('');
-    return `<tr><td style="white-space:nowrap;">${fmtDateTime(p.postedAt)}</td><td><b>${attEsc(p.orderNo)}</b></td><td>${attEsc(p.shipTo)}</td><td>${attEsc(p.bin)}</td><td style="text-align:center;font-weight:700;">${(p.cartonNos&&p.cartonNos.length)?attEsc(p.cartonNos.join(', ')):(p.cartons||1)}</td><td style="text-align:center;">${attEsc(p.lineNos||'—')}</td><td style="text-align:center;">${p.totalQty||0}</td>
-    <td>${p.status==='open'?'<span class="badge" style="background:rgba(255,159,90,.15);color:#ff9f5a;">Incomplete</span>':`<span class="badge" style="background:rgba(70,230,160,.15);color:#46e6a0;">Acknowledged</span><div style="font-size:10px;color:var(--dim);">${attEsc(p.ackBy||'')} ${p.ackAt?fmtDate(p.ackAt):''}</div>`}</td>
-    <td style="min-width:160px;">${notes||'<span style="color:var(--dim);font-size:11px;">—</span>'}</td>
-    <td style="white-space:nowrap;">${p.status==='open'&&canBin?`<button class="btn btn-ghost btn-sm" onclick="cdEditPost('${p.id}')" title="Edit bin / carton qty">✎ Bin/Ctn</button> `:''}${p.status==='open'&&adm?`<button class="btn btn-primary btn-sm" onclick="cdAck('${p.id}')">Acknowledge</button> `:''}<button class="btn btn-ghost btn-sm" onclick="cdAddNote('${p.id}')">+ Note</button></td></tr>`; }).join('')||`<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:18px;">No ${cdStatusFilter==='open'?'incomplete ':cdStatusFilter==='done'?'acknowledged ':''}posted orders${cdBinFilter?(' in bin "'+attEsc(cdBinFilter)+'"'):''}.</td></tr>`;
+  const rows=list.map(p=>{
+    const notes=(p.notes||[]).map(n=>`<div style="font-size:12px;color:var(--text);margin-bottom:3px;">• ${attEsc(n.text)} <span style="color:var(--dim);font-size:11px;">(${attEsc(n.by)}, ${fmtDateTime(n.at)})</span></div>`).join('');
+    const main=`<tr>
+      <td style="width:34px;"><button class="btn-icon" onclick="cdToggleRow('${p.id}')" title="Expand — remarks & notes"><svg id="cd-chev-${p.id}" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="transition:transform .15s;"><polyline points="9 18 15 12 9 6"/></svg></button></td>
+      <td style="white-space:nowrap;">${fmtDateTime(p.postedAt)}</td><td><b>${attEsc(p.orderNo)}</b></td><td>${attEsc(p.soldToName||p.shipTo)}${p.soldToName&&p.shipTo&&p.soldToName!==p.shipTo?`<div style="font-size:10px;color:var(--dim);">ship-to: ${attEsc(p.shipTo)}</div>`:''}</td><td>${attEsc(p.bin)}</td><td style="text-align:center;font-weight:700;">${(p.cartonNos&&p.cartonNos.length)?attEsc(p.cartonNos.join(', ')):(p.cartons||1)}</td><td style="text-align:center;">${attEsc(p.lineNos||'—')}</td><td style="text-align:center;">${p.totalQty||0}</td>
+      <td>${p.status==='open'?'<span class="badge" style="background:rgba(255,159,90,.15);color:#ff9f5a;">Incomplete</span>':`<span class="badge" style="background:rgba(70,230,160,.15);color:#46e6a0;">Acknowledged</span><div style="font-size:10px;color:var(--dim);">${attEsc(p.ackBy||'')} ${p.ackAt?fmtDate(p.ackAt):''}</div>`}</td>
+      <td style="white-space:nowrap;">${p.status==='open'&&canBin?`<button class="btn btn-ghost btn-sm" onclick="cdEditPost('${p.id}')" title="Edit bin / carton no.">✎ Bin/Ctn</button> `:''}${p.status==='open'&&adm?`<button class="btn btn-primary btn-sm" onclick="cdAck('${p.id}')">Acknowledge</button> `:''}<button class="btn btn-ghost btn-sm" onclick="cdAddNote('${p.id}')">+ Note</button>${adm?` <button class="btn btn-sm" style="background:rgba(255,107,107,.14);color:#ff6b6b;border:1px solid rgba(255,107,107,.4);" onclick="cdDeletePost('${p.id}')" title="Super Admin only — delete this posting">🗑</button>`:''}</td></tr>`;
+    const detail=`<tr id="cd-detail-${p.id}" style="display:none;"><td style="background:var(--surface2);"></td><td colspan="9" style="padding:10px 14px 14px;background:var(--surface2);">
+      <div style="background:linear-gradient(135deg,rgba(110,160,255,.07),rgba(20,32,64,.35));border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:12px;padding:12px 16px;">
+        <div style="display:flex;flex-wrap:wrap;gap:8px 30px;margin-bottom:8px;font-size:12px;">
+          <div><span style="color:var(--muted);">Posted by:</span> ${attEsc(p.postedBy||'—')}</div>
+          <div><span style="color:var(--muted);">Ship-to:</span> ${attEsc(p.shipTo||'—')}</div>
+          <div><span style="color:var(--muted);">Buyer:</span> ${attEsc(p.buyer||'—')}</div>
+        </div>
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-family:'DM Mono',monospace;margin-bottom:4px;">Remarks / Notes</div>
+        ${notes||'<div style="font-size:12px;color:var(--dim);">No remarks yet — use “+ Note” to add follow-up remarks for this order.</div>'}
+      </div></td></tr>`;
+    return main+detail; }).join('')||`<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:18px;">No ${cdStatusFilter==='open'?'incomplete ':cdStatusFilter==='done'?'acknowledged ':''}posted orders${cdBinFilter?(' in bin "'+attEsc(cdBinFilter)+'"'):''}.</td></tr>`;
   box.innerHTML=`
-   <div class="section-hint">Complete-Delivery orders are posted to bins (capacity <b>${CD_BIN_CAP} cartons</b> each). Bin cards show cartons used. Packers &amp; Authorizers can edit bin/carton; only Super Admin can acknowledge (removes the order from its bin). Customer type comes from the Customer Mapping (Sold-to code).</div>
+   <div class="section-hint">Complete-Delivery orders are posted to bins (capacity <b>${CD_BIN_CAP} cartons</b> each). Bin cards show cartons used. Packers &amp; Authorizers can edit bin/carton; only Super Admin can acknowledge or delete. Expand a row (›) for remarks &amp; notes. Customer type comes from the Customer Mapping (Sold-to code).</div>
    <div class="att-stat-row" style="margin-bottom:14px;">${binCards}</div>
    <div class="card"><div class="card-header"><div><div class="card-title">Posted orders</div><div class="card-sub">${open.length} incomplete · ${posts.length-open.length} acknowledged${cdBinFilter?(' · filtered: '+attEsc(cdBinFilter)):''}</div></div>
      <div class="card-actions"><select class="filter-sel" onchange="cdStatusFilter=this.value;renderCDM()"><option value="open" ${cdStatusFilter==='open'?'selected':''}>Incomplete</option><option value="done" ${cdStatusFilter==='done'?'selected':''}>Acknowledged</option><option value="all" ${cdStatusFilter==='all'?'selected':''}>All</option></select></div></div>
-     <div style="overflow:auto;"><table><thead><tr><th>Posted</th><th>Order No</th><th>Customer</th><th>Bin</th><th style="text-align:center;">Carton No.</th><th style="text-align:center;">Lines</th><th style="text-align:center;">Qty</th><th>Status</th><th>Remarks / Notes</th><th>Actions</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
+     <div style="overflow:auto;"><table><thead><tr><th style="width:34px;"></th><th>Posted</th><th>Order No</th><th>Customer (Sold-to)</th><th>Bin</th><th style="text-align:center;">Carton No.</th><th style="text-align:center;">Lines</th><th style="text-align:center;">Qty</th><th>Status</th><th>Actions</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
 }
 let pkTripSel=new Set(), pkListSel=new Set(), pkListKind='', pkRetCust='', pkPendingCarton='', pkRetGran='month', pkRetRoad='', pkRetPlant='', pkRetMonth='', pkTripPick=null, pkTripPickSel=new Set(), pkTripPickCarton=1;
 let pkDashView='ops', pkDashGran='month', pkDashRoad='', pkDashMonth='', pkOpsMonth='', pkDashLines=null, pkDashCharts={};
@@ -2756,6 +2784,10 @@ function pkRenderOrderView(){
   const rows=o.lines.map((l,i)=>`<tr><td style="text-align:center;"><input type="checkbox" ${sel.has(i)?'checked':''} onchange="pkToggleLine(${i})"/></td><td>${attEsc(l.line_no)}</td><td>${attEsc(l.coats_brand_tex)}</td><td>${attEsc(l.product_code)}</td><td>${attEsc(l.shade)}</td><td>${attEsc(l.qty)}</td><td>${attEsc(l.style_no)}</td><td style="font-size:12px;">${attEsc(l.remarks)}</td></tr>`).join('');
   const allChecked=o.lines.length&&sel.size===o.lines.length;
   const _cdFull=cdIsComplete(o.shipTo,o.soldToCode,o.shipToCode,o.soldToName); const _cdPosted=cdOpenPostFor(o.orderNo);
+  const _disp=s=>/despatch|dispatch/i.test(''+(s||''));
+  const _allDisp=o.lines.length>0&&o.lines.every(l=>_disp(l.line_status));
+  const _ordStatus=_allDisp?'Completed':'Partially Completed';
+  const _ordStColor=_allDisp?'background:rgba(70,230,160,.15);color:#46e6a0;':'background:rgba(255,159,90,.15);color:#ff9f5a;';
   const _cdCode=cdResolveSoldCode(o.shipTo,o.soldToCode,o.shipToCode);
   const _cdTip=attEsc('Sold-to code: '+(_cdCode||'not resolved')+(PKM.cdSoldCodes?(' · '+PKM.cdSoldCodes.size+' complete-customer codes loaded'):'')+(_cdCode?(PKM.cdSoldCodes&&PKM.cdSoldCodes.has(_cdCode)?' · code IS in complete list':' · code NOT in complete list'):''));
   v.innerHTML=`<div class="card"><div class="card-header"><div><div class="card-title">Order ${attEsc(o.orderNo)}</div><div class="card-sub">${attEsc(o.shipTo)} · ${attEsc(o.buyer||'')} · <span class="badge" title="${_cdTip}" style="${_cdFull?'background:rgba(255,159,90,.15);color:#ff9f5a;':'background:rgba(110,160,255,.12);color:#9fb8e8;'}">${_cdFull?'Complete Delivery':'Partial Delivery'}</span>${_cdPosted?` <span class="badge" style="background:rgba(70,230,160,.12);color:#46e6a0;">In bin: ${attEsc(_cdPosted.bin)}${(_cdPosted.cartonNos&&_cdPosted.cartonNos.length)?(' · Carton '+attEsc(_cdPosted.cartonNos.join(', '))):''}</span>`:''}</div></div>
@@ -2766,12 +2798,10 @@ function pkRenderOrderView(){
       <button class="btn btn-primary btn-sm" onclick="pkOpenRoadModal('return')" title="Record this order as a return">↩ Add to Return</button>
       ${_cdFull&&!_cdPosted?'<button class="btn btn-sm" style="background:#ff9f5a;color:#1a1005;font-weight:700;" onclick="cdShowBinPopup()" title="Complete Delivery — post this order to a bin">📦 Complete Delivery — Post to Bin</button>':''}
     </div></div>
-    <div style="padding:0 16px 8px;"><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:4px 18px;font-size:13px;padding:8px 0;">
+    <div style="padding:0 16px 8px;"><div style="display:flex;flex-wrap:wrap;gap:6px 24px;align-items:center;font-size:13px;padding:8px 0;">
       <div><span style="color:var(--muted);">Creation:</span> ${pkFmtDate(o.creationDate)}</div>
-      <div><span style="color:var(--muted);">Requester:</span> ${attEsc(o.requester)} (${attEsc(o.mobile)})</div>
-      <div><span style="color:var(--muted);">Customer Service:</span> ${attEsc(o.csName)}</div>
-      <div><span style="color:var(--muted);">Lines:</span> ${attEsc(o.lineNos)} · Qty ${o.totalQty}</div>
-      <div style="grid-column:1/-1;"><span style="color:var(--muted);">Address:</span> ${attEsc(o.shipAddr)}</div>
+      <div><span style="color:var(--muted);">Order status:</span> <span class="badge" style="${_ordStColor}" title="Completed = every line's status is Despatched. Any other line status → Partially Completed.">${_ordStatus}</span></div>
+      <div><span style="color:var(--muted);">Lines:</span> ${o.lines.length} · Qty ${o.totalQty}</div>
     </div></div>
     <div style="padding:0 16px 8px;font-size:12px;color:var(--accent2);" id="pk-sel-count">Tick the lines to include in the DN &amp; Sticker — ${sel.size} of ${o.lines.length} selected.</div>
     <div style="overflow:auto;"><table><thead><tr><th style="width:30px;text-align:center;"><input type="checkbox" ${allChecked?'checked':''} onchange="pkToggleAllLines(this.checked)" title="Select all"/></th><th>Line</th><th>COATS Brand/Tex</th><th>Product</th><th>Shade</th><th>Qty</th><th>Style/Ref</th><th>Remarks</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
