@@ -432,13 +432,18 @@ body{
     <div class="page" id="page-masterdata">
       <div class="section-hint">Manage master lists used in entry forms. The customer list, purposes, and FCE list all feed the dropdowns. Editable by authorizers and admin.</div>
       <div class="master-grid">
+        <div class="card" style="grid-column:1/-1;"><div class="card-header"><div><div class="card-title">Customer Mapping — App-wide Configuration</div><div class="card-sub">One template drives the whole app: <b>CS Name</b>, <b>Email ID</b>, <b>Mobile Number</b>, <b>FCE Name</b>, <b>Road Name</b> and the <b>Complete Delivery customer list</b> (by Sold-to code). Upload the filled template below — column-wise mapping is automatic. Shared to all PCs.</div></div></div>
+          <div style="padding:14px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;">
+            ${''/* status painted by JS */}<div id="md-cmap-status" style="flex:1;min-width:260px;font-size:12px;line-height:1.7;color:var(--muted);">Loading mapping status…</div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <button class="btn btn-ghost btn-sm" onclick="mdDownloadTemplate()">⬇ Download template</button>
+              <label class="btn btn-primary btn-sm" style="cursor:pointer;">⬆ Upload mapping<input type="file" id="md-cmap-file" accept=".xlsx,.xlsm,.csv" style="display:none;" onchange="pkmUpload('cs',this)"/></label>
+              <button class="btn btn-ghost btn-sm" onclick="mdCancelUpload()">Cancel</button>
+            </div>
+          </div></div>
         <div class="card"><div class="card-header"><div class="card-title">FCE List</div></div><div style="padding:14px;"><div class="master-list" id="master-fce-list"></div><div class="add-item-row"><input class="form-input" type="text" id="new-fce-input" placeholder="New FCE name…"/><button class="btn btn-primary btn-sm" onclick="addMasterItem('fce')">Add</button></div></div></div>
-        <div class="card"><div class="card-header"><div class="card-title">Customer List (<span id="cust-count">0</span>)</div></div><div style="padding:14px;"><input class="search-pill" type="text" id="master-cust-search" placeholder="Search customers…" oninput="renderMasterData()" style="margin-bottom:10px;width:100%;"/><div class="master-list" id="master-customer-list"></div><div class="add-item-row"><input class="form-input" type="text" id="new-customer-input" placeholder="New customer name…"/><button class="btn btn-primary btn-sm" onclick="addMasterItem('customer')">Add</button></div></div></div>
-        <div class="card"><div class="card-header"><div><div class="card-title">Complete Delivery Customers (<span id="cd-count">0</span>)</div><div class="card-sub">Ship-to names listed here are treated as Complete Delivery at DN / Sticker printing — their orders must be posted to a bin. All other customers are Partial Delivery.</div></div></div><div style="padding:14px;"><div class="master-list" id="master-cd-list"></div><div class="add-item-row"><input class="form-input" type="text" id="new-cd-input" placeholder="Ship to Party name (exact, as in orders)…"/><button class="btn btn-primary btn-sm" onclick="cdAddCustomer()">Add</button></div></div></div>
         <div class="card"><div class="card-header"><div class="card-title">Visit Purpose Dropdown</div></div><div style="padding:14px;"><div class="master-list" id="master-purpose-list"></div><div class="add-item-row"><input class="form-input" type="text" id="new-purpose-input" placeholder="New purpose option…"/><button class="btn btn-primary btn-sm" onclick="addMasterItem('purpose')">Add</button></div></div></div>
         <div class="card"><div class="card-header"><div class="card-title">Rejection / Failure Reasons</div></div><div style="padding:14px;"><div class="master-list" id="master-reason-list"></div><div class="add-item-row"><input class="form-input" type="text" id="new-reason-input" placeholder="New rejection reason…"/><button class="btn btn-primary btn-sm" onclick="addMasterItem('reason')">Add</button></div></div></div>
-        <div class="card"><div class="card-header"><div class="card-title">Buyer List (Order Tracker)</div></div><div style="padding:14px;"><div class="master-list" id="master-buyer-list"></div><div class="add-item-row"><input class="form-input" type="text" id="new-buyer-input" placeholder="New buyer name…"/><button class="btn btn-primary btn-sm" onclick="addMasterItem('buyer')">Add</button></div></div></div>
-        <div class="card"><div class="card-header"><div class="card-title">Delivery Zones (Order Tracker)</div></div><div style="padding:14px;"><div class="master-list" id="master-zone-list"></div><div class="add-item-row"><input class="form-input" type="text" id="new-zone-input" placeholder="New delivery zone / road…"/><button class="btn btn-primary btn-sm" onclick="addZone()">Add</button></div></div></div>
         <div class="card"><div class="card-header"><div class="card-title">FCE Mobile Numbers <span style="text-transform:none;color:var(--muted);font-weight:400;">(for SMS / WhatsApp)</span></div></div><div style="padding:14px;"><div id="master-fce-phones"></div></div></div>
         <div class="card"><div class="card-header"><div class="card-title">Courier Emails</div></div><div style="padding:14px;"><div id="master-courier-emails"></div><div class="add-item-row"><input class="form-input" type="text" id="new-courier-input" placeholder="New courier name…"/><button class="btn btn-primary btn-sm" onclick="addCourier()">Add</button></div></div></div>
       </div>
@@ -946,6 +951,32 @@ const I18N_BN={
  'Language, name & password':'ভাষা, নাম ও পাসওয়ার্ড',
  'Your personal settings — language preference, display name, and password. Changes apply to your account only.':'আপনার ব্যক্তিগত সেটিংস — ভাষা, নাম ও পাসওয়ার্ড। পরিবর্তন শুধুমাত্র আপনার অ্যাকাউন্টে প্রযোজ্য।',
  'No announcements found':'কোনো ঘোষণা পাওয়া যায়নি',
+ // master data & mapping
+ 'FCE List':'এফসিই তালিকা','Visit Purpose Dropdown':'ভিজিটের উদ্দেশ্য তালিকা','Rejection / Failure Reasons':'প্রত্যাখ্যান / ব্যর্থতার কারণ',
+ 'Customer List (':'কাস্টমার তালিকা (','Complete Delivery Customers (':'কমপ্লিট ডেলিভারি কাস্টমার (',
+ 'Customer Mapping — App-wide Configuration':'কাস্টমার ম্যাপিং — সম্পূর্ণ অ্যাপ কনফিগারেশন',
+ '⬇ Download template':'⬇ টেমপ্লেট ডাউনলোড','⬆ Upload mapping':'⬆ ম্যাপিং আপলোড','Cancel':'বাতিল','Add':'যোগ করুন',
+ 'FCE Mobile Numbers':'এফসিই মোবাইল নম্বর','Complete Delivery Customers':'কমপ্লিট ডেলিভারি কাস্টমার',
+ // complete delivery page
+ 'Complete Delivery':'কমপ্লিট ডেলিভারি','Complete Delivery Management':'কমপ্লিট ডেলিভারি ম্যানেজমেন্ট',
+ 'Bin posting, acknowledgement & incomplete-order follow-up':'বিন পোস্টিং, স্বীকৃতি ও অসম্পূর্ণ অর্ডার ফলো-আপ',
+ 'Posted orders':'পোস্টকৃত অর্ডার','Posted':'পোস্টের সময়','Bin':'বিন','Carton No.':'কার্টন নং','Incomplete':'অসম্পূর্ণ',
+ 'Acknowledged':'স্বীকৃত','Acknowledge':'স্বীকৃতি দিন','+ Note':'+ নোট','✎ Bin/Ctn':'✎ বিন/কার্টন','All':'সব',
+ 'orders posted':'অর্ডার পোস্টকৃত','Remarks / Notes':'মন্তব্য / নোট','Customer (Sold-to)':'কাস্টমার (সোল্ড-টু)',
+ // common extras
+ 'Manage':'ম্যানেজ','↻ Reload':'↻ রিলোড','Reload':'রিলোড','Upload':'আপলোড','Download template':'টেমপ্লেট ডাউনলোড',
+ 'Delete ALL':'সব মুছুন','Save':'সংরক্ষণ','💾 Save':'💾 সংরক্ষণ','Search':'অনুসন্ধান','Print selected':'নির্বাচিত প্রিন্ট',
+ 'Requester':'অনুরোধকারী','Customer Service':'কাস্টমার সার্ভিস','Creation':'তৈরির তারিখ','Order status':'অর্ডারের অবস্থা',
+ 'Completed':'সম্পন্ন','Partially Completed':'আংশিক সম্পন্ন','DN Copy':'ডিএন কপি','Sticker':'স্টিকার','Add to Trip':'ট্রিপে যোগ করুন','↩ Add to Return':'↩ রিটার্নে যোগ করুন',
+ 'Deliveries by month':'মাস অনুযায়ী ডেলিভারি','DN received vs pending':'ডিএন প্রাপ্ত বনাম অপেক্ষমাণ','total entries':'মোট এন্ট্রি',
+ 'Repeats only (ordered ≥ 2×)':'শুধু পুনরাবৃত্ত (≥২ বার)','Despatched only':'শুধু ডেসপ্যাচকৃত','All line statuses':'সব লাইন স্ট্যাটাস',
+ 'Customer + BP + Material':'কাস্টমার + বিপি + ম্যাটেরিয়াল','Customer + Material':'কাস্টমার + ম্যাটেরিয়াল',
+ 'Top 5':'শীর্ষ ৫','Top 10':'শীর্ষ ১০','Top 20':'শীর্ষ ২০','Top 30':'শীর্ষ ৩০',
+ // placeholders
+ 'Search…':'অনুসন্ধান…','Search customers…':'কাস্টমার খুঁজুন…','Search Order No…':'অর্ডার নং খুঁজুন…','Search customer / buyer…':'কাস্টমার / বায়ার খুঁজুন…',
+ 'Search customer…':'কাস্টমার খুঁজুন…','Search name / ID…':'নাম / আইডি খুঁজুন…','Responsibility to…':'দায়িত্বপ্রাপ্ত…','Filter by Order No…':'অর্ডার নং দিয়ে ফিল্টার…',
+ 'Search Order No (RS…) or factory name…':'অর্ডার নং (RS…) বা ফ্যাক্টরির নাম খুঁজুন…','New customer name…':'নতুন কাস্টমারের নাম…','New FCE name…':'নতুন এফসিই নাম…',
+ 'New purpose option…':'নতুন উদ্দেশ্য…','New rejection reason…':'নতুন কারণ…',
 };
 function appLang(){ try{ return localStorage.getItem('app_lang_'+(currentUser?currentUser.id:''))||'en'; }catch(e){ return 'en'; } }
 function tr(s){ return (appLang()==='bn'&&I18N_BN[s])||s; }
@@ -1260,16 +1291,35 @@ async function deleteEntryFromEdit(){ if(packerBlocked())return;
 function closeModal(id){ document.getElementById(id).classList.remove('open'); }
 
 // ═══ MASTER DATA ═══
+function mdPaintMapStatus(){
+  const el=document.getElementById('md-cmap-status'); if(!el)return;
+  const cs=(PKM.csCount||0), roads=(PKM.shipRoad&&PKM.shipRoad.size)||0, cd=(PKM.cdSoldCodes&&PKM.cdSoldCodes.size)||0, fce=(PKM.respBySoldCode&&PKM.respBySoldCode.size)||((PKM.shipResp&&PKM.shipResp.size)||0);
+  if(!cs&&!roads&&!cd){ el.innerHTML='<span style="color:var(--red);">⚠ No mapping loaded yet.</span> Download the template, fill it column-wise, then upload.'; return; }
+  el.innerHTML='✓ Mapping loaded: <b style="color:var(--green);">'+cs.toLocaleString()+'</b> CS contacts (name / email / mobile) · <b style="color:var(--green);">'+roads.toLocaleString()+'</b> road mappings · <b style="color:var(--green);">'+fce.toLocaleString()+'</b> FCE assignments · <b style="color:'+(cd?'var(--green)':'#ff9f5a')+';">'+cd+'</b> Complete-Delivery customers. Feeds DN/Sticker Road Name, CS details, Order Tracker auto-fill and Complete Delivery.';
+}
+function mdDownloadTemplate(){
+  const headers=['Sold to Party','Ship to Party Name','Ship to Party Code','Ship to Party Name','Customer Group','Zone','Sales Rep Des','CS-Rep','FCE Name','Tech_Rep','CS Mail ID','CS Mobile No.','Road Name','Complated Customer code','Complated Customer Name'];
+  const example=['103115','Snowtex Outerwear Ltd','700885','SNOWTEX CORPORATE OFFICE','103115','DK1','DK1 Tamal','CS Subehi','Touhid','Touhid','subehi.sumreen@coats.com','8801787691616','Mirpur DOHS','',''];
+  const csv=headers.map(h=>'"'+h.replace(/"/g,'""')+'"').join(',')+'\n'+example.map(v=>'"'+(''+v).replace(/"/g,'""')+'"').join(',')+'\n';
+  const blob=new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8;'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='Customer_Mapping_Template.csv'; document.body.appendChild(a); a.click(); a.remove();
+  showToast('Template downloaded — fill it and upload (xlsx or csv both work). Put the Sold-to code of Complete-Delivery customers in the "Complated Customer code" column.');
+}
+function mdCancelUpload(){ const f=document.getElementById('md-cmap-file'); if(f)f.value=''; showToast('Upload cancelled — existing mapping unchanged.'); }
 function renderMasterData(){
   if(!isAuthorizer())return;
   const m=getMaster();
   cdRenderMaster();
+  mdPaintMapStatus();
   renderMasterList('master-fce-list',m.fce,'fce');
-  const search=(document.getElementById('master-cust-search')?.value||'').toLowerCase();
-  const custs=search?m.customers.filter(c=>c.toLowerCase().includes(search)):m.customers;
-  document.getElementById('cust-count').textContent=m.customers.length;
-  const shown=custs.slice(0,60);
-  document.getElementById('master-customer-list').innerHTML=shown.map(item=>masterItemHTML(item,'customer',m.customers.indexOf(item))).join('')+(custs.length>60?`<div class="combo-empty">+${custs.length-60} more — use search</div>`:'');
+  const custList=document.getElementById('master-customer-list');
+  if(custList){
+    const search=(document.getElementById('master-cust-search')?.value||'').toLowerCase();
+    const custs=search?m.customers.filter(c=>c.toLowerCase().includes(search)):m.customers;
+    const cc=document.getElementById('cust-count'); if(cc)cc.textContent=m.customers.length;
+    const shown=custs.slice(0,60);
+    custList.innerHTML=shown.map(item=>masterItemHTML(item,'customer',m.customers.indexOf(item))).join('')+(custs.length>60?`<div class="combo-empty">+${custs.length-60} more — use search</div>`:'');
+  }
   renderMasterList('master-purpose-list',m.purposes,'purpose');
   renderMasterList('master-reason-list',m.reasons,'reason');
   if(document.getElementById('master-buyer-list')) renderMasterList('master-buyer-list',m.buyers||[],'buyer');
@@ -2458,7 +2508,7 @@ async function deleteAnnouncement(id){
 
 /* ── Delivery zones (for Order Tracker) ── */
 const ZONE_KEY='sc_delivery_zones';
-function getZones(){ const v=lsGet(ZONE_KEY,[]); return Array.isArray(v)?v:[]; }
+function getZones(){ const v=lsGet(ZONE_KEY,[]); const base=Array.isArray(v)?v:[]; let mapped=[]; try{ if(PKM&&PKM.shipRoad&&PKM.shipRoad.size)mapped=[...new Set([...PKM.shipRoad.values()])]; }catch(e){} const seen={}; const out=[]; base.concat(mapped).forEach(z=>{ const k=(''+z).trim(); if(!k)return; const lk=k.toLowerCase(); if(seen[lk])return; seen[lk]=1; out.push(k); }); return out.sort((a,b)=>a.localeCompare(b)); }
 async function addZone(){ const inp=document.getElementById('new-zone-input'); const v=(inp.value||'').trim(); if(!v)return; const z=getZones(); if(!z.some(x=>x.toLowerCase()===v.toLowerCase())){ z.push(v); z.sort((a,b)=>a.localeCompare(b)); lsSet(ZONE_KEY,z); try{ await dbSaveZones(z); }catch(e){ showToast('Saved locally but cloud sync failed: '+e.message,'err'); } } inp.value=''; renderZoneMaster(); populateZoneSelects(); showToast('Delivery zone added (shared to all PCs).'); }
 async function deleteZoneAt(i){ if(!isAdmin()){ showToast('Only Super Admin can delete zones.','err'); return; } const z=getZones(); z.splice(i,1); lsSet(ZONE_KEY,z); try{ await dbSaveZones(z); }catch(e){ showToast('Cloud sync failed: '+e.message,'err'); } renderZoneMaster(); populateZoneSelects(); }
 function renderZoneMaster(){ const box=document.getElementById('master-zone-list'); if(!box)return; const z=getZones(); box.innerHTML = z.length ? z.map((n,i)=>`<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border);"><span style="flex:1;font-size:13px;">${attEsc(n)}</span>${isAdmin()?`<button class="btn-icon btn-sm" title="Delete" onclick="deleteZoneAt(${i})"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg></button>`:''}</div>`).join('') : '<div style="color:var(--muted);font-size:12px;padding:4px 0;">No zones yet. Add one below.</div>'; }
@@ -3251,7 +3301,7 @@ function pkRenderImport(){
        <div style="font-size:12px;color:var(--muted);margin:4px 0 10px;line-height:1.6;">Upload once; shared to all PCs. <b>Tex</b> comes from the ART/TKT list; the <b>CS mobile</b> from the Customer Mapping (matched by the email before <span class="mono">@coats.com</span>).</div>
        <div style="display:flex;gap:22px;flex-wrap:wrap;">
          <div><div style="font-size:12px;margin-bottom:4px;">ART/TKT list — <b style="color:${PKM.texCount?'var(--green)':'var(--red)'};">${PKM.texCount?PKM.texCount.toLocaleString()+' articles ✓':'NOT LOADED'}</b></div>${isAdmin()?`<label class="btn btn-ghost btn-sm" style="cursor:pointer;">Upload ART/TKT<input type="file" accept=".xlsx,.xlsm,.csv" style="display:none;" onchange="pkmUpload('tex',this)"/></label>`:'<span style="font-size:11px;color:var(--muted);">View only</span>'}</div>
-         <div><div style="font-size:12px;margin-bottom:4px;">Customer Mapping — <b style="color:${PKM.csCount?'var(--green)':'var(--red)'};">${PKM.csCount?PKM.csCount.toLocaleString()+' CS contacts ✓':'NOT LOADED'}</b></div>${isAdmin()?`<label class="btn btn-ghost btn-sm" style="cursor:pointer;">Upload Customer Mapping<input type="file" accept=".xlsx,.xlsm,.csv" style="display:none;" onchange="pkmUpload('cs',this)"/></label>`:'<span style="font-size:11px;color:var(--muted);">View only</span>'}</div>
+         <div><div style="font-size:12px;margin-bottom:4px;">Customer Mapping — <b style="color:${PKM.csCount?'var(--green)':'var(--red)'};">${PKM.csCount?PKM.csCount.toLocaleString()+' CS contacts ✓':'NOT LOADED'}</b></div><span style="font-size:11px;color:var(--muted);">Configured in <b>Master Data → Customer Mapping</b></span></div>
        </div>
        ${pkmSelfTest()}${typeof pkmRoadTest==='function'?pkmRoadTest():''}
      </div>
@@ -3477,7 +3527,7 @@ async function pkmUpload(kind,input){
       showToast('Saving '+arr.length.toLocaleString()+' CS contacts'+(roadRows.length?(' + '+roadRows.length+' road mappings'):'')+(cmapRows.length?(' + '+cmapRows.length+' code mappings'):'')+'…'); await dbPkmSaveCs(finalArr);
       pkmBuild(c.at||[],finalArr); PKM.csUpd=new Date().toISOString(); lsSet('pkm_cache',{at:(c.at||[]),cm:finalArr,au:PKM.texUpd,cu:PKM.csUpd}); showToast('Customer mapping updated · shared to all PCs.');
     }
-    input.value=''; pkRenderImport();
+    input.value=''; try{ if(activePage==='packing')pkRenderImport(); }catch(_){} try{ mdPaintMapStatus(); }catch(_){}
   }catch(err){ showToast('Could not read '+f.name+': '+err.message,'err'); }
 }
 function pkmEnrich(o){
