@@ -434,8 +434,8 @@ body{
       <div class="master-grid">
         <div class="card" style="grid-column:1/-1;"><div class="card-header"><div><div class="card-title">Customer Mapping — App-wide Configuration</div><div class="card-sub">One template drives the whole app: <b>CS Name</b>, <b>Email ID</b>, <b>Mobile Number</b>, <b>FCE Name</b>, <b>Road Name</b> and the <b>Complete Delivery customer list</b> (by Sold-to code). Upload the filled template below — column-wise mapping is automatic. Shared to all PCs.</div></div></div>
           <div style="padding:14px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;">
-            ${''/* status painted by JS */}<div id="md-cmap-status" style="flex:1;min-width:260px;font-size:12px;line-height:1.7;color:var(--muted);">Loading mapping status…</div>
-            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <div id="md-cmap-status" style="flex:1;min-width:260px;font-size:12px;line-height:1.7;color:var(--muted);">Loading mapping status…</div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;" id="md-cmap-actions">
               <button class="btn btn-ghost btn-sm" onclick="mdDownloadTemplate()">⬇ Download template</button>
               <label class="btn btn-primary btn-sm" style="cursor:pointer;">⬆ Upload mapping<input type="file" id="md-cmap-file" accept=".xlsx,.xlsm,.csv" style="display:none;" onchange="pkmUpload('cs',this)"/></label>
               <button class="btn btn-ghost btn-sm" onclick="mdCancelUpload()">Cancel</button>
@@ -1311,6 +1311,8 @@ function renderMasterData(){
   const m=getMaster();
   cdRenderMaster();
   mdPaintMapStatus();
+  const act=document.getElementById('md-cmap-actions'); if(act)act.style.display=isAdmin()?'':'none';
+  document.querySelectorAll('#page-masterdata .add-item-row').forEach(r=>{ r.style.display=isAdmin()?'':'none'; });
   renderMasterList('master-fce-list',m.fce,'fce');
   const custList=document.getElementById('master-customer-list');
   if(custList){
@@ -1347,7 +1349,7 @@ async function cdRemoveCustomer(i){
   try{ if(typeof dbSaveContacts==='function')await dbSaveContacts(); showToast('Removed.'); }catch(e){ showToast('Cloud save failed: '+(e.message||e),'err'); }
   cdRenderMaster();
 }
-function masterItemHTML(item,type,i){ const del=isAdmin()?`<button class="btn-icon" style="padding:3px 6px;color:var(--red);" onclick="deleteMasterItem('${type}',${i})" title="Remove"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>`:''; return `<div class="master-item"><span class="mi-name">${item}</span><div style="display:flex;gap:6px;"><button class="btn-icon" style="padding:3px 6px;" onclick="editMasterItem('${type}',${i})" title="Edit"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.828 2.828 0 114 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg></button>${del}</div></div>`; }
+function masterItemHTML(item,type,i){ if(!isAdmin()){ return `<div class="master-item"><span class="mi-name">${item}</span></div>`; } return `<div class="master-item"><span class="mi-name">${item}</span><div style="display:flex;gap:6px;"><button class="btn-icon" style="padding:3px 6px;" onclick="editMasterItem('${type}',${i})" title="Edit"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.828 2.828 0 114 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg></button><button class="btn-icon" style="padding:3px 6px;color:var(--red);" onclick="deleteMasterItem('${type}',${i})" title="Remove"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div></div>`; }
 let CONTACTS={fce:{},courier:{}}; let __sendMsg='';
 function getContacts(){ return CONTACTS||{fce:{},courier:{}}; }
 async function dbSaveContacts(){ const {error}=await sb.from('master_data').upsert({id:1,contacts:CONTACTS,updated_at:new Date().toISOString()}); if(error)throw error; lsSet('sc_contacts',CONTACTS); }
@@ -1454,8 +1456,28 @@ async function deleteMasterItem(type,idx){
   try{ await dbSaveMaster(m); await refreshAll(); showToast(removed+' removed.'); }catch(err){ showToast('Failed: '+err.message,'err'); }
 }
 async function editMasterItem(type,idx){
-  const m=getMaster(); const key=masterKey(type); const nv=prompt('Edit:',m[key][idx]); if(nv===null||!nv.trim())return;
-  const old=m[key][idx]; m[key][idx]=nv.trim(); if(type==='customer'&&m.customerCodes){ const ci=m.customerCodes.findIndex(c=>c[1]===old); if(ci>-1)m.customerCodes[ci][1]=nv.trim(); }
+  if(!isAdmin()){ showToast('Only Super Admin can edit master data.','err'); return; }
+  const m=getMaster(); const key=masterKey(type); const cur=m[key][idx]; if(cur==null)return;
+  const old=document.getElementById('md-edit-overlay'); if(old)old.remove();
+  const ov=document.createElement('div'); ov.id='md-edit-overlay';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(4,10,30,.72);z-index:999;display:flex;align-items:center;justify-content:center;';
+  ov.innerHTML=`<div class="card" style="max-width:420px;width:92%;padding:18px;">
+    <div class="card-title" style="margin-bottom:10px;">Edit item</div>
+    <input class="form-input" id="md-edit-input" type="text" value="${attEsc(cur)}" style="width:100%;margin-bottom:14px;"/>
+    <div style="display:flex;justify-content:flex-end;gap:8px;">
+      <button class="btn btn-ghost btn-sm" onclick="document.getElementById('md-edit-overlay').remove()">Cancel</button>
+      <button class="btn btn-primary btn-sm" onclick="mdApplyEdit('${type}',${idx})">💾 Save</button>
+    </div></div>`;
+  ov.addEventListener('click',e=>{ if(e.target===ov)ov.remove(); });
+  document.body.appendChild(ov);
+  setTimeout(()=>{ const i=document.getElementById('md-edit-input'); if(i){ i.focus(); i.select(); } },30);
+}
+async function mdApplyEdit(type,idx){
+  if(!isAdmin())return;
+  const inp=document.getElementById('md-edit-input'); const nv=(inp&&inp.value||'').trim(); if(!nv)return;
+  const ov=document.getElementById('md-edit-overlay'); if(ov)ov.remove();
+  const m=getMaster(); const key=masterKey(type);
+  const old=m[key][idx]; if(old==null)return; m[key][idx]=nv; if(type==='customer'&&m.customerCodes){ const ci=m.customerCodes.findIndex(c=>c[1]===old); if(ci>-1)m.customerCodes[ci][1]=nv; }
   try{ await dbSaveMaster(m); await refreshAll(); showToast('Updated.'); }catch(err){ showToast('Failed: '+err.message,'err'); }
 }
 
