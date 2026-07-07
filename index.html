@@ -290,6 +290,12 @@ body{
 .search-pill:focus{border-color:var(--accent);background-color:rgba(14,26,56,.8);}
 .tbl-scroll{max-height:68vh;overflow:auto;}
 .tbl-scroll thead th{position:sticky;top:0;z-index:3;background:var(--surface2);}
+/* Glow border theme (applies app-wide via the shared border variable) */
+:root{--border:rgba(94,234,180,.30);}
+.card{border:1px solid rgba(94,234,180,.32);border-radius:14px;box-shadow:0 0 0 1px rgba(94,234,180,.05),0 0 16px rgba(16,185,129,.10);}
+.card:hover{box-shadow:0 0 0 1px rgba(94,234,180,.10),0 0 22px rgba(16,185,129,.16);}
+.att-stat{border:1px solid rgba(94,234,180,.30);border-radius:12px;box-shadow:0 0 12px rgba(16,185,129,.08);}
+.master-item{border:1px solid rgba(94,234,180,.22);border-radius:10px;}
 </style>
 </head>
 <body>
@@ -433,15 +439,19 @@ body{
       <div class="section-hint">Manage master lists used in entry forms. The customer list, purposes, and FCE list all feed the dropdowns. Editable by authorizers and admin.</div>
       <div class="master-grid">
         <div class="card" style="grid-column:1/-1;"><div class="card-header"><div><div class="card-title">Customer Mapping — App-wide Configuration</div><div class="card-sub">One template drives the whole app: <b>CS Name</b>, <b>Email ID</b>, <b>Mobile Number</b>, <b>FCE Name</b>, <b>Road Name</b> and the <b>Complete Delivery customer list</b> (by Sold-to code). Upload the filled template below — column-wise mapping is automatic. Shared to all PCs.</div></div></div>
-          <div style="padding:14px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;">
-            <div id="md-cmap-status" style="flex:1;min-width:260px;font-size:12px;line-height:1.7;color:var(--muted);">Loading mapping status…</div>
-            <div style="display:flex;gap:8px;flex-wrap:wrap;" id="md-cmap-actions">
-              <button class="btn btn-ghost btn-sm" onclick="mdDownloadTemplate()">⬇ Download template</button>
-              <label class="btn btn-primary btn-sm" style="cursor:pointer;">⬆ Upload mapping<input type="file" id="md-cmap-file" accept=".xlsx,.xlsm,.csv" style="display:none;" onchange="pkmUpload('cs',this)"/></label>
-              <button class="btn btn-ghost btn-sm" onclick="mdCancelUpload()">Cancel</button>
+          <div style="padding:14px;">
+            <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:10px;">
+              <div id="md-cmap-status" style="flex:1;min-width:260px;font-size:12px;line-height:1.7;color:var(--muted);">Loading mapping status…</div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;" id="md-cmap-actions">
+                <input class="search-pill" id="md-map-search" type="text" placeholder="Search customer / code / CS / road…" style="min-width:230px;" oninput="mdRenderMapTable()"/>
+                <button class="btn btn-primary btn-sm" onclick="mdEditMapRow(-1)">＋ Add mapping</button>
+                <button class="btn btn-ghost btn-sm" onclick="mdDownloadTemplate()">⬇ Template</button>
+                <label class="btn btn-ghost btn-sm" style="cursor:pointer;">⬆ Bulk upload<input type="file" id="md-cmap-file" accept=".xlsx,.xlsm,.csv" style="display:none;" onchange="pkmUpload('cs',this)"/></label>
+                <button class="btn btn-ghost btn-sm" onclick="mdCancelUpload()">Cancel</button>
+              </div>
             </div>
+            <div id="md-map-table" style="overflow:auto;"></div>
           </div></div>
-        <div class="card"><div class="card-header"><div class="card-title">FCE List</div></div><div style="padding:14px;"><div class="master-list" id="master-fce-list"></div><div class="add-item-row"><input class="form-input" type="text" id="new-fce-input" placeholder="New FCE name…"/><button class="btn btn-primary btn-sm" onclick="addMasterItem('fce')">Add</button></div></div></div>
         <div class="card"><div class="card-header"><div class="card-title">Visit Purpose Dropdown</div></div><div style="padding:14px;"><div class="master-list" id="master-purpose-list"></div><div class="add-item-row"><input class="form-input" type="text" id="new-purpose-input" placeholder="New purpose option…"/><button class="btn btn-primary btn-sm" onclick="addMasterItem('purpose')">Add</button></div></div></div>
         <div class="card"><div class="card-header"><div class="card-title">Rejection / Failure Reasons</div></div><div style="padding:14px;"><div class="master-list" id="master-reason-list"></div><div class="add-item-row"><input class="form-input" type="text" id="new-reason-input" placeholder="New rejection reason…"/><button class="btn btn-primary btn-sm" onclick="addMasterItem('reason')">Add</button></div></div></div>
         <div class="card"><div class="card-header"><div class="card-title">FCE Mobile Numbers <span style="text-transform:none;color:var(--muted);font-weight:400;">(for SMS / WhatsApp)</span></div></div><div style="padding:14px;"><div id="master-fce-phones"></div></div></div>
@@ -1102,15 +1112,15 @@ function setChartsMonth(m,btn){ activeChartsMonth=m; document.querySelectorAll('
 // ═══ SELECTS ═══
 function populateAllSelects(){
   const m=getMaster();
-  document.getElementById('fce-filter').innerHTML='<option value="">All FCEs</option>'+m.fce.map(f=>`<option>${f}</option>`).join('');
+  document.getElementById('fce-filter').innerHTML='<option value="">All FCEs</option>'+getFceNames().map(f=>`<option>${f}</option>`).join('');
   const ef=document.getElementById('f-fce');
   if(isFCE()){ ef.innerHTML=`<option>${currentUser.fce||currentUser.name}</option>`; ef.value=currentUser.fce||currentUser.name; ef.disabled=true; }
-  else { ef.innerHTML='<option value="">Select FCE…</option>'+m.fce.map(f=>`<option>${f}</option>`).join(''); ef.disabled=false; }
+  else { ef.innerHTML='<option value="">Select FCE…</option>'+getFceNames().map(f=>`<option>${f}</option>`).join(''); ef.disabled=false; }
   document.getElementById('f-purpose-select').innerHTML='<option value="">Select purpose…</option>'+m.purposes.map(p=>`<option>${p}</option>`).join('');
-  document.getElementById('e-fce').innerHTML=m.fce.map(f=>`<option>${f}</option>`).join('');
+  document.getElementById('e-fce').innerHTML=getFceNames().map(f=>`<option>${f}</option>`).join('');
   document.getElementById('approve-reason-sel').innerHTML='<option value="">Select rejection reason…</option>'+m.reasons.map(r=>`<option>${r}</option>`).join('');
-  const nuFce=document.getElementById('nu-fce'); if(nuFce) nuFce.innerHTML='<option value="">— none —</option>'+m.fce.map(f=>`<option>${f}</option>`).join('');
-  const oFce=document.getElementById('o-fce'); if(oFce){ if(isFCE()){ oFce.innerHTML=`<option>${currentUser.fce||currentUser.name}</option>`; oFce.value=currentUser.fce||currentUser.name; oFce.disabled=true; } else { oFce.innerHTML='<option value="">Select FCE…</option>'+m.fce.map(f=>`<option>${f}</option>`).join(''); oFce.disabled=false; } }
+  const nuFce=document.getElementById('nu-fce'); if(nuFce) nuFce.innerHTML='<option value="">— none —</option>'+getFceNames().map(f=>`<option>${f}</option>`).join('');
+  const oFce=document.getElementById('o-fce'); if(oFce){ if(isFCE()){ oFce.innerHTML=`<option>${currentUser.fce||currentUser.name}</option>`; oFce.value=currentUser.fce||currentUser.name; oFce.disabled=true; } else { oFce.innerHTML='<option value="">Select FCE…</option>'+getFceNames().map(f=>`<option>${f}</option>`).join(''); oFce.disabled=false; } }
   try{ populateZoneSelects(); renderZoneMaster(); renderAnnounceBar(); }catch(e){}
 }
 
@@ -1305,15 +1315,102 @@ function mdDownloadTemplate(){
   const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='Customer_Mapping_Template.csv'; document.body.appendChild(a); a.click(); a.remove();
   showToast('Template downloaded — fill it and upload (xlsx or csv both work). Put the Sold-to code of Complete-Delivery customers in the "Complated Customer code" column.');
 }
-function mdCancelUpload(){ const f=document.getElementById('md-cmap-file'); if(f)f.value=''; showToast('Upload cancelled — existing mapping unchanged.'); }
+function mdCancelUpload(){ const f=document.getElementById('md-cmap-file'); if(f)f.value=''; const ov=document.getElementById('md-map-overlay'); if(ov)ov.remove(); showToast('Cancelled — mapping unchanged.'); }
+// ── Editable mapping table (Master Data) ──
+function mdCmRows(){ return (window.PKM_CMFULL||[]).map((r,ix)=>({r,ix})).filter(x=>Array.isArray(x.r)&&x.r[0]==='#CMAP'); }
+function mdRenderMapTable(){
+  const box=document.getElementById('md-map-table'); if(!box)return;
+  const q=((document.getElementById('md-map-search')||{}).value||'').trim().toLowerCase();
+  const all=mdCmRows();
+  const list=q?all.filter(({r})=>((r[1]||'')+' '+(r[3]||'')+' '+(r[4]||'')+' '+(r[7]||'')+' '+(r[2]||'')+' '+(r[8]||'')+' '+(r[10]||'')).toLowerCase().includes(q)):all;
+  const adm=isAdmin();
+  const shown=list.slice(0,100);
+  if(!all.length){ box.innerHTML='<div style="font-size:12px;color:var(--muted);padding:10px 0;">No mapping rows yet — add one with ＋ Add mapping, or bulk-upload the template once.</div>'; return; }
+  box.innerHTML=`<table style="min-width:900px;"><thead><tr>${adm?'<th style="width:60px;">Action</th>':''}<th>Customer Name<br><span style="font-size:9px;color:var(--dim);">Sold-to code</span></th><th>Ship to Party Name<br><span style="font-size:9px;color:var(--dim);">+ code</span></th><th>CS Name, Mail ID &amp; Mobile No.</th><th>FCE Name</th><th>Road Name</th><th style="text-align:center;">Complete Deliver</th></tr></thead><tbody>
+  ${shown.map(({r,ix})=>{ const cd=(r[6]||'').trim(); const isCD=cd&&!/^(0|n|no|partial)$/i.test(cd);
+    return `<tr>
+      ${adm?`<td><button type="button" class="btn-icon md-map-edit" data-ix="${ix}" title="Edit"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="pointer-events:none;"><path d="M17 3a2.828 2.828 0 114 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg></button> <button type="button" class="btn-icon md-map-del" data-ix="${ix}" title="Delete" style="color:var(--red);"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="pointer-events:none;"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></td>`:''}
+      <td>${attEsc(r[9]||'—')}<div style="font-size:10px;color:var(--dim);">${attEsc(r[3]||'')}</div></td>
+      <td>${attEsc(r[10]||r[8]||'—')}<div style="font-size:10px;color:var(--dim);">${attEsc(r[1]||'')}</div></td>
+      <td style="font-size:12px;">${attEsc(r[4]||'—')}${r[11]?`<div style="font-size:10px;color:var(--dim);">${attEsc(r[11])}</div>`:''}${r[5]?`<div style="font-size:10px;color:var(--dim);">${attEsc(r[5])}</div>`:''}</td>
+      <td>${attEsc(r[7]||'—')}</td>
+      <td>${attEsc(r[2]||'—')}</td>
+      <td style="text-align:center;">${isCD?'<span class="badge" style="background:rgba(255,159,90,.15);color:#ff9f5a;">Complete</span>':'<span style="color:var(--dim);font-size:11px;">Partial</span>'}</td>
+    </tr>`; }).join('')}
+  </tbody></table>
+  <div style="font-size:11px;color:var(--dim);margin-top:6px;">${list.length.toLocaleString()} row${list.length===1?'':'s'}${list.length>100?' — showing first 100, use search to narrow':''}.</div>`;
+}
+function mdEditMapRow(ix){
+  if(!isAdmin()){ showToast('Only Super Admin can edit the mapping.','err'); return; }
+  const isNew=ix<0; const r=isNew?['#CMAP','','','','','','','','','','','']:(window.PKM_CMFULL||[])[ix];
+  if(!r)return;
+  const old=document.getElementById('md-map-overlay'); if(old)old.remove();
+  const f=(id,label,val,ph)=>`<div class="form-group"><label class="form-label">${label}</label><input class="form-input" id="${id}" type="text" value="${attEsc(val||'')}" placeholder="${ph||''}"/></div>`;
+  const ov=document.createElement('div'); ov.id='md-map-overlay';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(4,10,30,.72);z-index:999;display:flex;align-items:center;justify-content:center;overflow:auto;padding:20px;';
+  ov.innerHTML=`<div class="card" style="max-width:640px;width:96%;padding:18px;">
+    <div class="card-title" style="margin-bottom:10px;">${isNew?'Add mapping':'Edit mapping'}</div>
+    <div class="form-grid">
+      ${f('mm-soldname','Customer Name (Sold-to)',r[9],'e.g. REFAT GARMENTS LTD')}
+      ${f('mm-soldcode','Sold-to Code *',r[3],'e.g. 120305')}
+      ${f('mm-shipname','Ship to Party Name',r[10]||r[8],'e.g. CREATIVE COLLECTIONS LTD.')}
+      ${f('mm-shipcode','Ship-to Code',r[1],'e.g. 701443')}
+      ${f('mm-cs','CS Name',r[4],'e.g. CS Fidda')}
+      ${f('mm-mail','CS Mail ID',r[11],'name@coats.com')}
+      ${f('mm-mob','CS Mobile No.',r[5],'8801XXXXXXXXX')}
+      ${f('mm-fce','FCE Name',r[7],'')}
+      ${f('mm-road','Road Name',r[2],'e.g. Mirpur DOHS')}
+    </div>
+    <label style="display:inline-flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;margin:6px 0 14px;"><input type="checkbox" id="mm-cd" ${(r[6]&&!/^(0|n|no|partial)$/i.test(r[6]))?'checked':''}/> Complete Delivery customer (orders must be posted to a bin)</label>
+    <div style="display:flex;justify-content:flex-end;gap:8px;">
+      <button class="btn btn-ghost btn-sm" onclick="document.getElementById('md-map-overlay').remove()">Cancel</button>
+      <button class="btn btn-primary btn-sm" onclick="mdSaveMapRow(${ix})">💾 Save</button>
+    </div></div>`;
+  ov.addEventListener('click',e=>{ if(e.target===ov)ov.remove(); });
+  document.body.appendChild(ov);
+}
+async function mdSaveMapRow(ix){
+  if(!isAdmin())return;
+  const g=id=>((document.getElementById(id)||{}).value||'').trim();
+  const soldCode=g('mm-soldcode'); if(!soldCode){ showToast('Sold-to Code is required — it is the key for CD, CS & FCE mapping.','err'); return; }
+  const cd=document.getElementById('mm-cd').checked?soldCode:'';
+  const row=['#CMAP',g('mm-shipcode'),g('mm-road'),soldCode,g('mm-cs'),g('mm-mob'),cd,g('mm-fce'),g('mm-shipname'),g('mm-soldname'),g('mm-shipname'),g('mm-mail')];
+  if(!Array.isArray(window.PKM_CMFULL))window.PKM_CMFULL=[];
+  if(ix<0)window.PKM_CMFULL.push(row); else window.PKM_CMFULL[ix]=row;
+  const ov=document.getElementById('md-map-overlay'); if(ov)ov.remove();
+  await mdPersistMap();
+}
+async function mdDeleteMapRow(ix){
+  if(!isAdmin())return;
+  const r=(window.PKM_CMFULL||[])[ix]; if(!r)return;
+  if(!confirm('Delete mapping for "'+(r[9]||r[10]||r[8]||r[3])+'"?'))return;
+  window.PKM_CMFULL.splice(ix,1);
+  await mdPersistMap();
+}
+async function mdPersistMap(){
+  try{
+    const c=lsGet('pkm_cache',{})||{};
+    pkmBuild(c.at||[],window.PKM_CMFULL); PKM.csUpd=new Date().toISOString();
+    lsSet('pkm_cache',{at:(c.at||[]),cm:window.PKM_CMFULL,au:PKM.texUpd,cu:PKM.csUpd});
+    await dbPkmSaveCs(window.PKM_CMFULL);
+    showToast('Mapping saved · shared to all PCs.');
+  }catch(e){ showToast('Save failed: '+(e.message||e),'err'); }
+  mdPaintMapStatus(); mdRenderMapTable();
+}
+document.addEventListener('click',function(e){
+  const ed=e.target.closest&&e.target.closest('.md-map-edit'); if(ed){ e.preventDefault(); mdEditMapRow(parseInt(ed.getAttribute('data-ix'))); return; }
+  const dl=e.target.closest&&e.target.closest('.md-map-del'); if(dl){ e.preventDefault(); mdDeleteMapRow(parseInt(dl.getAttribute('data-ix'))); }
+});
+function getFceNames(){ const m=getMaster(); const base=Array.isArray(m.fce)?m.fce:[]; let mapped=[]; try{ if(PKM){ if(PKM.respBySoldCode)mapped=mapped.concat([...PKM.respBySoldCode.values()]); if(PKM.shipResp)mapped=mapped.concat([...PKM.shipResp.values()]); } }catch(e){} const seen={},out=[]; base.concat(mapped).forEach(n=>{ const k=(''+n).trim(); if(!k)return; const lk=k.toLowerCase(); if(seen[lk])return; seen[lk]=1; out.push(k); }); return out; }
 function renderMasterData(){
   if(!isAuthorizer())return;
   const m=getMaster();
   cdRenderMaster();
   mdPaintMapStatus();
+  mdRenderMapTable();
   const act=document.getElementById('md-cmap-actions'); if(act)act.style.display=isAdmin()?'':'none';
   document.querySelectorAll('#page-masterdata .add-item-row').forEach(r=>{ r.style.display=isAdmin()?'':'none'; });
-  renderMasterList('master-fce-list',m.fce,'fce');
+  if(document.getElementById('master-fce-list')) renderMasterList('master-fce-list',m.fce,'fce');
   const custList=document.getElementById('master-customer-list');
   if(custList){
     const search=(document.getElementById('master-cust-search')?.value||'').toLowerCase();
@@ -1349,15 +1446,21 @@ async function cdRemoveCustomer(i){
   try{ if(typeof dbSaveContacts==='function')await dbSaveContacts(); showToast('Removed.'); }catch(e){ showToast('Cloud save failed: '+(e.message||e),'err'); }
   cdRenderMaster();
 }
-function masterItemHTML(item,type,i){ if(!isAdmin()){ return `<div class="master-item"><span class="mi-name">${item}</span></div>`; } return `<div class="master-item"><span class="mi-name">${item}</span><div style="display:flex;gap:6px;"><button class="btn-icon" style="padding:3px 6px;" onclick="editMasterItem('${type}',${i})" title="Edit"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.828 2.828 0 114 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg></button><button class="btn-icon" style="padding:3px 6px;color:var(--red);" onclick="deleteMasterItem('${type}',${i})" title="Remove"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div></div>`; }
+function masterItemHTML(item,type,i){ if(!isAdmin()){ return `<div class="master-item"><span class="mi-name">${attEsc(item)}</span></div>`; } return `<div class="master-item"><span class="mi-name">${attEsc(item)}</span><div style="display:flex;gap:6px;"><button type="button" class="btn-icon md-act" data-act="edit" data-type="${attEsc(type)}" data-idx="${i}" style="padding:3px 6px;" title="Edit"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="pointer-events:none;"><path d="M17 3a2.828 2.828 0 114 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg></button><button type="button" class="btn-icon md-act" data-act="del" data-type="${attEsc(type)}" data-idx="${i}" style="padding:3px 6px;color:var(--red);" title="Remove"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="pointer-events:none;"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div></div>`; }
+document.addEventListener('click',function(e){
+  const b=e.target.closest&&e.target.closest('.md-act'); if(!b)return;
+  e.preventDefault();
+  const act=b.getAttribute('data-act'), type=b.getAttribute('data-type'), idx=parseInt(b.getAttribute('data-idx'));
+  if(act==='edit')editMasterItem(type,idx); else if(act==='del')deleteMasterItem(type,idx);
+});
 let CONTACTS={fce:{},courier:{}}; let __sendMsg='';
 function getContacts(){ return CONTACTS||{fce:{},courier:{}}; }
 async function dbSaveContacts(){ const {error}=await sb.from('master_data').upsert({id:1,contacts:CONTACTS,updated_at:new Date().toISOString()}); if(error)throw error; lsSet('sc_contacts',CONTACTS); }
 function renderFcePhones(){
   const box=document.getElementById('master-fce-phones'); if(!box)return; const m=getMaster(); const c=getContacts().fce||{}; const ed=isAdmin();
-  box.innerHTML=(m.fce.length?m.fce.map((n,i)=>`<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border);"><span style="flex:1;font-size:13px;">${attEsc(n)}</span><input class="form-input" style="max-width:170px;" type="tel" id="fcph-${i}" value="${attEsc(c[n]||'')}" placeholder="01XXXXXXXXX" ${ed?'':'disabled'}/></div>`).join(''):'<div style="color:var(--muted);font-size:12px;">Add FCEs in the FCE List first.</div>')+(ed&&m.fce.length?`<div style="margin-top:10px;"><button class="btn btn-primary btn-sm" onclick="saveFcePhones()">Save numbers</button></div>`:'');
+  const fl=getFceNames(); box.innerHTML=(fl.length?fl.map((n,i)=>`<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border);"><span style="flex:1;font-size:13px;">${attEsc(n)}</span><input class="form-input" style="max-width:170px;" type="tel" id="fcph-${i}" value="${attEsc(c[n]||'')}" placeholder="01XXXXXXXXX" ${ed?'':'disabled'}/></div>`).join(''):'<div style="color:var(--muted);font-size:12px;">Add FCE names via the Customer Mapping above.</div>')+(ed&&fl.length?`<div style="margin-top:10px;"><button class="btn btn-primary btn-sm" onclick="saveFcePhones()">Save numbers</button></div>`:'');
 }
-async function saveFcePhones(){ if(!isAdmin()){ showToast('Only Super Admin can edit contacts.','err'); return; } const m=getMaster(); const map={}; m.fce.forEach((n,i)=>{ const el=document.getElementById('fcph-'+i); const v=el?el.value.trim():''; if(v)map[n]=v; }); CONTACTS.fce=map; try{ await dbSaveContacts(); showToast('FCE numbers saved (shared to all PCs).'); }catch(e){ showToast('Cloud save failed: '+e.message,'err'); } }
+async function saveFcePhones(){ if(!isAdmin()){ showToast('Only Super Admin can edit contacts.','err'); return; } const map={}; getFceNames().forEach((n,i)=>{ const el=document.getElementById('fcph-'+i); const v=el?el.value.trim():''; if(v)map[n]=v; }); CONTACTS.fce=map; try{ await dbSaveContacts(); showToast('FCE numbers saved (shared to all PCs).'); }catch(e){ showToast('Cloud save failed: '+e.message,'err'); } }
 const DEFAULT_COURIERS=['Excelsior Courier','Internal Supply Chain Van'];
 function courierNames(){ const c=getContacts().courier||{}; return [...new Set([...DEFAULT_COURIERS,...DELIVERY_SERVICES,...Object.keys(c)])]; }
 function renderCourierEmails(){
@@ -1546,7 +1649,7 @@ function renderUsers(){
     const col=rc[u.role]||'#8aa2c4', lbl=rl[u.role]||u.role;
     const head=`<div class="user-row"><div style="display:flex;align-items:center;gap:12px;min-width:0;"><div class="user-avatar" style="background:${col}22;color:${col};">${u.name.charAt(0)}</div><div style="min-width:0;"><div style="font-weight:600;font-size:13px;">${u.name}</div><div style="font-size:11px;color:var(--muted);">ID: ${u.id}${u.fce?' · '+u.fce:''}${u.station?' · '+u.station:''}</div></div></div><div style="display:flex;align-items:center;gap:8px;"><span class="status-badge" style="background:${col}22;color:${col};border:1px solid ${col}44;">${lbl}</span><button class="btn-icon" style="padding:4px 8px;" onclick="toggleUEdit('${u.id}')" title="Edit name / role / station"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.828 2.828 0 114 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg></button><button class="btn-icon" style="padding:4px 8px;" onclick="toggleAccess('${u.id}')" title="Page access"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4"/><rect x="3" y="3" width="18" height="18" rx="2"/></svg></button><button class="btn-icon" style="padding:4px 8px;" onclick="resetPassword('${u.id}')" title="Reset password"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0115-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 01-15 6.7L3 16"/></svg></button>${u.id!==currentUser.id?`<button class="btn-icon" style="padding:4px 8px;color:var(--red);" onclick="removeUser('${u.id}')" title="Remove"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>`:'<span style="font-size:11px;color:var(--muted);">you</span>'}</div></div>`;
     const roleOpts=[['fce','FCE User'],['teamleader','Team Leader'],['authorizer','Authorizer'],['logistics','Logistics'],['packer','Packer'],['admin','Super Admin']].map(([v,l])=>`<option value="${v}" ${u.role===v?'selected':''}>${l}</option>`).join('');
-    const fceOpts=['<option value="">— none —</option>'].concat((getMaster().fce||[]).map(f=>`<option ${u.fce===f?'selected':''}>${attEsc(f)}</option>`)).join('');
+    const fceOpts=['<option value="">— none —</option>'].concat((getFceNames()||[]).map(f=>`<option ${u.fce===f?'selected':''}>${attEsc(f)}</option>`)).join('');
     const epanel=`<div id="uedit-${u.id}" style="display:none;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px;margin:-4px 0 10px;"><div class="form-grid"><div class="form-group"><label class="form-label">Display Name</label><input class="form-input" id="ue-name-${u.id}" value="${attEsc(u.name||'')}"/></div><div class="form-group"><label class="form-label">Role</label><select class="form-input" id="ue-role-${u.id}">${roleOpts}</select></div><div class="form-group"><label class="form-label">Job Station / Location</label><input class="form-input" id="ue-station-${u.id}" value="${attEsc(u.station||'')}" placeholder="e.g. Rajendrapur"/></div><div class="form-group"><label class="form-label">Link to FCE name <span style="text-transform:none;color:var(--dim);">(optional)</span></label><select class="form-input" id="ue-fce-${u.id}">${fceOpts}</select></div></div><div style="margin-top:6px;"><button class="btn btn-primary btn-sm" onclick="saveUserEdit('${u.id}')">Save changes</button> <button class="btn btn-ghost btn-sm" onclick="toggleUEdit('${u.id}')">Close</button></div></div>`;
     const allowed=allowedPagesFor(u);
     const checks=NAV_ITEMS.map(it=>`<label style="display:inline-flex;align-items:center;gap:5px;font-size:12px;margin:3px 10px 3px 0;cursor:pointer;"><input type="checkbox" data-uid="${u.id}" value="${it.id}" ${allowed.includes(it.id)?'checked':''}/> ${it.label}</label>`).join('');
@@ -3473,6 +3576,7 @@ function pkmKey(s){ return (''+(s==null?'':s)).toUpperCase().replace(/[^A-Z0-9]/
 function pkmArticle(material){ return (''+(material==null?'':material)).split('-')[0].toUpperCase().replace(/[^A-Z0-9]/g,''); }
 function pkmEmailName(email){ const e=(''+(email==null?'':email)).trim(); const raw=(!e||e.indexOf('@')<0)?e:e.split('@')[0]; return raw.replace(/[._]+/g,' ').trim().replace(/\b\w/g,c=>c.toUpperCase()); }
 function pkmBuild(at,cm){
+  try{ window.PKM_CMFULL=Array.isArray(cm)?cm:[]; }catch(e){}
   PKM.tex=new Map(); PKM.brand=new Map();
   (at||[]).forEach(r=>{ if(!Array.isArray(r))return; const k=pkmKey(r[0]); if(!k||PKM.tex.has(k))return;
     // packing format [article,tex,brand]; legacy OOR format [article,GT,tex,tkt,brand]
@@ -3535,12 +3639,13 @@ async function pkmUpload(kind,input){
       const hdr0=rows[0]||[]; const shipNameKeys=['ship to party name','ship-to party name'].map(x=>norm(x));
       const shipNameIdxs=[]; hdr0.forEach((h,ix)=>{ if(shipNameKeys.includes(norm(''+(h==null?'':h))))shipNameIdxs.push(ix); });
       if(!shipNameIdxs.length&&sShip>=0)shipNameIdxs.push(sShip);
+      const cCsMail=col('CS Mail ID','CS Mail','CS Email','Mail ID','Email');
       let cmapRows=[]; if(cShipCode>=0||cSoldCode>=0){ const seen2={}; for(let i=1;i<rows.length;i++){ const r=rows[i]; if(!r)continue; const g=x=>{ if(x<0||r[x]==null)return ''; const v=(''+r[x]).trim(); return (v==='#N/A'||v==='#REF!'||v==='N/A')?'':v; };
         const sc=g(cShipCode), so=g(cSoldCode); if(!sc&&!so)continue; const kk=sc+'||'+so; if(seen2[kk])continue; seen2[kk]=1;
         const cdRaw=g(cCD)||g(cCDName);
         const nm1=shipNameIdxs[0]!=null?g(shipNameIdxs[0]):'';
         const nm2=shipNameIdxs[1]!=null?g(shipNameIdxs[1]):'';
-        cmapRows.push(['#CMAP',sc,g(sRoad),so,g(cCsName),g(cCsMob),cdRaw,g(sResp),nm1,g(cSoldName),nm2]); } }
+        cmapRows.push(['#CMAP',sc,g(sRoad),so,g(cCsName),g(cCsMob),cdRaw,g(sResp),nm1,g(cSoldName),nm2,g(cCsMail)]); } }
       else { cmapRows=(c.cm||[]).filter(r=>Array.isArray(r)&&r[0]==='#CMAP'); }
       let roadRows=[]; if(sRoad>=0&&shipNameIdxs.length){ const rs={}; const clean=v=>{ v=(''+(v==null?'':v)).trim(); return (v==='#N/A'||v==='#REF!'||v==='N/A')?'':v; }; for(let i=1;i<rows.length;i++){ const r=rows[i]; if(!r)continue; const rd=clean(r[sRoad]), rp=(sResp>=0?clean(r[sResp]):''); if(!rd)continue;
         shipNameIdxs.forEach(ix=>{ const st=clean(r[ix]); if(!st)return; const k=pkmKey(st); if(rs[k])return; rs[k]=1; roadRows.push(['#ROAD',st,rd,rp]); }); } }
