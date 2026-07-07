@@ -291,11 +291,11 @@ body{
 .tbl-scroll{max-height:68vh;overflow:auto;}
 .tbl-scroll thead th{position:sticky;top:0;z-index:3;background:var(--surface2);}
 /* Glow border theme (applies app-wide via the shared border variable) */
-:root{--border:rgba(94,234,180,.30);}
-.card{border:1px solid rgba(94,234,180,.32);border-radius:14px;box-shadow:0 0 0 1px rgba(94,234,180,.05),0 0 16px rgba(16,185,129,.10);}
-.card:hover{box-shadow:0 0 0 1px rgba(94,234,180,.10),0 0 22px rgba(16,185,129,.16);}
-.att-stat{border:1px solid rgba(94,234,180,.30);border-radius:12px;box-shadow:0 0 12px rgba(16,185,129,.08);}
-.master-item{border:1px solid rgba(94,234,180,.22);border-radius:10px;}
+:root{--border:rgba(96,190,255,.32);}
+.card{border:1px solid rgba(96,190,255,.34);border-radius:14px;box-shadow:0 0 0 1px rgba(96,190,255,.05),0 0 16px rgba(56,150,255,.12);}
+.card:hover{box-shadow:0 0 0 1px rgba(96,190,255,.12),0 0 22px rgba(56,150,255,.18);}
+.att-stat{border:1px solid rgba(96,190,255,.30);border-radius:12px;box-shadow:0 0 12px rgba(56,150,255,.10);}
+.master-item{border:1px solid rgba(96,190,255,.22);border-radius:10px;}
 </style>
 </head>
 <body>
@@ -445,6 +445,7 @@ body{
               <div style="display:flex;gap:8px;flex-wrap:wrap;" id="md-cmap-actions">
                 <input class="search-pill" id="md-map-search" type="text" placeholder="Search customer / code / CS / road…" style="min-width:230px;" oninput="mdRenderMapTable()"/>
                 <button class="btn btn-primary btn-sm" onclick="mdEditMapRow(-1)">＋ Add mapping</button>
+                <button class="btn btn-sm" style="background:rgba(255,107,107,.14);color:#ff6b6b;border:1px solid rgba(255,107,107,.4);" onclick="mdDeleteAllMap()">🗑 Delete All Data</button>
                 <button class="btn btn-ghost btn-sm" onclick="mdDownloadTemplate()">⬇ Template</button>
                 <label class="btn btn-ghost btn-sm" style="cursor:pointer;">⬆ Bulk upload<input type="file" id="md-cmap-file" accept=".xlsx,.xlsm,.csv" style="display:none;" onchange="pkmUpload('cs',this)"/></label>
                 <button class="btn btn-ghost btn-sm" onclick="mdCancelUpload()">Cancel</button>
@@ -535,7 +536,7 @@ body{
         <span style="display:inline-flex;align-items:center;gap:5px;"><span style="width:11px;height:11px;border-radius:3px;background:rgba(255,90,95,.98);"></span>3+ days due</span>
         <span style="display:inline-flex;align-items:center;gap:5px;"><span style="width:11px;height:11px;border-radius:3px;background:rgba(70,230,160,.95);"></span>DN uploaded</span>
       </div>
-      <div class="card tbl-scroll"><table><thead><tr><th style="width:26px;text-align:center;"><input type="checkbox" id="ord-tick-all" onclick="toggleAllTicks(this)" title="Select all" style="cursor:pointer;"></th><th style="width:30px;"></th><th>Entry Date</th><th>Order No</th><th>Task</th><th>Customer</th><th>Buyer</th><th>Service By</th><th>Responsibility To</th><th>Delivery Zone</th><th>Req. Time / Delivered</th><th>Status</th><th>DN Download</th><th>Actions</th></tr></thead><tbody id="orders-table"></tbody></table></div>
+      <div class="card tbl-scroll"><table><thead><tr><th style="width:26px;text-align:center;"><input type="checkbox" id="ord-tick-all" onclick="toggleAllTicks(this)" title="Select all" style="cursor:pointer;"></th><th style="width:30px;"></th><th>Entry Date</th><th>Order No</th><th>Task</th><th>Customer</th><th>Buyer</th><th>Responsibility To</th><th>Delivery Zone</th><th>Req. Time / Delivered</th><th>Status</th><th>DN Download</th><th>Actions</th></tr></thead><tbody id="orders-table"></tbody></table></div>
     </div>
 
     <!-- SAMPLE PACKING -->
@@ -655,7 +656,7 @@ body{
            <div id="o-file-list" style="font-size:11px;color:var(--muted);margin-top:6px;display:flex;flex-direction:column;gap:4px;"></div>
          </div>
          <div class="form-group"><label class="form-label">Delivery Zone <span style="text-transform:none;color:var(--dim);">(road)</span></label><select class="form-input" id="o-zone" onchange="onZoneSelect(this)"></select></div>
-         <div class="form-group"><label class="form-label">Status</label><select class="form-input" id="o-status" onchange="onOrderStatusChange()"><option>Requested</option><option>Returned</option><option>In Development</option><option>Delivered</option></select></div>
+         <div class="form-group"><label class="form-label">Status</label><select class="form-input" id="o-status" onchange="onOrderStatusChange()"><option>Requested</option><option>Returned</option><option>In Development</option><option>Partially Completed</option><option>Delivered</option></select></div>
          <div class="form-group full"><label class="form-label">Remarks</label><textarea class="form-input" id="o-remarks" style="min-height:48px;"></textarea></div>
        </div>
        <div id="o-manual-back" style="margin-top:10px;font-size:12px;color:var(--muted);">Adding many? <a href="javascript:void(0)" onclick="oToggleManual(false)" style="color:var(--accent2,#52c87a);">Upload a file instead</a></div>
@@ -1315,6 +1316,16 @@ function mdDownloadTemplate(){
   const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='Customer_Mapping_Template.csv'; document.body.appendChild(a); a.click(); a.remove();
   showToast('Template downloaded — fill it and upload (xlsx or csv both work). Put the Sold-to code of Complete-Delivery customers in the "Complated Customer code" column.');
 }
+async function mdDeleteAllMap(){
+  if(!isAdmin()){ showToast('Only Super Admin can delete mapping data.','err'); return; }
+  const n=mdCmRows().length;
+  if(!confirm('Delete ALL mapping data ('+n+' rows + road/CS records)?\n\nThis clears the entire app-wide Customer Mapping for all users. DN Road Names, CS details, FCE assignments and Complete-Delivery detection will stop working until a new mapping is added or uploaded.'))return;
+  const typed=prompt('This cannot be undone. Type DELETE to confirm:');
+  if((typed||'').trim().toUpperCase()!=='DELETE'){ showToast('Cancelled — nothing was deleted.'); return; }
+  window.PKM_CMFULL=[];
+  await mdPersistMap();
+  showToast('All mapping data deleted.');
+}
 function mdCancelUpload(){ const f=document.getElementById('md-cmap-file'); if(f)f.value=''; const ov=document.getElementById('md-map-overlay'); if(ov)ov.remove(); showToast('Cancelled — mapping unchanged.'); }
 // ── Editable mapping table (Master Data) ──
 function mdCmRows(){ return (window.PKM_CMFULL||[]).map((r,ix)=>({r,ix})).filter(x=>Array.isArray(x.r)&&x.r[0]==='#CMAP'); }
@@ -1324,7 +1335,7 @@ function mdRenderMapTable(){
   const all=mdCmRows();
   const list=q?all.filter(({r})=>((r[1]||'')+' '+(r[3]||'')+' '+(r[4]||'')+' '+(r[7]||'')+' '+(r[2]||'')+' '+(r[8]||'')+' '+(r[10]||'')).toLowerCase().includes(q)):all;
   const adm=isAdmin();
-  const shown=list.slice(0,100);
+  const shown=list.slice(0,10);
   if(!all.length){ box.innerHTML='<div style="font-size:12px;color:var(--muted);padding:10px 0;">No mapping rows yet — add one with ＋ Add mapping, or bulk-upload the template once.</div>'; return; }
   box.innerHTML=`<table style="min-width:900px;"><thead><tr>${adm?'<th style="width:60px;">Action</th>':''}<th>Customer Name<br><span style="font-size:9px;color:var(--dim);">Sold-to code</span></th><th>Ship to Party Name<br><span style="font-size:9px;color:var(--dim);">+ code</span></th><th>CS Name, Mail ID &amp; Mobile No.</th><th>FCE Name</th><th>Road Name</th><th style="text-align:center;">Complete Deliver</th></tr></thead><tbody>
   ${shown.map(({r,ix})=>{ const cd=(r[6]||'').trim(); const isCD=cd&&!/^(0|n|no|partial)$/i.test(cd);
@@ -1338,7 +1349,7 @@ function mdRenderMapTable(){
       <td style="text-align:center;">${isCD?'<span class="badge" style="background:rgba(255,159,90,.15);color:#ff9f5a;">Complete</span>':'<span style="color:var(--dim);font-size:11px;">Partial</span>'}</td>
     </tr>`; }).join('')}
   </tbody></table>
-  <div style="font-size:11px;color:var(--dim);margin-top:6px;">${list.length.toLocaleString()} row${list.length===1?'':'s'}${list.length>100?' — showing first 100, use search to narrow':''}.</div>`;
+  <div style="font-size:11px;color:var(--dim);margin-top:6px;">${list.length.toLocaleString()} row${list.length===1?'':'s'}${list.length>10?' — showing first 10, use search to narrow down':''}.</div>`;
 }
 function mdEditMapRow(ix){
   if(!isAdmin()){ showToast('Only Super Admin can edit the mapping.','err'); return; }
@@ -1347,7 +1358,7 @@ function mdEditMapRow(ix){
   const old=document.getElementById('md-map-overlay'); if(old)old.remove();
   const f=(id,label,val,ph)=>`<div class="form-group"><label class="form-label">${label}</label><input class="form-input" id="${id}" type="text" value="${attEsc(val||'')}" placeholder="${ph||''}"/></div>`;
   const ov=document.createElement('div'); ov.id='md-map-overlay';
-  ov.style.cssText='position:fixed;inset:0;background:rgba(4,10,30,.72);z-index:999;display:flex;align-items:center;justify-content:center;overflow:auto;padding:20px;';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(4,10,30,.72);z-index:100000;display:flex;align-items:center;justify-content:center;overflow:auto;padding:20px;';
   ov.innerHTML=`<div class="card" style="max-width:640px;width:96%;padding:18px;">
     <div class="card-title" style="margin-bottom:10px;">${isNew?'Add mapping':'Edit mapping'}</div>
     <div class="form-grid">
@@ -1398,9 +1409,11 @@ async function mdPersistMap(){
   mdPaintMapStatus(); mdRenderMapTable();
 }
 document.addEventListener('click',function(e){
-  const ed=e.target.closest&&e.target.closest('.md-map-edit'); if(ed){ e.preventDefault(); mdEditMapRow(parseInt(ed.getAttribute('data-ix'))); return; }
-  const dl=e.target.closest&&e.target.closest('.md-map-del'); if(dl){ e.preventDefault(); mdDeleteMapRow(parseInt(dl.getAttribute('data-ix'))); }
-});
+  try{
+    const ed=e.target.closest&&e.target.closest('.md-map-edit'); if(ed){ e.preventDefault(); mdEditMapRow(parseInt(ed.getAttribute('data-ix'))); return; }
+    const dl=e.target.closest&&e.target.closest('.md-map-del'); if(dl){ e.preventDefault(); mdDeleteMapRow(parseInt(dl.getAttribute('data-ix'))); }
+  }catch(err){ console.error(err); if(typeof showToast==='function')showToast('Action failed: '+(err.message||err),'err'); }
+},true);
 function getFceNames(){ const m=getMaster(); const base=Array.isArray(m.fce)?m.fce:[]; let mapped=[]; try{ if(PKM){ if(PKM.respBySoldCode)mapped=mapped.concat([...PKM.respBySoldCode.values()]); if(PKM.shipResp)mapped=mapped.concat([...PKM.shipResp.values()]); } }catch(e){} const seen={},out=[]; base.concat(mapped).forEach(n=>{ const k=(''+n).trim(); if(!k)return; const lk=k.toLowerCase(); if(seen[lk])return; seen[lk]=1; out.push(k); }); return out; }
 function renderMasterData(){
   if(!isAuthorizer())return;
@@ -1447,12 +1460,15 @@ async function cdRemoveCustomer(i){
   cdRenderMaster();
 }
 function masterItemHTML(item,type,i){ if(!isAdmin()){ return `<div class="master-item"><span class="mi-name">${attEsc(item)}</span></div>`; } return `<div class="master-item"><span class="mi-name">${attEsc(item)}</span><div style="display:flex;gap:6px;"><button type="button" class="btn-icon md-act" data-act="edit" data-type="${attEsc(type)}" data-idx="${i}" style="padding:3px 6px;" title="Edit"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="pointer-events:none;"><path d="M17 3a2.828 2.828 0 114 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg></button><button type="button" class="btn-icon md-act" data-act="del" data-type="${attEsc(type)}" data-idx="${i}" style="padding:3px 6px;color:var(--red);" title="Remove"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="pointer-events:none;"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div></div>`; }
+window.addEventListener('error',function(ev){ try{ console.error('APP ERROR:',ev.message,ev.filename,ev.lineno); if(typeof showToast==='function'&&!window._errToasted){ window._errToasted=true; showToast('A script error occurred: '+ev.message+' — some buttons may not work. Please screenshot this and report.','err'); } }catch(_){} });
 document.addEventListener('click',function(e){
-  const b=e.target.closest&&e.target.closest('.md-act'); if(!b)return;
-  e.preventDefault();
-  const act=b.getAttribute('data-act'), type=b.getAttribute('data-type'), idx=parseInt(b.getAttribute('data-idx'));
-  if(act==='edit')editMasterItem(type,idx); else if(act==='del')deleteMasterItem(type,idx);
-});
+  try{
+    const b=e.target.closest&&e.target.closest('.md-act'); if(!b)return;
+    e.preventDefault();
+    const act=b.getAttribute('data-act'), type=b.getAttribute('data-type'), idx=parseInt(b.getAttribute('data-idx'));
+    if(act==='edit')editMasterItem(type,idx); else if(act==='del')deleteMasterItem(type,idx);
+  }catch(err){ console.error(err); if(typeof showToast==='function')showToast('Action failed: '+(err.message||err),'err'); }
+},true);
 let CONTACTS={fce:{},courier:{}}; let __sendMsg='';
 function getContacts(){ return CONTACTS||{fce:{},courier:{}}; }
 async function dbSaveContacts(){ const {error}=await sb.from('master_data').upsert({id:1,contacts:CONTACTS,updated_at:new Date().toISOString()}); if(error)throw error; lsSet('sc_contacts',CONTACTS); }
@@ -1563,7 +1579,7 @@ async function editMasterItem(type,idx){
   const m=getMaster(); const key=masterKey(type); const cur=m[key][idx]; if(cur==null)return;
   const old=document.getElementById('md-edit-overlay'); if(old)old.remove();
   const ov=document.createElement('div'); ov.id='md-edit-overlay';
-  ov.style.cssText='position:fixed;inset:0;background:rgba(4,10,30,.72);z-index:999;display:flex;align-items:center;justify-content:center;';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(4,10,30,.72);z-index:100000;display:flex;align-items:center;justify-content:center;';
   ov.innerHTML=`<div class="card" style="max-width:420px;width:92%;padding:18px;">
     <div class="card-title" style="margin-bottom:10px;">Edit item</div>
     <input class="form-input" id="md-edit-input" type="text" value="${attEsc(cur)}" style="width:100%;margin-bottom:14px;"/>
@@ -1835,14 +1851,17 @@ function onFCEFilter(){ renderVisitLog(); renderSummary(); }
 
 // ═══ ORDER TRACKER ═══
 let activeOrderStatus='all';
+function ordSoldCodeFor(o){ try{ if(PKM.soldByName){ const c=PKM.soldByName.get(pkmKey(o.customer||'')); if(c)return c; } if(PKM.soldByShipName){ const c2=PKM.soldByShipName.get(pkmKey(o.customer||''))||PKM.soldByShipName.get(pkmRoadLoose(o.customer||'')); if(c2)return c2; } }catch(e){} return ''; }
+function ordFceFor(o){ try{ const c=ordSoldCodeFor(o); if(c&&PKM.respBySoldCode&&PKM.respBySoldCode.get(c))return PKM.respBySoldCode.get(c); return pkRespFor(o.customer||'')||''; }catch(e){ return ''; } }
+function ordZoneFor(o){ try{ const c=ordSoldCodeFor(o); if(c&&PKM.soldRoad&&PKM.soldRoad.get(c))return PKM.soldRoad.get(c); return pkRoadFor(o.customer||'')||''; }catch(e){ return ''; } }
 function scopedOrders(){ const mf=myFCE(); return mf?getOrders().filter(o=>o.fce===mf):getOrders(); }
 function buildOrderStatusBar(){
   const bar=document.getElementById('order-status-bar'); if(!bar)return;
-  const chips=['all',...ORDER_STATUSES];
+  const chips=['all',...ORDER_STATUSES,'Partially Completed'];
   bar.innerHTML=chips.map(s=>`<button class="month-chip${(activeOrderStatus===s)?' active':''}" onclick="setOrderStatus('${s}',this)">${s==='all'?'All':s}</button>`).join('');
 }
 function setOrderStatus(s,btn){ activeOrderStatus=s; document.querySelectorAll('#order-status-bar .month-chip').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); renderOrders(); }
-function orderStatusBadge(s){ const m={'Requested':'s-pending','Collected':'s-draft','In Development':'s-pending','Delivered':'s-approved'}; return `<span class="status-badge ${m[s]||'s-draft'}">${s}</span>`; }
+function orderStatusBadge(s){ const m={'Requested':'s-pending','Collected':'s-draft','In Development':'s-pending','Delivered':'s-approved','Partially Completed':'s-pending'}; const st={'Partially Completed':'background:rgba(255,159,90,.15);color:#ff9f5a;'}; return `<span class="status-badge ${m[s]||'s-draft'}" style="${st[s]||''}">${s}</span>`; }
 let visibleOrders=[];
 function orderAgeDays(o){ if(!o.date)return 0; const d=new Date((''+o.date).slice(0,10)+'T00:00:00'); if(isNaN(d))return 0; const t=new Date(); t.setHours(0,0,0,0); return Math.floor((t-d)/86400000); }
 function orderRowTint(o){
@@ -1902,9 +1921,11 @@ function renderOrders(){
   }).sort((a,b)=>b.date.localeCompare(a.date));
   visibleOrders=rows;
   document.getElementById('order-count').textContent=rows.length+' orders';
+  const ordTotal=rows.length; const ordCapped=ordTotal>50; if(ordCapped)rows=rows.slice(0,50);
   const canEdit=canEditOrders();
   const canSend=canSendOrders();
-  document.getElementById('orders-table').innerHTML=rows.map(o=>{
+  const ordCapNote=ordCapped?`<tr><td colspan="13" style="text-align:center;padding:12px;color:var(--muted);font-size:12px;">Showing first 50 of ${ordTotal.toLocaleString()} orders — use search / filters to narrow down.</td></tr>`:'';
+  document.getElementById('orders-table').innerHTML=ordCapNote+rows.map(o=>{
     const d=fmtDate(o.date);
     const extra = o.task==='Sample Delivery'
       ? (o.deliveredAt?('Delivered '+fmtDate(o.deliveredAt)):'—')
@@ -1924,7 +1945,7 @@ function renderOrders(){
         <div style="display:flex;flex-wrap:wrap;gap:10px 36px;margin-bottom:4px;">${detailItems.length?detailItems.map(([k,v])=>`<div style="min-width:130px;"><div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-family:'DM Mono',monospace;">${k}</div><div style="font-size:13px;color:var(--text);margin-top:3px;">${v}</div></div>`).join(''):'<span style="font-size:12px;color:var(--muted);">No extra details.</span>'}</div>
         <div id="ordlines-${o.id}" data-ono="${attEsc(o.orderNo||'')}"></div>
       </div></td></tr>`;
-    return `<tr style="background:${orderRowTint(o)};"><td style="text-align:center;">${canSend?`<input type="checkbox" class="ord-tick" value="${o.id}" onclick="event.stopPropagation()" style="cursor:pointer;" title="Select for combined send">`:''}</td><td>${chevron}</td><td class="mono" style="color:var(--muted);white-space:nowrap;">${d}</td><td style="font-size:12px;">${o.orderNo||'—'}</td><td style="font-size:12px;">${o.task?attEsc(taskShort(o.task)):'—'}</td><td style="font-size:12px;">${o.customer||'—'}</td><td style="font-size:12px;">${o.buyer||'—'}</td><td style="font-size:12px;">${o.service||'—'}</td><td style="font-size:12px;">${o.fce||'—'}</td><td style="font-size:12px;">${o.to||'—'}</td><td style="font-size:12px;color:var(--muted);">${extra}</td><td>${orderStatusBadge(o.status)}</td><td>${note}</td><td><div style="display:flex;gap:4px;align-items:center;">${sendBtn}${editBtn}</div></td></tr>${detail}`;
+    return `<tr style="background:${orderRowTint(o)};"><td style="text-align:center;">${canSend?`<input type="checkbox" class="ord-tick" value="${o.id}" onclick="event.stopPropagation()" style="cursor:pointer;" title="Select for combined send">`:''}</td><td>${chevron}</td><td class="mono" style="color:var(--muted);white-space:nowrap;">${d}</td><td style="font-size:12px;">${o.orderNo||'—'}</td><td style="font-size:12px;">${o.task?attEsc(taskShort(o.task)):'—'}</td><td style="font-size:12px;">${o.customer||'—'}</td><td style="font-size:12px;">${o.buyer||'—'}</td><td style="font-size:12px;">${o.fce||ordFceFor(o)||'—'}</td><td style="font-size:12px;">${o.to||ordZoneFor(o)||'—'}</td><td style="font-size:12px;color:var(--muted);">${extra}</td><td>${orderStatusBadge(o.status)}</td><td>${note}</td><td><div style="display:flex;gap:4px;align-items:center;">${sendBtn}${editBtn}</div></td></tr>${detail}`;
   }).join('')||'<tr><td colspan="14" style="text-align:center;color:var(--muted);padding:24px;">No orders yet</td></tr>';
   // Hide the New Order button for view-only users
   const newBtn=document.getElementById('order-new-btn'); if(newBtn) newBtn.style.display=canEdit?'':'none';
@@ -1987,9 +2008,12 @@ async function ordLoadLines(id){
   if(_ordLinesCache[ono]){ paint(_ordLinesCache[ono]); return; }
   box.innerHTML='<span style="font-size:11px;color:var(--dim);">Loading lines…</span>';
   try{
+    try{ if(typeof pkLoadTrips==='function')await pkLoadTrips(); }catch(_){}
+    let tripDate=''; (CACHE.trips||[]).forEach(t=>{ if(t.kind==='return')return; if((t.order_no||'').trim().toLowerCase()!==ono.toLowerCase())return; const d=t.trip_date||''; if(d>tripDate)tripDate=d; });
     const {data,error}=await sb.from('sample_lines').select('line_no,line_status,qty').eq('order_no',ono);
     if(error)throw error;
     (data||[]).sort((a,b)=>(parseFloat(a.line_no)||0)-(parseFloat(b.line_no)||0));
+    (data||[]).forEach(l=>{ if(tripDate&&/despatch|dispatch/i.test(''+(l.line_status||'')))l.line_status='Delivered on '+fmtDate(tripDate); });
     _ordLinesCache[ono]=data||[]; paint(_ordLinesCache[ono]);
   }catch(e){ box.innerHTML='<span style="font-size:11px;color:var(--dim);">Could not load line data.</span>'; }
 }
@@ -2082,7 +2106,7 @@ async function oFileParse(input){
     const ci={ order:col('Order No','OrderNo','Order'), cust:col('Customer','Customer Name'), buyer:col('Buyer','Buyer Name'),
       svc:col('Service By','Service','Service By Name'), zone:col('Delivery Zone','Zone','Road'), status:col('Status'),
       req:col('Req Time/Delivered','Req Time','Requested Time','Delivered','Delivery Date'), rem:col('Remarks','Remark','Note') };
-    const ALLOWED=['Requested','Collected','In Development','Delivered']; const val=v=>v==null?'':(''+v).trim();
+    const ALLOWED=['Requested','Collected','In Development','Partially Completed','Delivered']; const val=v=>v==null?'':(''+v).trim();
     oBulkRows=[];
     for(let i=1;i<rows.length;i++){ const r=rows[i]; if(!r)continue;
       const order=val(r[ci.order]), cust=val(r[ci.cust]); if(!order&&!cust)continue;
@@ -2690,7 +2714,7 @@ function attRenderLeaveSection(){
 // ═══════════════════════════════════════════════════════════════
 let pkTab='orders', pkOrder=null, pkResults=[], pkTripDate=null, pkTripRoad='', pkPendingTripOrder='';
 // ═══ COMPLETE DELIVERY MANAGEMENT ═══
-const CD_BINS=['Tiger','Astra Ecoverde','Epic Ecoverde','Dual Duty Ecoverde','Dymax','Sylko Ecoverde','Eloflex Ecoverde'];
+const CD_BINS=['Tiger','Astra Ecoverde','Epic Ecoverde','Dual Duty Ecoverde','Dymax','Sylko Ecoverde','Eloflex Ecoverde','Aquamelt','Secura Ecoverde','Seamsoft Ecoverde','Hi-P Ecoverde','Classic'];
 const CD_BIN_CAP=14; // cartons per bin
 let cdBinFilter='', cdStatusFilter='open', cdSearch='';
 function cdCanEditBin(){ return isAdmin()||isAuthorizer()||isPacker(); } // carton/bin-level edit access
@@ -2736,7 +2760,7 @@ function cdEditPost(id){
 function cdRenderPicker(title,sub){
   const old=document.getElementById('cd-bin-overlay'); if(old)old.remove();
   const ov=document.createElement('div'); ov.id='cd-bin-overlay';
-  ov.style.cssText='position:fixed;inset:0;background:rgba(4,10,30,.72);z-index:999;display:flex;align-items:center;justify-content:center;';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(4,10,30,.72);z-index:100000;display:flex;align-items:center;justify-content:center;';
   ov.innerHTML='<div class="card" style="max-width:520px;width:94%;padding:18px;" id="cd-picker-card"></div>';
   ov.addEventListener('click',e=>{ if(e.target===ov)ov.remove(); });
   document.body.appendChild(ov);
@@ -2979,8 +3003,8 @@ function pkRenderOrderView(){
   const _cdTip=attEsc('Sold-to code: '+(_cdCode||'not resolved')+(PKM.cdSoldCodes?(' · '+PKM.cdSoldCodes.size+' complete-customer codes loaded'):'')+(_cdCode?(PKM.cdSoldCodes&&PKM.cdSoldCodes.has(_cdCode)?' · code IS in complete list':' · code NOT in complete list'):''));
   v.innerHTML=`<div class="card"><div class="card-header"><div><div class="card-title">Order ${attEsc(o.orderNo)}</div><div class="card-sub">${attEsc(o.shipTo)} · ${attEsc(o.buyer||'')} · <span class="badge" title="${_cdTip}" style="${_cdFull?'background:rgba(255,159,90,.15);color:#ff9f5a;':'background:rgba(110,160,255,.12);color:#9fb8e8;'}">${_cdFull?'Complete Delivery':'Partial Delivery'}</span>${_cdPosted?` <span class="badge" style="background:rgba(70,230,160,.12);color:#46e6a0;">In bin: ${attEsc(_cdPosted.bin)}${(_cdPosted.cartonNos&&_cdPosted.cartonNos.length)?(' · Carton '+attEsc(_cdPosted.cartonNos.join(', '))):''}</span>`:''}</div></div>
     <div class="card-actions" style="display:flex;gap:6px;flex-wrap:wrap;">
-      <button class="btn btn-ghost btn-sm" onclick="pkPrintDN()">🖨 DN Copy</button>
-      <button class="btn btn-ghost btn-sm" onclick="pkPrintSticker()">🖨 Sticker</button>
+      <button class="btn btn-sm" style="background:linear-gradient(135deg,#38bdf8,#2563eb);color:#fff;font-weight:800;padding:8px 16px;box-shadow:0 0 12px rgba(56,150,255,.35);" onclick="pkPrintDN()">🖨 DN Copy</button>
+      <button class="btn btn-sm" style="background:linear-gradient(135deg,#34d399,#0d9488);color:#04211a;font-weight:800;padding:8px 16px;box-shadow:0 0 12px rgba(52,211,153,.30);" onclick="pkPrintSticker()">🖨 Sticker</button>
       <button class="btn btn-primary btn-sm" onclick="pkOpenRoadModal('trip')">Add to Trip</button>
       <button class="btn btn-primary btn-sm" onclick="pkOpenRoadModal('return')" title="Record this order as a return">↩ Add to Return</button>
       ${_cdFull&&!_cdPosted?'<button class="btn btn-sm" style="background:#ff9f5a;color:#1a1005;font-weight:700;" onclick="cdShowBinPopup()" title="Complete Delivery — post this order to a bin">📦 Complete Delivery — Post to Bin</button>':''}
@@ -2989,7 +3013,11 @@ function pkRenderOrderView(){
       <div><span style="color:var(--muted);">Creation:</span> ${pkFmtDate(o.creationDate)}</div>
       <div><span style="color:var(--muted);">Order status:</span> <span class="badge" style="${_ordStColor}" title="Completed = every line's status is Despatched. Any other line status → Partially Completed.">${_ordStatus}</span></div>
       <div><span style="color:var(--muted);">Lines:</span> ${o.lines.length} · Qty ${o.totalQty}</div>
-    </div></div>
+    </div>${(function(){ try{ const hist=cdPosts().filter(p=>p.orderNo===o.orderNo); if(!hist.length)return ''; const nNotes=hist.reduce((s2,p)=>s2+((p.notes||[]).length),0); const open=hist.filter(p=>p.status==='open').length;
+      return `<div style="background:linear-gradient(135deg,rgba(255,159,90,.08),rgba(20,32,64,.3));border:1px solid rgba(255,159,90,.35);border-left:3px solid #ff9f5a;border-radius:10px;padding:10px 14px;margin:4px 0 8px;">
+        <div style="font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:#ff9f5a;font-family:'DM Mono',monospace;margin-bottom:4px;">Complete Delivery history — ${hist.length} posting${hist.length>1?'s':''} · ${open} incomplete · ${nNotes} note${nNotes===1?'':'s'}</div>
+        ${hist.map(p=>`<div style=\"font-size:12px;margin-bottom:3px;\"><b>${attEsc(p.bin)}</b>${(p.cartonNos&&p.cartonNos.length)?(' · Ctn '+attEsc(p.cartonNos.join(','))):''} · ${p.status==='open'?'<span style=\"color:#ff9f5a;font-weight:700;\">Incomplete</span>':'<span style=\"color:#46e6a0;font-weight:700;\">Acknowledged</span>'} <span style=\"color:var(--dim);font-size:10px;\">(${fmtDate(p.postedAt)})</span>${(p.notes||[]).map(n2=>`<div style=\"font-size:11px;color:var(--muted);margin-left:10px;\">• ${attEsc(n2.text)} <span style=\"color:var(--dim);\">(${attEsc(n2.by)}, ${fmtDate(n2.at)})</span></div>`).join('')}</div>`).join('')}
+      </div>`; }catch(e){ return ''; } })()}</div>
     <div style="padding:0 16px 8px;font-size:12px;color:var(--accent2);" id="pk-sel-count">Tick the lines to include in the DN &amp; Sticker — ${sel.size} of ${o.lines.length} selected.</div>
     <div style="overflow:auto;"><table><thead><tr><th style="width:30px;text-align:center;"><input type="checkbox" ${allChecked?'checked':''} onchange="pkToggleAllLines(this.checked)" title="Select all"/></th><th>Line</th><th>COATS Brand/Tex</th><th>Product</th><th>Shade</th><th>Qty</th><th>Style/Ref</th><th>Remarks</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
 }
@@ -3281,10 +3309,9 @@ function pkRenderDash(){
   const b=document.getElementById('dash-root'); if(!b)return;
   b.innerHTML=`<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;">
      <button class="att-tab ${pkDashView==='ops'?'active':''}" onclick="pkDashView='ops';pkRenderDash()">Deliveries &amp; DN</button>
-     <button class="att-tab ${pkDashView==='lines'?'active':''}" onclick="pkDashView='lines';pkRenderDash()">Repeated Order</button>
      <button class="att-tab ${pkDashView==='returns'?'active':''}" onclick="pkDashView='returns';pkRenderDash()">Returns Trend</button>
    </div><div id="pk-dash-body"></div>`;
-  if(pkDashView==='ops')pkDashOps(); else if(pkDashView==='returns')pkRenderReturns(); else pkDashLinesView();
+  if(pkDashView==='lines')pkDashView='ops'; if(pkDashView==='returns')pkRenderReturns(); else pkDashOps();
 }
 function pkDashOps(){
   const box=document.getElementById('pk-dash-body'); if(!box)return;
@@ -3337,7 +3364,7 @@ function pkDashOps(){
       <div class="att-stat" style="border:1.5px solid #ff9f5a;background:rgba(255,159,90,.10);"><div class="v" style="color:#ff9f5a;">${pending.length}</div><div class="l">DN pending</div></div>
     </div>
     <div class="att-charts" style="margin-bottom:14px;">
-      <div class="card"><div class="form-label" style="margin:0 0 6px;">Deliveries by ${gran==='month'?'month':'day'}${road?(' · '+attEsc(road)):''}</div><canvas id="pk-dash-deliv"></canvas></div>
+      <div class="card"><div class="form-label" style="margin:0 0 6px;">Deliveries by ${gran==='month'?'month (year-to-year)':'day'}${road?(' · '+attEsc(road)):''}</div><canvas id="pk-dash-deliv"></canvas></div>
       <div class="card"><div class="form-label" style="margin:0 0 6px;">DN received vs pending</div><canvas id="pk-dash-dn"></canvas></div>
     </div>
     <div class="att-charts" style="margin-bottom:14px;">
@@ -3347,7 +3374,19 @@ function pkDashOps(){
         <div style="overflow:auto;"><table><thead><tr><th>${gran==='month'?'Delivery Month':'Delivery Date'}</th><th>Road / Zone</th><th style="text-align:center;">Received DN</th><th style="text-align:center;">Pending</th></tr></thead><tbody>${pendRows}${pendTotal}</tbody></table></div></div>
     </div>`;
   setTimeout(()=>{
-    pkDashChart('pk-dash-deliv',{type:'bar',data:{labels:perKeys.map(k=>gran==='month'?monthLabel(k):fmtDate(k)),datasets:[{label:'Deliveries',data:perKeys.map(k=>byPer[k].n),backgroundColor:perKeys.map((k,i)=>['#6ea0ff','#46e6a0','#ff9f5a','#c792ea','#ffd166','#4ecdc4'][i%6])}]},options:{plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{color:'#b0c6fa',precision:0},grid:{color:'rgba(255,255,255,.10)'}},x:{ticks:{color:'#b0c6fa'},grid:{color:'rgba(255,255,255,.06)'}}}}});
+    (function(){ // Year-to-year comparison when viewing by month
+      let cfg;
+      if(gran==='month'){
+        const years=[...new Set(perKeys.map(k=>k.slice(0,4)))].sort();
+        const mons=[...new Set(perKeys.map(k=>k.slice(5,7)))].sort();
+        const MONL=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+        const cols=['#6ea0ff','#46e6a0','#ff9f5a','#c792ea','#ffd166','#4ecdc4'];
+        cfg={type:'bar',data:{labels:mons.map(m=>MONL[parseInt(m)-1]||m),datasets:years.map((y,i)=>({label:y,data:mons.map(m=>byPer[y+'-'+m]?byPer[y+'-'+m].n:0),backgroundColor:cols[i%cols.length]}))},options:{plugins:{legend:{display:true,labels:{color:'#b0c6fa'}}},scales:{y:{beginAtZero:true,ticks:{color:'#b0c6fa',precision:0},grid:{color:'rgba(255,255,255,.10)'}},x:{ticks:{color:'#b0c6fa'},grid:{color:'rgba(255,255,255,.06)'}}}}};
+      } else {
+        cfg={type:'bar',data:{labels:perKeys.map(k=>fmtDate(k)),datasets:[{label:'Deliveries',data:perKeys.map(k=>byPer[k].n),backgroundColor:perKeys.map((k,i)=>['#6ea0ff','#46e6a0','#ff9f5a','#c792ea','#ffd166','#4ecdc4'][i%6])}]},options:{plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{color:'#b0c6fa',precision:0},grid:{color:'rgba(255,255,255,.10)'}},x:{ticks:{color:'#b0c6fa'},grid:{color:'rgba(255,255,255,.06)'}}}}};
+      }
+      pkDashChart('pk-dash-deliv',cfg);
+    })();
     const dnTotal=received.length+pending.length;
     const dnCenter={id:'dnCenter',afterDraw(chart){ const {ctx,chartArea}=chart; if(!chartArea)return; ctx.save(); const cx=(chartArea.left+chartArea.right)/2, cy=(chartArea.top+chartArea.bottom)/2; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillStyle='#e8f0ff'; ctx.font='700 22px sans-serif'; ctx.fillText(String(dnTotal),cx,cy-8); ctx.fillStyle='#8aa2c4'; ctx.font='11px sans-serif'; ctx.fillText('total entries',cx,cy+12); ctx.restore(); }};
     pkDashChart('pk-dash-dn',{type:'doughnut',data:{labels:['Received','Pending'],datasets:[{data:[received.length,pending.length],backgroundColor:['#46e6a0','#ff9f5a'],borderColor:'rgba(0,0,0,0)'}]},options:{cutout:'62%',plugins:{legend:{labels:{color:'#b0c6fa'}}}},plugins:[dnCenter]});
@@ -3584,13 +3623,15 @@ function pkmBuild(at,cm){
     PKM.tex.set(k,(tex==null?'':(''+tex).trim())); PKM.brand.set(k,brand||''); });
   PKM.csMob=new Map(); PKM.csMobByName=new Map(); PKM.shipRoad=new Map(); PKM.shipRoadLoose=new Map(); PKM.shipRoadEx=null;
   PKM.roadByShipCode=new Map(); PKM.csBySoldCode=new Map(); PKM.cdSoldCodes=new Set(); PKM.cdShipCodes=new Set(); PKM.cdShipNames=new Set(); PKM.respBySoldCode=new Map(); PKM.shipResp=new Map();
-  PKM.soldByShipCode=new Map(); PKM.soldByShipName=new Map();
+  PKM.soldByShipCode=new Map(); PKM.soldByShipName=new Map(); PKM.soldByName=new Map(); PKM.soldRoad=new Map();
   (cm||[]).forEach(r=>{ if(!Array.isArray(r))return;
     if(r[0]==='#CMAP'){ const sc=(r[1]||'').trim(), rd=(r[2]||'').trim(), so=(r[3]||'').trim(), cn=(r[4]||'').trim(), cmb=(r[5]||'').trim(), cd=(r[6]||'').trim(), fce=(r[7]||'').trim(), snm=(r[8]||'').trim();
       if(sc&&rd&&!PKM.roadByShipCode.has(sc))PKM.roadByShipCode.set(sc,rd);
       const cdv=cd.toLowerCase(); const isCD=cd&&cdv!=='n'&&cdv!=='no'&&cdv!=='0'&&cdv!=='partial'&&cdv!=='partial delivery';
       const snm2=(r[9]||'').trim(), snm3=(r[10]||'').trim();
       if(so){ if(sc&&!PKM.soldByShipCode.has(sc))PKM.soldByShipCode.set(sc,so);
+        if(snm2&&!PKM.soldByName.has(pkmKey(snm2)))PKM.soldByName.set(pkmKey(snm2),so);
+        if(rd&&!PKM.soldRoad.has(so))PKM.soldRoad.set(so,rd);
         [snm,snm3].forEach(nm=>{ if(!nm)return; const k1=pkmKey(nm), k2=pkmRoadLoose(nm); if(k1&&!PKM.soldByShipName.has(k1))PKM.soldByShipName.set(k1,so); if(k2&&!PKM.soldByShipName.has(k2))PKM.soldByShipName.set(k2,so); }); }
       if(isCD){ if(so)PKM.cdSoldCodes.add(so); if(sc)PKM.cdShipCodes.add(sc);
         [snm,snm2,snm3].forEach(nm=>{ if(nm){ PKM.cdShipNames.add(pkmKey(nm)); PKM.cdShipNames.add(pkmRoadLoose(nm)); } }); }
@@ -3693,18 +3734,53 @@ async function pkAutoCreateOrders(recs){
     const existing=new Set(getOrders().map(x=>(x.orderNo||'').trim().toLowerCase()).filter(Boolean));
     const byOrder={};
     recs.forEach(r=>{ const ono=(r.order_no||'').trim(); if(!ono)return; const k=ono.toLowerCase(); if(existing.has(k))return;
-      if(!byOrder[k])byOrder[k]={ono,ship:(r.ship_to||'').trim(),cn:(r.customer_name||'').trim(),buyer:(r.buyer||'').trim(),cd:(''+(r.creation_date||'')).slice(0,10),sc:(r.ship_to_code||'').trim(),so:(r.sold_to_code||'').trim()};
-      else{ const b=byOrder[k]; const d=(''+(r.creation_date||'')).slice(0,10); if(d&&(!b.cd||d<b.cd))b.cd=d; if(!b.cn&&r.customer_name)b.cn=(''+r.customer_name).trim(); if(!b.sc&&r.ship_to_code)b.sc=(''+r.ship_to_code).trim(); if(!b.so&&r.sold_to_code)b.so=(''+r.sold_to_code).trim(); } });
-    const list=Object.values(byOrder); if(!list.length)return 0;
+      const hasShade=((r.shade||'')+'').trim()!=='';
+      if(!byOrder[k])byOrder[k]={ono,ship:(r.ship_to||'').trim(),cn:(r.customer_name||'').trim(),buyer:(r.buyer||'').trim(),cd:(''+(r.creation_date||'')).slice(0,10),sc:(r.ship_to_code||'').trim(),so:(r.sold_to_code||'').trim(),anyShade:hasShade};
+      else{ const b=byOrder[k]; const d=(''+(r.creation_date||'')).slice(0,10); if(d&&(!b.cd||d<b.cd))b.cd=d; if(!b.cn&&r.customer_name)b.cn=(''+r.customer_name).trim(); if(!b.sc&&r.ship_to_code)b.sc=(''+r.ship_to_code).trim(); if(!b.so&&r.sold_to_code)b.so=(''+r.sold_to_code).trim(); if(hasShade)b.anyShade=true; } });
+    const list=Object.values(byOrder);
     const today=new Date().toISOString().slice(0,10);
-    const rows=list.map(b=>orderToRow({ id:'o_imp_'+b.ono.replace(/[^A-Za-z0-9]/g,'').slice(0,24)+'_'+Math.random().toString(36).slice(2,5),
-      date:(b.cd&&/^\d{4}-\d{2}-\d{2}$/.test(b.cd))?b.cd:today, task:'Sample Delivery', orderNo:b.ono,
-      customer:(b.cn||b.ship), buyer:b.buyer, fce:pkRespFor(b.ship,b.so)||'', service:'', reqTime:'',
-      to:pkRoadFor(b.ship,b.sc)||null, status:'Requested', deliveredAt:null, remarks:'Auto-created from import', createdBy:currentUser?currentUser.id:'' }));
-    for(let i=0;i<rows.length;i+=400){ const {error}=await sb.from('sample_orders').upsert(rows.slice(i,i+400)); if(error)throw error; }
+    let made=0;
+    if(list.length){
+      // Task rule: both Shade Code & Final Shade blank on every line -> Collection, otherwise Delivery
+      const rows=list.map(b=>orderToRow({ id:'o_imp_'+b.ono.replace(/[^A-Za-z0-9]/g,'').slice(0,24)+'_'+Math.random().toString(36).slice(2,5),
+        date:(b.cd&&/^\d{4}-\d{2}-\d{2}$/.test(b.cd))?b.cd:today, task:(b.anyShade?'Sample Delivery':'Swatch Collection'), orderNo:b.ono,
+        customer:(b.cn||b.ship), buyer:b.buyer, fce:pkRespFor(b.ship,b.so)||'', service:'', reqTime:'',
+        to:pkRoadFor(b.ship,b.sc)||null, status:'Requested', deliveredAt:null, remarks:'Auto-created from import', createdBy:currentUser?currentUser.id:'' }));
+      for(let i=0;i<rows.length;i+=400){ const {error}=await sb.from('sample_orders').upsert(rows.slice(i,i+400)); if(error)throw error; }
+      made=rows.length;
+    }
     try{ await refreshAll(); }catch(_){}
-    return rows.length;
+    try{ await pkSyncOrderStatuses(recs); }catch(e){ console.error('status sync',e); }
+    return made;
   }catch(e){ console.error('auto-create orders',e); showToast('Order Tracker auto-population failed: '+(e.message||e),'err'); return 0; }
+}
+async function pkSyncOrderStatuses(recs){
+  // Order status from line statuses + Trip List:
+  //  all lines Despatched AND order on a trip  -> Delivered (deliveredAt = trip date)
+  //  mix of Despatched and other statuses      -> Partially Completed
+  const dispRe=/despatch|dispatch/i;
+  const byOrder={};
+  recs.forEach(r=>{ const ono=(r.order_no||'').trim(); if(!ono)return; const k=ono.toLowerCase(); if(!byOrder[k])byOrder[k]={sts:[]}; byOrder[k].sts.push((''+(r.line_status||'')).trim()); });
+  try{ if(typeof pkLoadTrips==='function')await pkLoadTrips(); }catch(_){}
+  const tripByOrder={};
+  (CACHE.trips||[]).forEach(t=>{ if(t.kind==='return')return; const k=(t.order_no||'').trim().toLowerCase(); if(!k)return; const d=t.trip_date||''; if(!tripByOrder[k]||d>tripByOrder[k])tripByOrder[k]=d; });
+  const changed=[];
+  getOrders().forEach(o=>{
+    const k=(o.orderNo||'').trim().toLowerCase(); if(!k||!byOrder[k])return;
+    if(o.status==='Returned'||o.status==='Returnted')return; // manual returns untouched
+    const sts=byOrder[k].sts; const withSt=sts.filter(x=>x);
+    if(!withSt.length)return;
+    const allDisp=withSt.length===sts.length&&sts.every(x=>dispRe.test(x));
+    const someDisp=sts.some(x=>dispRe.test(x));
+    const trip=tripByOrder[k]||'';
+    let ns=null, nd=o.deliveredAt||null;
+    if(allDisp&&trip){ ns='Delivered'; nd=trip; }
+    else if(someDisp&&!allDisp){ ns='Partially Completed'; }
+    if(ns&&(o.status!==ns||(ns==='Delivered'&&o.deliveredAt!==nd))){ o.status=ns; o.deliveredAt=nd; changed.push(orderToRow(o)); }
+  });
+  for(let i=0;i<changed.length;i+=400){ const {error}=await sb.from('sample_orders').upsert(changed.slice(i,i+400)); if(error)throw error; }
+  if(changed.length){ try{ await refreshAll(); }catch(_){} showToast(changed.length+' order status(es) auto-updated from line statuses & trip list.'); }
+  return changed.length;
 }
 function pkRoadFor(shipTo,shipCode){ if(shipCode&&PKM.roadByShipCode&&PKM.roadByShipCode.get((''+shipCode).trim()))return PKM.roadByShipCode.get((''+shipCode).trim()); if(!PKM.shipRoad)return ''; const k=pkmKey(shipTo); let r=PKM.shipRoad.get(k); if(r)return r; const lk=pkmRoadLoose(shipTo); r=PKM.shipRoadLoose&&PKM.shipRoadLoose.get(lk); return r||''; }
 function pkmRoadTest(){ const n=(PKM.shipRoad&&PKM.shipRoad.size)||0; if(!n) return '<div style="margin-top:8px;font-size:12px;color:var(--red);line-height:1.6;">⚠ <b>No ship-to → road mappings loaded.</b> In the Customer Mapping file add columns <b>Ship to Party Name</b> + <b>Road Name</b> (first sheet, one row per ship-to) and re-upload via <b>Upload Customer Mapping</b>.</div>'; const ex=PKM.shipRoadEx; return '<div style="margin-top:8px;font-size:12px;color:var(--green);line-height:1.6;">✓ <b>'+n+' ship-to → road mappings loaded.</b>'+(ex?(' e.g. <b>'+attEsc(ex.name)+'</b> → <b>'+attEsc(ex.road)+'</b>.'):'')+' DN &amp; Sticker fill Road Name by Ship to Party Name (ignores case, spaces &amp; Ltd/Limited).'+((PKM.cdSoldCodes&&(PKM.cdSoldCodes.size||PKM.cdShipNames.size))?(' <b>'+Math.max(PKM.cdSoldCodes.size,PKM.cdShipNames.size)+' Complete-Delivery customers mapped.</b>'):' <span style="color:#ff9f5a;">No Complete-Delivery customers found in mapping — add the Complete Delivery Customer Code column.</span>')+'</div>'; }
