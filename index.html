@@ -516,7 +516,7 @@ body{
       <div class="detail-meta">
         <div class="month-bar" id="order-status-bar"></div>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-          <input class="search-pill" type="text" id="order-no-filter" placeholder="Search Order No…" oninput="renderOrders()" style="width:180px;"/>
+          <input class="search-pill" type="text" id="order-no-filter" placeholder="Search order no / customer / buyer…" oninput="renderOrders()" style="width:230px;"/>
           <select class="filter-sel" id="order-task-filter" onchange="renderOrders()"><option value="">All tasks</option><option value="Swatch Collection">Collection</option><option value="Sample Delivery">Delivery</option></select>
           <select class="filter-sel" id="order-zone-filter" onchange="renderOrders()"><option value="">All zones</option></select>
           <select class="filter-sel" id="order-service-filter" onchange="renderOrders()"><option value="">All services</option></select>
@@ -537,7 +537,7 @@ body{
         <span style="display:inline-flex;align-items:center;gap:5px;"><span style="width:11px;height:11px;border-radius:3px;background:rgba(255,90,95,.98);"></span>3+ days due</span>
         <span style="display:inline-flex;align-items:center;gap:5px;"><span style="width:11px;height:11px;border-radius:3px;background:rgba(70,230,160,.95);"></span>DN uploaded</span>
       </div>
-      <div class="card tbl-scroll"><table><thead><tr><th style="width:26px;text-align:center;"><input type="checkbox" id="ord-tick-all" onclick="toggleAllTicks(this)" title="Select all" style="cursor:pointer;"></th><th style="width:30px;"></th><th>Entry Date</th><th>Order No</th><th>Task</th><th>Customer</th><th>Buyer</th><th>Responsibility To</th><th>Delivery Zone</th><th>Req. Time / Delivered</th><th>Status</th><th>DN Download</th><th>Actions</th></tr></thead><tbody id="orders-table"></tbody></table></div>
+      <div class="card tbl-scroll"><table><thead><tr><th style="width:26px;text-align:center;"><input type="checkbox" id="ord-tick-all" onclick="toggleAllTicks(this)" title="Select all" style="cursor:pointer;"></th><th style="width:30px;"></th><th>Entry Date</th><th>Order No</th><th>Task</th><th>Customer</th><th>Buyer</th><th>Responsibility To</th><th>Service / Delivery By</th><th>Delivery Zone</th><th>Req. Time / Delivered</th><th>Status</th><th>DN Download</th><th>Actions</th></tr></thead><tbody id="orders-table"></tbody></table></div>
     </div>
 
     <!-- SAMPLE PACKING -->
@@ -773,8 +773,8 @@ async function dbUpsertEntry(e){ const {error}=await sb.from('entries').upsert(e
 async function dbDeleteEntry(id){ const {error}=await sb.from('entries').delete().eq('id',id); if(error)throw error; }
 async function dbInsertUser(u){ const {error}=await sb.from('app_users').insert(u); if(error)throw error; }
 async function dbDeleteUser(id){ const {error}=await sb.from('app_users').delete().eq('id',id); if(error)throw error; }
-async function dbSaveMaster(m){ const {error}=await sb.from('master_data').upsert({id:1,fce:m.fce,customers:m.customers,purposes:m.purposes,reasons:m.reasons,buyers:m.buyers,updated_at:new Date().toISOString()}); if(error)throw error; }
-async function dbSaveZones(zones){ const {error}=await sb.from('master_data').upsert({id:1,zones:zones,updated_at:new Date().toISOString()}); if(error)throw error; }
+async function dbSaveMaster(m){ const cur=await dbGetMaster().catch(()=>null); const row={...(cur||{}),id:1,fce:m.fce,customers:m.customers,purposes:m.purposes,reasons:m.reasons,buyers:m.buyers,updated_at:new Date().toISOString()}; const {error}=await sb.from('master_data').upsert(row); if(error)throw error; }
+async function dbSaveZones(zones){ const cur=await dbGetMaster().catch(()=>null); const row={...(cur||{}),id:1,zones:zones,updated_at:new Date().toISOString()}; const {error}=await sb.from('master_data').upsert(row); if(error)throw error; }
 // ── Order Tracker DB ──
 async function dbGetOrders(){ let all=[],from=0; const size=1000; while(true){ const {data,error}=await sb.from('sample_orders').select('*').order('date',{ascending:false}).range(from,from+size-1); if(error)throw error; all=all.concat(data||[]); if(!data||data.length<size)break; from+=size; if(from>30000)break; } return all; }
 async function dbUpsertOrder(o){ const {error}=await sb.from('sample_orders').upsert(o); if(error)throw error; }
@@ -813,7 +813,7 @@ async function refreshAll(){
       else { const lz=getZones(); if(lz.length){ await dbSaveZones(lz); } }
     }catch(ze){}
     try{
-      if(master && master.contacts){ CONTACTS={fce:master.contacts.fce||{},courier:master.contacts.courier||{},support:Array.isArray(master.contacts.support)?master.contacts.support:[],importLog:Array.isArray(master.contacts.importLog)?master.contacts.importLog:[],plantNames:(master.contacts.plantNames&&typeof master.contacts.plantNames==='object')?master.contacts.plantNames:{},cdCustomers:Array.isArray(master.contacts.cdCustomers)?master.contacts.cdCustomers:[],cdPosts:Array.isArray(master.contacts.cdPosts)?master.contacts.cdPosts:[],retReasons:Array.isArray(master.contacts.retReasons)?master.contacts.retReasons:[],logoData:master.contacts.logoData||'',logoCrop:master.contacts.logoCrop||''}; lsSet('sc_contacts',CONTACTS); }
+      if(master && master.contacts){ CONTACTS={fce:master.contacts.fce||{},courier:master.contacts.courier||{},support:Array.isArray(master.contacts.support)?master.contacts.support:[],importLog:Array.isArray(master.contacts.importLog)?master.contacts.importLog:[],plantNames:(master.contacts.plantNames&&typeof master.contacts.plantNames==='object')?master.contacts.plantNames:{},cdCustomers:Array.isArray(master.contacts.cdCustomers)?master.contacts.cdCustomers:[],cdPosts:Array.isArray(master.contacts.cdPosts)?master.contacts.cdPosts:[],retReasons:Array.isArray(master.contacts.retReasons)?master.contacts.retReasons:[],logoData:master.contacts.logoData||'',logoCrop:master.contacts.logoCrop||''}; lsSet('sc_contacts',CONTACTS); try{ if(CONTACTS.logoData)lsSet('sc_print_logo',CONTACTS.logoData); if(CONTACTS.logoCrop)lsSet('sc_print_logo_crop',CONTACTS.logoCrop); }catch(_){} }
       else { const c=lsGet('sc_contacts',null); if(c)CONTACTS={fce:c.fce||{},courier:c.courier||{},support:Array.isArray(c.support)?c.support:[],plantNames:(c.plantNames&&typeof c.plantNames==='object')?c.plantNames:{},cdCustomers:Array.isArray(c.cdCustomers)?c.cdCustomers:[],cdPosts:Array.isArray(c.cdPosts)?c.cdPosts:[],retReasons:Array.isArray(c.retReasons)?c.retReasons:[],logoData:c.logoData||'',logoCrop:c.logoCrop||''}; }
     }catch(ce){}
     try{ CACHE.announcements=await dbGetAnnouncements(); ANN_CLOUD=true; }catch(ae){ CACHE.announcements=null; ANN_CLOUD=false; }
@@ -1367,7 +1367,7 @@ function mdRenderMapTable(){
   ${shown.map(({r,ix})=>{ const cd=(r[6]||'').trim(); const isCD=cd&&!/^(0|n|no|partial)$/i.test(cd);
     return `<tr>
       ${adm?`<td><button type="button" class="btn-icon md-map-edit" data-ix="${ix}" title="Edit"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="pointer-events:none;"><path d="M17 3a2.828 2.828 0 114 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg></button> <button type="button" class="btn-icon md-map-del" data-ix="${ix}" title="Delete" style="color:var(--red);"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="pointer-events:none;"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></td>`:''}
-      <td>${attEsc(r[9]||'—')}<div style="font-size:10px;color:var(--dim);">${attEsc(r[3]||'')}</div></td>
+      <td>${attEsc(r[9]||r[10]||r[8]||'—')}<div style="font-size:10px;color:var(--dim);">${attEsc(r[3]||'')}</div></td>
       <td>${attEsc(r[10]||r[8]||'—')}<div style="font-size:10px;color:var(--dim);">${attEsc(r[1]||'')}</div></td>
       <td style="font-size:12px;">${attEsc(r[4]||'—')}${r[11]?`<div style="font-size:10px;color:var(--dim);">${attEsc(r[11])}</div>`:''}${r[5]?`<div style="font-size:10px;color:var(--dim);">${attEsc(r[5])}</div>`:''}</td>
       <td>${attEsc(r[7]||'—')}</td>
@@ -1498,7 +1498,7 @@ document.addEventListener('click',function(e){
 },true);
 let CONTACTS={fce:{},courier:{}}; let __sendMsg='';
 function getContacts(){ return CONTACTS||{fce:{},courier:{}}; }
-async function dbSaveContacts(){ const {error}=await sb.from('master_data').upsert({id:1,contacts:CONTACTS,updated_at:new Date().toISOString()}); if(error)throw error; lsSet('sc_contacts',CONTACTS); }
+async function dbSaveContacts(){ const cur=await dbGetMaster().catch(()=>null); const row={...(cur||{}),id:1,contacts:CONTACTS,updated_at:new Date().toISOString()}; const {error}=await sb.from('master_data').upsert(row); if(error)throw error; lsSet('sc_contacts',CONTACTS); }
 function renderFcePhones(){
   const box=document.getElementById('master-fce-phones'); if(!box)return; const m=getMaster(); const c=getContacts().fce||{}; const ed=isAdmin();
   const fl=getFceNames(); box.innerHTML=(fl.length?fl.map((n,i)=>`<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border);"><span style="flex:1;font-size:13px;">${attEsc(n)}</span><input class="form-input" style="max-width:170px;" type="tel" id="fcph-${i}" value="${attEsc(c[n]||'')}" placeholder="01XXXXXXXXX" ${ed?'':'disabled'}/></div>`).join(''):'<div style="color:var(--muted);font-size:12px;">Add FCE names via the Customer Mapping above.</div>')+(ed&&fl.length?`<div style="margin-top:10px;"><button class="btn btn-primary btn-sm" onclick="saveFcePhones()">Save numbers</button></div>`:'');
@@ -1589,6 +1589,7 @@ function openCombinedSendModal(){
   document.getElementById('send-modal-body').innerHTML=html;
   document.getElementById('send-modal').classList.add('open');
 }
+function masterKey(type){ return ({fce:'fce',customer:'customers',purpose:'purposes',reason:'reasons',buyer:'buyers'})[type]||type; }
 async function addMasterItem(type){
   const val=document.getElementById('new-'+type+'-input').value.trim(); if(!val){ showToast('Enter a name first.','err'); return; }
   const m=getMaster(); const key=masterKey(type); if(m[key].includes(val)){ showToast('Already exists.','err'); return; }
@@ -1942,7 +1943,7 @@ function renderOrders(){
     if(zoneF&&(o.to||'')!==zoneF)return false;
     if(serviceF&&(o.service||'')!==serviceF)return false;
     if(respF&&!((o.fce||'').toLowerCase().includes(respF)))return false;
-    if(noF&&!(o.orderNo||'').toLowerCase().includes(noF))return false;
+    if(noF&&!((o.orderNo||'').toLowerCase().includes(noF)||(o.customer||'').toLowerCase().includes(noF)||(o.buyer||'').toLowerCase().includes(noF)))return false;
     if(srch&&!(o.customer||'').toLowerCase().includes(srch)&&!(o.buyer||'').toLowerCase().includes(srch)&&!(o.orderNo||'').toLowerCase().includes(srch)&&!(o.fce||'').toLowerCase().includes(srch))return false;
     return true;
   }).sort((a,b)=>b.date.localeCompare(a.date));
@@ -1951,7 +1952,7 @@ function renderOrders(){
   const ordTotal=rows.length; const ordCapped=ordTotal>50; if(ordCapped)rows=rows.slice(0,50);
   const canEdit=canEditOrders();
   const canSend=canSendOrders();
-  const ordCapNote=ordCapped?`<tr><td colspan="13" style="text-align:center;padding:12px;color:var(--muted);font-size:12px;">Showing first 50 of ${ordTotal.toLocaleString()} orders — use search / filters to narrow down.</td></tr>`:'';
+  const ordCapNote=ordCapped?`<tr><td colspan="14" style="text-align:center;padding:12px;color:var(--muted);font-size:12px;">Showing first 50 of ${ordTotal.toLocaleString()} orders — use search / filters to narrow down.</td></tr>`:'';
   document.getElementById('orders-table').innerHTML=ordCapNote+rows.map(o=>{
     const d=fmtDate(o.date);
     const extra = o.task==='Sample Delivery'
@@ -1967,12 +1968,12 @@ function renderOrders(){
       ['Created by',o.createdBy],
       ['Remarks',o.remarks]
     ].filter(x=>x[1]);
-    const detail=`<tr id="detail-${o.id}" style="display:none;"><td colspan="2" style="background:var(--surface2);"></td><td colspan="12" style="padding:10px 14px 14px;background:var(--surface2);">
+    const detail=`<tr id="detail-${o.id}" style="display:none;"><td colspan="2" style="background:var(--surface2);"></td><td colspan="13" style="padding:10px 14px 14px;background:var(--surface2);">
       <div style="background:linear-gradient(135deg,rgba(110,160,255,.07),rgba(20,32,64,.35));border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:12px;padding:14px 18px;">
         <div style="display:flex;flex-wrap:wrap;gap:10px 36px;margin-bottom:4px;">${detailItems.length?detailItems.map(([k,v])=>`<div style="min-width:130px;"><div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-family:'DM Mono',monospace;">${k}</div><div style="font-size:13px;color:var(--text);margin-top:3px;">${v}</div></div>`).join(''):'<span style="font-size:12px;color:var(--muted);">No extra details.</span>'}</div>
         <div id="ordlines-${o.id}" data-ono="${attEsc(o.orderNo||'')}"></div>
       </div></td></tr>`;
-    return `<tr style="background:${orderRowTint(o)};"><td style="text-align:center;">${canSend?`<input type="checkbox" class="ord-tick" value="${o.id}" onclick="event.stopPropagation()" style="cursor:pointer;" title="Select for combined send">`:''}</td><td>${chevron}</td><td class="mono" style="color:var(--muted);white-space:nowrap;">${d}</td><td style="font-size:12px;">${o.orderNo||'—'}</td><td style="font-size:12px;">${o.task?attEsc(taskShort(o.task)):'—'}</td><td style="font-size:12px;">${o.customer||'—'}</td><td style="font-size:12px;">${o.buyer||'—'}</td><td style="font-size:12px;">${o.fce||ordFceFor(o)||'—'}</td><td style="font-size:12px;">${o.to||ordZoneFor(o)||'—'}</td><td style="font-size:12px;color:var(--muted);">${extra}</td><td>${orderStatusBadge(o.status)}</td><td>${note}</td><td><div style="display:flex;gap:4px;align-items:center;">${sendBtn}${editBtn}</div></td></tr>${detail}`;
+    return `<tr style="background:${orderRowTint(o)};"><td style="text-align:center;">${canSend?`<input type="checkbox" class="ord-tick" value="${o.id}" onclick="event.stopPropagation()" style="cursor:pointer;" title="Select for combined send">`:''}</td><td>${chevron}</td><td class="mono" style="color:var(--muted);white-space:nowrap;">${d}</td><td style="font-size:12px;">${o.orderNo||'—'}</td><td style="font-size:12px;">${o.task?attEsc(taskShort(o.task)):'—'}</td><td style="font-size:12px;">${o.customer||'—'}</td><td style="font-size:12px;">${o.buyer||'—'}</td><td style="font-size:12px;">${o.fce||ordFceFor(o)||'—'}</td><td style="font-size:12px;">${o.service||'—'}</td><td style="font-size:12px;">${o.to||ordZoneFor(o)||'—'}</td><td style="font-size:12px;color:var(--muted);">${extra}</td><td>${orderStatusBadge(o.status)}</td><td>${note}</td><td><div style="display:flex;gap:4px;align-items:center;">${sendBtn}${editBtn}</div></td></tr>${detail}`;
   }).join('')||'<tr><td colspan="14" style="text-align:center;color:var(--muted);padding:24px;">No orders yet</td></tr>';
   // Hide the New Order button for view-only users
   const newBtn=document.getElementById('order-new-btn'); if(newBtn) newBtn.style.display=canEdit?'':'none';
@@ -3265,17 +3266,18 @@ function pkRenderReturns(){
   const qty=rets.reduce((s,r)=>s+(parseFloat(r.total_qty)||0),0);
   // group by month + by customer
   const byMonth={}; rets.forEach(r=>{ const m=(pkRetGran==='day'?((r.trip_date||'').slice(0,10)):((r.trip_date||'').slice(0,7)))||'—'; byMonth[m]=(byMonth[m]||0)+1; });
-  const byCust={}; rets.forEach(r=>{ const c=r.ship_to||'—'; byCust[c]=(byCust[c]||0)+1; });
+  const retCustName=r=>{ try{ const c=cdResolveSoldCode(r.ship_to||'','',''); if(c&&PKM.cmByCode&&PKM.cmByCode.get(c))return PKM.cmByCode.get(c); }catch(e){} return r.ship_to||'—'; };
+  const byCust={}; rets.forEach(r=>{ const c=retCustName(r); byCust[c]=(byCust[c]||0)+1; });
   const custTop=Object.entries(byCust).sort((a,b)=>b[1]-a[1]).slice(0,8);
   const tblData=rets.slice().sort((a,b)=>(''+b.trip_date).localeCompare(''+a.trip_date));
   // Repeat-return frequency: same order returned more than once, bucketed by how many times (Return-N)
   const cntByOrder={};
-  rets.forEach(r=>{ const k=r.order_no||'—'; const rn=parseInt(r.return_no,10)||1; if(!cntByOrder[k])cntByOrder[k]={n:0,cust:r.ship_to||''}; cntByOrder[k].n=Math.max(cntByOrder[k].n,rn); if(r.ship_to)cntByOrder[k].cust=r.ship_to; });
+  rets.forEach(r=>{ const k=r.order_no||'—'; const rn=parseInt(r.return_no,10)||1; const nm=retCustName(r); if(!cntByOrder[k])cntByOrder[k]={n:0,cust:nm||''}; cntByOrder[k].n=Math.max(cntByOrder[k].n,rn); if(nm)cntByOrder[k].cust=nm; });
   const freq={'2':[],'3':[],'4':[],'5':[]};
   Object.entries(cntByOrder).forEach(([k,v])=>{ if(v.n<2)return; const b=v.n>=5?'5':String(v.n); freq[b].push({order:k,cust:v.cust,n:v.n}); });
   const freqDefs=[['2','Returned 2 times'],['3','Returned 3 times'],['4','Returned 4 times'],['5','Returned 5+ times']];
-  const freqRows=freqDefs.map(([key,label])=>{ const list=freq[key]; const itemsHtml=list.length?`<div style="max-height:90px;overflow:auto;display:flex;flex-wrap:wrap;gap:4px;padding:2px 0;">${list.map(x=>`<span style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:1px 7px;font-size:11px;white-space:nowrap;">${attEsc(x.order)}${x.cust?` · ${attEsc(x.cust)}`:''}</span>`).join('')}</div>`:'<span style="color:var(--muted);">—</span>'; return `<tr><td style="white-space:nowrap;font-weight:600;">${label}</td><td class="mono" style="text-align:center;font-weight:700;color:${list.length?'#e0913a':'var(--muted)'};">${list.length}</td><td>${itemsHtml}</td></tr>`; }).join('');
-  const tableRows=tblData.map(r=>`<tr><td><span style="font-size:11px;font-weight:600;color:#e0913a;">Return-${r.return_no||1}</span></td><td style="white-space:nowrap;">${fmtDate(r.trip_date)}</td><td>${attEsc(r.ship_to)}</td><td>${attEsc(r.order_no)}</td><td style="font-size:12px;">${attEsc(r.line_nos)}</td><td>${attEsc(r.road)||'—'}</td><td>${attEsc(r.total_qty)}</td><td>${(isAdmin()||isAuthorizer())?`<button class="btn btn-reject btn-sm" onclick="pkListDelete('${r.id}')">Delete</button>`:''}</td></tr>`).join('')||`<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:18px;">No returns recorded yet. Open an order and click “Add to Return”.</td></tr>`;
+  const freqRows=freqDefs.map(([key,label])=>{ const list=freq[key]; const itemsHtml=list.length?`<div style="max-height:120px;overflow:auto;display:flex;flex-direction:column;gap:4px;padding:2px 0;">${list.map(x=>`<span style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:3px 9px;font-size:11.5px;white-space:normal;word-break:break-word;line-height:1.4;"><b style="color:var(--accent2);">${attEsc(x.order)}</b>${x.cust?` · ${attEsc(x.cust)}`:''}</span>`).join('')}</div>`:'<span style="color:var(--muted);">—</span>'; return `<tr><td style="white-space:nowrap;font-weight:600;">${label}</td><td class="mono" style="text-align:center;font-weight:700;color:${list.length?'#e0913a':'var(--muted)'};">${list.length}</td><td style="min-width:280px;">${itemsHtml}</td></tr>`; }).join('');
+  const tableRows=tblData.map(r=>`<tr><td><span style="font-size:11px;font-weight:600;color:#e0913a;">Return-${r.return_no||1}</span></td><td style="white-space:nowrap;">${fmtDate(r.trip_date)}</td><td>${attEsc(r.ship_to)}</td><td>${attEsc(r.order_no)}</td><td style="font-size:12px;">${attEsc(r.line_nos)}</td><td style="font-size:12px;">${r.return_reason?attEsc(r.return_reason):'—'}</td><td>${attEsc(r.road)||'—'}</td><td>${attEsc(r.total_qty)}</td><td>${(isAdmin()||isAuthorizer())?`<button class="btn btn-reject btn-sm" onclick="pkListDelete('${r.id}')">Delete</button>`:''}</td></tr>`).join('')||`<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:18px;">No returns recorded yet. Open an order and click “Add to Return”.</td></tr>`;
   // road-wise grouping (day / month)
   const byPR={}; rets.forEach(r=>{ const per=pkRetGran==='day'?((r.trip_date||'').slice(0,10)||'—'):((r.trip_date||'').slice(0,7)||'—'); const rd=r.road||'—'; const key=per+'||'+rd; if(!byPR[key])byPR[key]={per,rd,n:0,q:0}; byPR[key].n++; byPR[key].q+=parseFloat(r.total_qty)||0; });
   const roadRows=Object.values(byPR).sort((a,b)=>String(b.per).localeCompare(String(a.per))||String(a.rd).localeCompare(String(b.rd))).map(x=>`<tr><td style="white-space:nowrap;">${pkRetGran==='day'?(x.per==='—'?'—':fmtDate(x.per)):(x.per==='—'?'—':monthLabel(x.per))}</td><td>${attEsc(x.rd)}</td><td style="text-align:center;">${x.n}</td><td style="text-align:center;">${x.q}</td></tr>`).join('')||`<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:14px;">No road data.</td></tr>`;
@@ -3299,21 +3301,21 @@ function pkRenderReturns(){
      <div class="att-stat"><div class="v">${qty}</div><div class="l">Total returned qty</div></div>
    </div>
    <div class="att-charts" style="margin-bottom:14px;">
-     <div class="card"><div class="form-label" style="margin:0 0 6px;">Returns by ${pkRetGran==='day'?'day':'month'}</div><canvas id="pk-ret-month"></canvas></div>
-     <div class="card" style="grid-column:1/-1;"><div class="form-label" style="margin:0 0 6px;">Return Trends — category comparison (stacked by reason)</div><canvas id="pk-ret-cat" height="90"></canvas></div>
-     <div class="card"><div class="form-label" style="margin:0 0 6px;">Top customers by returns</div><canvas id="pk-ret-cust"></canvas></div>
+     <div class="card"><div style="font-size:14px;font-weight:700;color:var(--text);margin:0 0 8px;">Returns by ${pkRetGran==='day'?'Day':'Month'}</div><div style="height:230px;"><canvas id="pk-ret-month"></canvas></div></div>
+     <div class="card"><div style="font-size:14px;font-weight:700;color:var(--text);margin:0 0 8px;">Top Customers by Returns</div><div id="pk-ret-cust" style="max-height:230px;overflow:auto;"></div></div>
    </div>
+   <div class="card" style="margin-bottom:14px;"><div style="font-size:14px;font-weight:700;color:var(--text);margin:0 0 8px;text-transform:none;letter-spacing:0;">Return Trends — Category Comparison <span style="font-size:12px;font-weight:500;color:var(--muted);">(stacked by reason)</span></div><div style="height:240px;"><canvas id="pk-ret-cat"></canvas></div></div>
    <div class="card" style="margin-bottom:14px;"><div class="card-header"><div><div class="card-title">Returns by road</div><div class="card-sub">Road-wise returns grouped by ${pkRetGran==='day'?'day':'month'} — follows the filters above.</div></div></div>
      <div style="overflow:auto;"><table><thead><tr><th>${pkRetGran==='day'?'Day':'Month'}</th><th>Road</th><th style="text-align:center;">Returns</th><th style="text-align:center;">Qty</th></tr></thead><tbody>${roadRows}</tbody></table></div></div>
    <div class="card" style="margin-bottom:14px;"><div class="card-header"><div><div class="card-title">Repeat-return frequency</div><div class="card-sub">The same order returned more than once — grouped by how many times it came back (Return-2, Return-3 …), regardless of date. Long lists scroll inside the cell.</div></div></div>
      <div style="overflow:auto;"><table><thead><tr><th>Frequency</th><th style="text-align:center;">Orders</th><th>Order No (Customer)</th></tr></thead><tbody>${freqRows}</tbody></table></div></div>
    <div class="card"><div class="card-header"><div><div class="card-title">Returned orders</div><div class="card-sub">Each “Add to Return” adds one return day; the same order+lines returned again becomes Return-2, Return-3…</div></div>
      <div class="card-actions"><span style="font-size:12px;color:var(--muted);">${tblData.length} record(s)</span></div></div>
-     <div style="overflow:auto;"><table><thead><tr><th>Return</th><th>Date</th><th>Ship to Party</th><th>Order No</th><th>Line Nos</th><th>Road</th><th>Qty</th><th></th></tr></thead><tbody>${tableRows}</tbody></table></div></div>`;
+     <div style="overflow:auto;"><table><thead><tr><th>Return</th><th>Date</th><th>Ship to Party</th><th>Order No</th><th>Line Nos</th><th>Reason</th><th>Road</th><th>Qty</th><th></th></tr></thead><tbody>${tableRows}</tbody></table></div></div>`;
   if(pkRetCust){ const si=document.getElementById('pk-ret-search'); if(si){ si.focus(); si.setSelectionRange(si.value.length,si.value.length); } }
   // charts
   setTimeout(()=>{ try{
-    if(pkRetChart1)pkRetChart1.destroy(); if(pkRetChart2)pkRetChart2.destroy();
+    if(pkRetChart1)pkRetChart1.destroy();
     const mk=Object.keys(byMonth).sort(); 
     (function(){ // stacked category comparison: period x return reason
       const cats={}; const perSet=new Set();
@@ -3322,11 +3324,12 @@ function pkRenderReturns(){
       const cols=['#6ea0ff','#46e6a0','#ff9f5a','#c792ea','#ffd166','#4ecdc4','#ff6b6b','#94a3b8'];
       const cnv=document.getElementById('pk-ret-cat');
       if(cnv){ if(window._pkRetCatChart){ try{window._pkRetCatChart.destroy();}catch(_){}} 
-        window._pkRetCatChart=new Chart(cnv,{type:'bar',data:{labels:pers.map(m=>pkRetGran==='day'?fmtDate(m):monthLabel(m)),datasets:reasons.map((rs,i)=>({label:rs,data:pers.map(m=>cats[rs][m]||0),backgroundColor:cols[i%cols.length]}))},options:{plugins:{legend:{labels:{color:'#b0c6fa'}}},scales:{x:{stacked:true,ticks:{color:'#b0c6fa'},grid:{color:'rgba(255,255,255,.06)'}},y:{stacked:true,beginAtZero:true,ticks:{color:'#b0c6fa',precision:0},grid:{color:'rgba(255,255,255,.10)'}}}}});
+        window._pkRetCatChart=new Chart(cnv,{type:'bar',data:{labels:pers.map(m=>pkRetGran==='day'?fmtDate(m):monthLabel(m)),datasets:reasons.map((rs,i)=>({label:rs,data:pers.map(m=>cats[rs][m]||0),backgroundColor:cols[i%cols.length]}))},options:{maintainAspectRatio:false,plugins:{legend:{labels:{color:'#b0c6fa'}}},scales:{x:{stacked:true,ticks:{color:'#b0c6fa'},grid:{color:'rgba(255,255,255,.06)'}},y:{stacked:true,beginAtZero:true,ticks:{color:'#b0c6fa',precision:0},grid:{color:'rgba(255,255,255,.10)'}}}}});
       }
     })();
-    const c1=document.getElementById('pk-ret-month'); if(c1)pkRetChart1=new Chart(c1,{type:'bar',data:{labels:mk.map(m=>m==='—'?m:(pkRetGran==='day'?fmtDate(m):monthLabel(m))),datasets:[{label:'Returns',data:mk.map(m=>byMonth[m]),backgroundColor:'#e0913a'}]},options:{plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{precision:0}}}}});
-    const c2=document.getElementById('pk-ret-cust'); if(c2)pkRetChart2=new Chart(c2,{type:'bar',data:{labels:custTop.map(x=>x[0].length>18?x[0].slice(0,18)+'…':x[0]),datasets:[{label:'Returns',data:custTop.map(x=>x[1]),backgroundColor:fceColorList(custTop.map(x=>x[0]))}]},options:{indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{beginAtZero:true,ticks:{precision:0}}}}});
+    const c1=document.getElementById('pk-ret-month'); if(c1)pkRetChart1=new Chart(c1,{type:'bar',data:{labels:mk.map(m=>m==='—'?m:(pkRetGran==='day'?fmtDate(m):monthLabel(m))),datasets:[{label:'Returns',data:mk.map(m=>byMonth[m]),backgroundColor:'#e0913a'}]},options:{maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{precision:0,color:'#b0c6fa'},grid:{color:'rgba(255,255,255,.10)'}},x:{ticks:{color:'#b0c6fa'},grid:{color:'rgba(255,255,255,.05)'}}}}});
+    const c2=document.getElementById('pk-ret-cust'); if(c2){ const max=custTop.length?custTop[0][1]:1;
+      c2.innerHTML=custTop.length?('<table style="width:100%;"><thead><tr><th>Customer</th><th style="text-align:right;white-space:nowrap;">Returns</th></tr></thead><tbody>'+custTop.map(x=>{ const pct=Math.max(6,Math.round(x[1]/max*100)); return '<tr><td style="padding:5px 8px;"><div style="font-size:12.5px;color:var(--text);margin-bottom:3px;word-break:break-word;line-height:1.35;">'+attEsc(x[0])+'</div><div style="height:7px;border-radius:999px;background:rgba(255,255,255,.07);overflow:hidden;"><div style="height:100%;width:'+pct+'%;background:linear-gradient(90deg,#6ea0ff,#9dc2ff);border-radius:999px;"></div></div></td><td style="text-align:right;font-weight:800;color:var(--accent2);vertical-align:top;padding:5px 8px;">'+x[1]+'</td></tr>'; }).join('')+'</tbody></table>'):'<div style="color:var(--muted);font-size:12px;padding:12px;">No returns in this selection.</div>'; }
   }catch(e){} },60);
 }
 
@@ -3673,13 +3676,14 @@ function pkmBuild(at,cm){
     PKM.tex.set(k,(tex==null?'':(''+tex).trim())); PKM.brand.set(k,brand||''); });
   PKM.csMob=new Map(); PKM.csMobByName=new Map(); PKM.shipRoad=new Map(); PKM.shipRoadLoose=new Map(); PKM.shipRoadEx=null;
   PKM.roadByShipCode=new Map(); PKM.csBySoldCode=new Map(); PKM.cdSoldCodes=new Set(); PKM.cdShipCodes=new Set(); PKM.cdShipNames=new Set(); PKM.respBySoldCode=new Map(); PKM.shipResp=new Map();
-  PKM.soldByShipCode=new Map(); PKM.soldByShipName=new Map(); PKM.soldByName=new Map(); PKM.soldRoad=new Map();
+  PKM.soldByShipCode=new Map(); PKM.soldByShipName=new Map(); PKM.soldByName=new Map(); PKM.soldRoad=new Map(); PKM.cmByCode=new Map();
   (cm||[]).forEach(r=>{ if(!Array.isArray(r))return;
     if(r[0]==='#CMAP'){ const sc=(r[1]||'').trim(), rd=(r[2]||'').trim(), so=(r[3]||'').trim(), cn=(r[4]||'').trim(), cmb=(r[5]||'').trim(), cd=(r[6]||'').trim(), fce=(r[7]||'').trim(), snm=(r[8]||'').trim();
       if(sc&&rd&&!PKM.roadByShipCode.has(sc))PKM.roadByShipCode.set(sc,rd);
       const cdv=cd.toLowerCase(); const isCD=cd&&cdv!=='n'&&cdv!=='no'&&cdv!=='0'&&cdv!=='partial'&&cdv!=='partial delivery';
       const snm2=(r[9]||'').trim(), snm3=(r[10]||'').trim();
-      if(so){ if(sc&&!PKM.soldByShipCode.has(sc))PKM.soldByShipCode.set(sc,so);
+      if(so){ if(!PKM.cmByCode.has(so)){ const nm=(r[9]||snm3||snm||'').trim(); if(nm)PKM.cmByCode.set(so,nm); }
+        if(sc&&!PKM.soldByShipCode.has(sc))PKM.soldByShipCode.set(sc,so);
         if(snm2&&!PKM.soldByName.has(pkmKey(snm2)))PKM.soldByName.set(pkmKey(snm2),so);
         if(rd&&!PKM.soldRoad.has(so))PKM.soldRoad.set(so,rd);
         [snm,snm3].forEach(nm=>{ if(!nm)return; const k1=pkmKey(nm), k2=pkmRoadLoose(nm); if(k1&&!PKM.soldByShipName.has(k1))PKM.soldByShipName.set(k1,so); if(k2&&!PKM.soldByShipName.has(k2))PKM.soldByShipName.set(k2,so); }); }
@@ -3736,7 +3740,8 @@ async function pkmUpload(kind,input){
         const cdRaw=g(cCD)||g(cCDName);
         const nm1=shipNameIdxs[0]!=null?g(shipNameIdxs[0]):'';
         const nm2=shipNameIdxs[1]!=null?g(shipNameIdxs[1]):'';
-        cmapRows.push(['#CMAP',sc,g(sRoad),so,g(cCsName),g(cCsMob),cdRaw,g(sResp),nm1,g(cSoldName),nm2,g(cCsMail)]); } }
+        const soldNm=g(cSoldName)||nm2||nm1; // no separate Sold-to Party Name column in most files → use full Ship-to name
+        cmapRows.push(['#CMAP',sc,g(sRoad),so,g(cCsName),g(cCsMob),cdRaw,g(sResp),nm1,soldNm,nm2,g(cCsMail)]); } }
       else { cmapRows=(c.cm||[]).filter(r=>Array.isArray(r)&&r[0]==='#CMAP'); }
       let roadRows=[]; if(sRoad>=0&&shipNameIdxs.length){ const rs={}; const clean=v=>{ v=(''+(v==null?'':v)).trim(); return (v==='#N/A'||v==='#REF!'||v==='N/A')?'':v; }; for(let i=1;i<rows.length;i++){ const r=rows[i]; if(!r)continue; const rd=clean(r[sRoad]), rp=(sResp>=0?clean(r[sResp]):''); if(!rd)continue;
         shipNameIdxs.forEach(ix=>{ const st=clean(r[ix]); if(!st)return; const k=pkmKey(st); if(rs[k])return; rs[k]=1; roadRows.push(['#ROAD',st,rd,rp]); }); } }
