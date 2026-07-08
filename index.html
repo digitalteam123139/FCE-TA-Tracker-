@@ -290,6 +290,11 @@ body{
 input[type="date"]{position:relative;}
 .date-hint-wrap{display:inline-flex;flex-direction:column;gap:2px;}
 .date-hint{font-size:9px;letter-spacing:.06em;color:var(--dim);text-transform:uppercase;font-family:'DM Mono',monospace;margin-top:1px;}
+/* Native date inputs: dark theme, no white background, no clear (X) button */
+input[type="date"]{background:var(--surface2)!important;color:var(--text)!important;border:1px solid var(--border);border-radius:8px;padding:8px 10px;color-scheme:dark;}
+input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(1) brightness(1.6);cursor:pointer;}
+input[type="date"]::-webkit-clear-button,input[type="date"]::-webkit-inner-spin-button{display:none;-webkit-appearance:none;}
+input[type="date"]::-moz-clear{display:none;}
 .search-pill:focus{border-color:var(--accent);background-color:rgba(14,26,56,.8);}
 .tbl-scroll{max-height:68vh;overflow:auto;}
 .tbl-scroll thead th{position:sticky;top:0;z-index:3;background:var(--surface2);}
@@ -519,11 +524,11 @@ input[type="date"]{position:relative;}
       <div class="detail-meta">
         <div class="month-bar" id="order-status-bar"></div>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-          <input class="search-pill" type="text" id="order-no-filter" placeholder="Search order no / customer / buyer…" oninput="renderOrders()" style="width:230px;"/>
-          <select class="filter-sel" id="order-task-filter" onchange="renderOrders()"><option value="">All tasks</option><option value="Swatch Collection">Collection</option><option value="Sample Delivery">Delivery</option></select>
-          <select class="filter-sel" id="order-zone-filter" onchange="renderOrders()"><option value="">All zones</option></select>
-          <select class="filter-sel" id="order-service-filter" onchange="renderOrders()"><option value="">All services</option></select>
-          <input class="search-pill" type="text" id="order-resp-filter" list="order-resp-list" placeholder="Responsibility to…" oninput="renderOrders()" style="width:185px;"/>
+          <input class="search-pill" type="text" id="order-no-filter" placeholder="Search order no / customer / buyer…" oninput="ordPage=1;renderOrders()" style="width:230px;"/>
+          <select class="filter-sel" id="order-task-filter" onchange="ordPage=1;renderOrders()"><option value="">All tasks</option><option value="Swatch Collection">Collection</option><option value="Sample Delivery">Delivery</option></select>
+          <select class="filter-sel" id="order-zone-filter" onchange="ordPage=1;renderOrders()"><option value="">All zones</option></select>
+          <select class="filter-sel" id="order-service-filter" onchange="ordPage=1;renderOrders()"><option value="">All services</option></select>
+          <input class="search-pill" type="text" id="order-resp-filter" list="order-resp-list" placeholder="Responsibility to…" oninput="ordPage=1;renderOrders()" style="width:185px;"/>
           <datalist id="order-resp-list"></datalist>
           <span class="count-badge" id="order-count">—</span>
           <button class="btn btn-ghost btn-sm" onclick="openServiceReview()" title="Service performance review — by month, service & task"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Service Review</button>
@@ -540,7 +545,7 @@ input[type="date"]{position:relative;}
         <span style="display:inline-flex;align-items:center;gap:5px;"><span style="width:11px;height:11px;border-radius:3px;background:rgba(255,90,95,.98);"></span>3+ days due</span>
         <span style="display:inline-flex;align-items:center;gap:5px;"><span style="width:11px;height:11px;border-radius:3px;background:rgba(70,230,160,.95);"></span>DN uploaded</span>
       </div>
-      <div class="card tbl-scroll"><table><thead><tr><th style="width:26px;text-align:center;"><input type="checkbox" id="ord-tick-all" onclick="toggleAllTicks(this)" title="Select all" style="cursor:pointer;"></th><th style="width:30px;"></th><th>Entry Date</th><th>Order No</th><th>Task</th><th>Customer</th><th>Buyer</th><th>Responsibility To</th><th>Service / Delivery By</th><th>Delivery Zone</th><th>Req. Time / Delivered</th><th>Status</th><th>DN Download</th><th>Actions</th></tr></thead><tbody id="orders-table"></tbody></table></div>
+      <div class="card tbl-scroll"><table><thead><tr><th style="width:26px;text-align:center;"><input type="checkbox" id="ord-tick-all" onclick="toggleAllTicks(this)" title="Select all" style="cursor:pointer;"></th><th style="width:30px;"></th><th>Entry Date</th><th>Order No</th><th>Task</th><th>Customer</th><th>Buyer</th><th>Responsibility To</th><th>Service / Delivery By</th><th>Delivery Zone</th><th>Req. Time / Delivered</th><th>Status</th><th>DN Download</th><th>Actions</th></tr></thead><tbody id="orders-table"></tbody></table><div id="orders-pager"></div></div>
     </div>
 
     <!-- SAMPLE PACKING -->
@@ -765,11 +770,10 @@ let comboMatches=[], comboHi=-1;
 // ═══ SUPABASE DATA LAYER ═══
 async function dbGetUsers(){ const {data,error}=await sb.from('app_users').select('*').order('created_at'); if(error)throw error; return data; }
 async function dbGetEntries(){
-  // only last 1 year (requirement 5)
-  const cutoff=new Date(); cutoff.setFullYear(cutoff.getFullYear()-1);
-  const iso=cutoff.toISOString().split('T')[0];
-  const {data,error}=await sb.from('entries').select('*').gte('date',iso).order('date',{ascending:false});
-  if(error)throw error; return data;
+  // Retain ALL historical data (no date cutoff) — paginate past the 1000-row cap.
+  let all=[],from=0; const size=1000;
+  while(true){ const {data,error}=await sb.from('entries').select('*').order('date',{ascending:false}).range(from,from+size-1); if(error)throw error; all=all.concat(data||[]); if(!data||data.length<size)break; from+=size; if(from>50000)break; }
+  return all;
 }
 async function dbGetMaster(){ const {data,error}=await sb.from('master_data').select('*').eq('id',1).single(); if(error&&error.code!=='PGRST116')throw error; return data; }
 async function dbUpsertEntry(e){ const {error}=await sb.from('entries').upsert(e); if(error)throw error; }
@@ -1895,9 +1899,30 @@ function buildOrderStatusBar(){
   const chips=['all',...ORDER_STATUSES,'Partially Completed'];
   bar.innerHTML=chips.map(s=>`<button class="month-chip${(activeOrderStatus===s)?' active':''}" onclick="setOrderStatus('${s}',this)">${s==='all'?'All':s}</button>`).join('');
 }
-function setOrderStatus(s,btn){ activeOrderStatus=s; document.querySelectorAll('#order-status-bar .month-chip').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); renderOrders(); }
+function setOrderStatus(s,btn){ activeOrderStatus=s; ordPage=1; document.querySelectorAll('#order-status-bar .month-chip').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); renderOrders(); }
 function orderStatusBadge(s){ const m={'Requested':'s-pending','Collected':'s-draft','In Development':'s-pending','Delivered':'s-approved','Partially Completed':'s-pending'}; const st={'Partially Completed':'background:rgba(255,159,90,.15);color:#ff9f5a;'}; return `<span class="status-badge ${m[s]||'s-draft'}" style="${st[s]||''}">${s}</span>`; }
 let visibleOrders=[];
+let ordPage=1, ordPageSize=50;
+function renderOrdersPager(total,totalPages,startIdx,shown){
+  const el=document.getElementById('orders-pager'); if(!el)return;
+  if(total===0){ el.innerHTML=''; return; }
+  const from=total?startIdx+1:0, to=startIdx+shown;
+  const sizes=[15,25,50,100,200];
+  el.innerHTML=`<div style="display:flex;align-items:center;justify-content:flex-end;gap:18px;padding:10px 14px;border-top:1px solid var(--border);font-size:13px;color:var(--muted);flex-wrap:wrap;">
+    <label style="display:flex;align-items:center;gap:8px;">Rows per page
+      <select onchange="ordSetPageSize(this.value)" style="background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:4px 8px;font-size:13px;">
+        ${sizes.map(s=>`<option value="${s}" ${s===ordPageSize?'selected':''}>${s}</option>`).join('')}
+      </select>
+    </label>
+    <span style="font-variant-numeric:tabular-nums;">${from.toLocaleString()}–${to.toLocaleString()} of ${total.toLocaleString()}</span>
+    <span style="display:flex;gap:4px;">
+      <button class="btn-icon" ${ordPage<=1?'disabled style="opacity:.35;"':''} onclick="ordGoPage(${ordPage-1})" title="Previous"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="pointer-events:none;"><polyline points="15 18 9 12 15 6"/></svg></button>
+      <button class="btn-icon" ${ordPage>=totalPages?'disabled style="opacity:.35;"':''} onclick="ordGoPage(${ordPage+1})" title="Next"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="pointer-events:none;"><polyline points="9 18 15 12 9 6"/></svg></button>
+    </span>
+  </div>`;
+}
+function ordSetPageSize(v){ ordPageSize=parseInt(v)||50; ordPage=1; renderOrders(); }
+function ordGoPage(p){ ordPage=Math.max(1,p); renderOrders(); }
 function orderAgeDays(o){ if(!o.date)return 0; const d=new Date((''+o.date).slice(0,10)+'T00:00:00'); if(isNaN(d))return 0; const t=new Date(); t.setHours(0,0,0,0); return Math.floor((t-d)/86400000); }
 function orderRowTint(o){
   let rgb;
@@ -1956,10 +1981,15 @@ function renderOrders(){
   }).sort((a,b)=>b.date.localeCompare(a.date));
   visibleOrders=rows;
   document.getElementById('order-count').textContent=rows.length+' orders';
-  const ordTotal=rows.length; const ordCapped=ordTotal>50; if(ordCapped)rows=rows.slice(0,50);
+  const ordTotal=rows.length;
+  // Pagination (Rows per page · N-M of T · ‹ ›)
+  const totalPages=Math.max(1,Math.ceil(ordTotal/ordPageSize));
+  if(ordPage>totalPages)ordPage=totalPages; if(ordPage<1)ordPage=1;
+  const startIdx=(ordPage-1)*ordPageSize;
+  rows=rows.slice(startIdx,startIdx+ordPageSize);
+  const ordCapNote='';
   const canEdit=canEditOrders();
   const canSend=canSendOrders();
-  const ordCapNote=ordCapped?`<tr><td colspan="14" style="text-align:center;padding:12px;color:var(--muted);font-size:12px;">Showing first 50 of ${ordTotal.toLocaleString()} orders — use search / filters to narrow down.</td></tr>`:'';
   document.getElementById('orders-table').innerHTML=ordCapNote+rows.map(o=>{
     const d=fmtDate(o.date);
     const extra = o.task==='Sample Delivery'
@@ -1982,6 +2012,7 @@ function renderOrders(){
       </div></td></tr>`;
     return `<tr style="background:${orderRowTint(o)};"><td style="text-align:center;">${canSend?`<input type="checkbox" class="ord-tick" value="${o.id}" onclick="event.stopPropagation()" style="cursor:pointer;" title="Select for combined send">`:''}</td><td>${chevron}</td><td class="mono" style="color:var(--muted);white-space:nowrap;">${d}</td><td style="font-size:12px;">${o.orderNo||'—'}</td><td style="font-size:12px;">${o.task?attEsc(taskShort(o.task)):'—'}</td><td style="font-size:12px;">${o.customer||'—'}</td><td style="font-size:12px;">${o.buyer||'—'}</td><td style="font-size:12px;">${o.fce||ordFceFor(o)||'—'}</td><td style="font-size:12px;">${o.service||'—'}</td><td style="font-size:12px;">${o.to||ordZoneFor(o)||'—'}</td><td style="font-size:12px;color:var(--muted);">${extra}</td><td>${orderStatusBadge(o.status)}</td><td>${note}</td><td><div style="display:flex;gap:4px;align-items:center;">${sendBtn}${editBtn}</div></td></tr>${detail}`;
   }).join('')||'<tr><td colspan="14" style="text-align:center;color:var(--muted);padding:24px;">No orders yet</td></tr>';
+  renderOrdersPager(ordTotal,totalPages,startIdx,rows.length);
   // Hide the New Order button for view-only users
   const newBtn=document.getElementById('order-new-btn'); if(newBtn) newBtn.style.display=canEdit?'':'none';
   const delAllBtn=document.getElementById('order-delall-btn'); if(delAllBtn) delAllBtn.style.display=isAdmin()?'':'none';
@@ -2749,7 +2780,7 @@ function attRenderLeaveSection(){
 // ═══════════════════════════════════════════════════════════════
 let pkTab='orders', pkOrder=null, pkResults=[], pkTripDate=null, pkTripRoad='', pkPendingTripOrder='';
 // ═══ COMPLETE DELIVERY MANAGEMENT ═══
-const CD_BINS=['Tiger','Astra Ecoverde','Epic Ecoverde','Dual Duty Ecoverde','Dymax','Sylko Ecoverde','Eloflex Ecoverde','Aquamelt','Secura Ecoverde','Seamsoft Ecoverde','Hi-P Ecoverde','Classic'];
+const CD_BINS=['SC-Bin-01','SC-Bin-02','SC-Bin-03','SC-Bin-04','SC-Bin-05','SC-Bin-06','SC-Bin-07','SC-Bin-08','SC-Bin-09','SC-Bin-10','SC-Bin-11','SC-Bin-12','SC-Bin-13','SC-Bin-14'];
 const CD_BIN_CAP=14; // cartons per bin
 let cdBinFilter='', cdStatusFilter='open', cdSearch='';
 function cdCanEditBin(){ return isAdmin()||isAuthorizer()||isPacker(); } // carton/bin-level edit access
@@ -3311,7 +3342,7 @@ function pkRenderReturns(){
      <div class="card"><div style="font-size:14px;font-weight:700;color:var(--text);margin:0 0 8px;">Returns by ${pkRetGran==='day'?'Day':'Month'}</div><div style="height:230px;"><canvas id="pk-ret-month"></canvas></div></div>
      <div class="card"><div style="font-size:14px;font-weight:700;color:var(--text);margin:0 0 8px;">Top Customers by Returns</div><div id="pk-ret-cust" style="max-height:230px;overflow:auto;"></div></div>
    </div>
-   <div class="card" style="margin-bottom:14px;"><div style="font-size:14px;font-weight:700;color:var(--text);margin:0 0 8px;text-transform:none;letter-spacing:0;">Return Trends — Category Comparison <span style="font-size:12px;font-weight:500;color:var(--muted);">(stacked by reason)</span></div><div style="height:240px;"><canvas id="pk-ret-cat"></canvas></div></div>
+   <div class="card" style="margin-bottom:14px;"><div style="font-size:14px;font-weight:700;color:var(--text);margin:0 0 8px;">Return Trends — Category Comparison</div><div style="height:240px;"><canvas id="pk-ret-cat"></canvas></div></div>
    <div class="card" style="margin-bottom:14px;"><div class="card-header"><div><div class="card-title">Returns by road</div><div class="card-sub">Road-wise returns grouped by ${pkRetGran==='day'?'day':'month'} — follows the filters above.</div></div></div>
      <div style="overflow:auto;"><table><thead><tr><th>${pkRetGran==='day'?'Day':'Month'}</th><th>Road</th><th style="text-align:center;">Returns</th><th style="text-align:center;">Qty</th></tr></thead><tbody>${roadRows}</tbody></table></div></div>
    <div class="card" style="margin-bottom:14px;"><div class="card-header"><div><div class="card-title">Repeat-return frequency</div><div class="card-sub">The same order returned more than once — grouped by how many times it came back (Return-2, Return-3 …), regardless of date. Long lists scroll inside the cell.</div></div></div>
@@ -3777,7 +3808,7 @@ function pkmEnrich(o){
   delete o.cs_exec; // not a DB column
   o.imported_at=new Date().toISOString();
 }
-async function dbPkPurgeOld(){ const cutoff=new Date(Date.now()-90*86400000).toISOString(); try{ const {error}=await sb.from('sample_lines').delete().lt('imported_at',cutoff); if(error)throw error; }catch(e){} }
+async function dbPkPurgeOld(){ /* Historical data retention: all imported lines are kept indefinitely (previously purged after 90 days). */ return; }
 function pkCreationMs(v){
   if(v==null||v==='')return 0;
   if(v instanceof Date)return v.getTime();
@@ -3916,7 +3947,7 @@ async function pkDoImport(){
     await dbPkPurgeOld();
     const dupNote=dupMerged?` <span style="color:var(--muted);">${dupMerged} duplicate row${dupMerged>1?'s':''} across files ignored — newest kept.</span>`:'';
     const errNote=fileErrs.length?` <span style="color:var(--amber);">Skipped ${fileErrs.length} file(s) with no recognizable header.</span>`:'';
-    st.innerHTML=`<span style="color:var(--green);font-weight:600;">Done — ${recs.length} order lines added / updated from ${files.length} file(s).</span>${dupNote}${errNote} <span style="color:var(--muted);">Kept cumulatively; lines older than 3 months auto-removed.</span>`;
+    st.innerHTML=`<span style="color:var(--green);font-weight:600;">Done — ${recs.length} order lines added / updated from ${files.length} file(s).</span>${dupNote}${errNote} <span style="color:var(--muted);">Kept cumulatively — all historical data is retained.</span>`;
     if(window.__pkPlantColMissing){ st.innerHTML+=' <span style="color:#e0913a;">⚠ Delivery/Supply Plant was NOT saved — the database columns don\'t exist yet. Run the ALTER TABLE statements (add delivery_plant & supply_plant to sample_lines), then re-import to see plant breakdowns.</span>'; }
     try{ if(typeof pkLoadPlantMap==='function')await pkLoadPlantMap(true); }catch(_){}
     if(typeof pkDashLines!=='undefined')pkDashLines=null;
