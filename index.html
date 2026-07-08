@@ -455,6 +455,7 @@ body{
           </div></div>
         <div class="card"><div class="card-header"><div class="card-title">Visit Purpose Dropdown</div></div><div style="padding:14px;"><div class="master-list" id="master-purpose-list"></div><div class="add-item-row"><input class="form-input" type="text" id="new-purpose-input" placeholder="New purpose option…"/><button class="btn btn-primary btn-sm" onclick="addMasterItem('purpose')">Add</button></div></div></div>
         <div class="card"><div class="card-header"><div class="card-title">Rejection / Failure Reasons</div></div><div style="padding:14px;"><div class="master-list" id="master-reason-list"></div><div class="add-item-row"><input class="form-input" type="text" id="new-reason-input" placeholder="New rejection reason…"/><button class="btn btn-primary btn-sm" onclick="addMasterItem('reason')">Add</button></div></div></div>
+        <div class="card"><div class="card-header"><div><div class="card-title">Return Reasons</div><div class="card-sub">Master list used by the "Add to Return" form and the Return Trends chart.</div></div></div><div style="padding:14px;"><div class="master-list" id="master-retreason-list"></div><div class="add-item-row"><input class="form-input" type="text" id="new-retreason-input" placeholder="New return reason…"/><button class="btn btn-primary btn-sm" onclick="rrAdd()">Add</button></div></div></div>
         <div class="card"><div class="card-header"><div class="card-title">FCE Mobile Numbers <span style="text-transform:none;color:var(--muted);font-weight:400;">(for SMS / WhatsApp)</span></div></div><div style="padding:14px;"><div id="master-fce-phones"></div></div></div>
         <div class="card"><div class="card-header"><div class="card-title">Courier Emails</div></div><div style="padding:14px;"><div id="master-courier-emails"></div><div class="add-item-row"><input class="form-input" type="text" id="new-courier-input" placeholder="New courier name…"/><button class="btn btn-primary btn-sm" onclick="addCourier()">Add</button></div></div></div>
       </div>
@@ -641,7 +642,7 @@ body{
      <div id="o-manualmode" style="display:none;">
        <div class="form-grid">
          <div class="form-group"><label class="form-label">Order No</label><input class="form-input" type="text" id="o-orderno" placeholder="e.g. RS40294323"/></div>
-         <div class="form-group"><label class="form-label">Service By *</label><select class="form-input" id="o-service"><option value="">Select task first…</option></select></div>
+         
          <div class="form-group"><label class="form-label">Customer Name <span style="text-transform:none;color:var(--dim);">(type to search)</span></label><div class="combo"><input class="form-input" type="text" id="o-customer" placeholder="Type customer…" autocomplete="off" oninput="oComboFilter('customer',this.value)" onfocus="oComboFilter('customer',this.value)"/><div class="combo-list" id="o-customer-list"></div></div></div>
          <div class="form-group"><label class="form-label">Buyer Name <span style="text-transform:none;color:var(--dim);">(type to search)</span></label><div class="combo"><input class="form-input" type="text" id="o-buyer" placeholder="Type buyer…" autocomplete="off" oninput="oComboFilter('buyer',this.value)" onfocus="oComboFilter('buyer',this.value)"/><div class="combo-list" id="o-buyer-list"></div></div></div>
          <div class="form-group o-swatch"><label class="form-label">Responsibility To</label><select class="form-input" id="o-fce"></select></div>
@@ -657,6 +658,7 @@ body{
          </div>
          <div class="form-group"><label class="form-label">Delivery Zone <span style="text-transform:none;color:var(--dim);">(road)</span></label><select class="form-input" id="o-zone" onchange="onZoneSelect(this)"></select></div>
          <div class="form-group"><label class="form-label">Status</label><select class="form-input" id="o-status" onchange="onOrderStatusChange()"><option>Requested</option><option>Returned</option><option>In Development</option><option>Partially Completed</option><option>Delivered</option></select></div>
+         <div class="form-group"><label class="form-label">Service / Delivery By *</label><select class="form-input" id="o-service"><option value="">Select task first…</option></select></div>
          <div class="form-group full"><label class="form-label">Remarks</label><textarea class="form-input" id="o-remarks" style="min-height:48px;"></textarea></div>
        </div>
        <div id="o-manual-back" style="margin-top:10px;font-size:12px;color:var(--muted);">Adding many? <a href="javascript:void(0)" onclick="oToggleManual(false)" style="color:var(--accent2,#52c87a);">Upload a file instead</a></div>
@@ -685,6 +687,7 @@ body{
     <div class="form-group"><label class="form-label">Date</label><input class="form-input" id="pk-road-date" type="date"/></div>
     <div class="form-group"><label class="form-label">Road / Delivery Zone *</label><select class="form-input" id="pk-road-sel"></select></div>
     <div class="form-group"><label class="form-label">Carton Qty</label><input class="form-input" id="pk-road-carton" type="number" min="0" value="1"/></div>
+    <div class="form-group" id="pk-road-reason-wrap" style="display:none;"><label class="form-label">Return Reason *</label><select class="form-input" id="pk-road-reason"></select></div>
     <div id="pk-road-note" style="font-size:12px;color:var(--muted);"></div>
   </div>
   <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('pk-road-modal')">Cancel</button><button class="btn btn-primary" id="pk-road-confirm" onclick="pkRoadConfirm()">Add to Trip</button></div>
@@ -810,8 +813,8 @@ async function refreshAll(){
       else { const lz=getZones(); if(lz.length){ await dbSaveZones(lz); } }
     }catch(ze){}
     try{
-      if(master && master.contacts){ CONTACTS={fce:master.contacts.fce||{},courier:master.contacts.courier||{},support:Array.isArray(master.contacts.support)?master.contacts.support:[],importLog:Array.isArray(master.contacts.importLog)?master.contacts.importLog:[],plantNames:(master.contacts.plantNames&&typeof master.contacts.plantNames==='object')?master.contacts.plantNames:{},cdCustomers:Array.isArray(master.contacts.cdCustomers)?master.contacts.cdCustomers:[],cdPosts:Array.isArray(master.contacts.cdPosts)?master.contacts.cdPosts:[]}; lsSet('sc_contacts',CONTACTS); }
-      else { const c=lsGet('sc_contacts',null); if(c)CONTACTS={fce:c.fce||{},courier:c.courier||{},support:Array.isArray(c.support)?c.support:[],plantNames:(c.plantNames&&typeof c.plantNames==='object')?c.plantNames:{},cdCustomers:Array.isArray(c.cdCustomers)?c.cdCustomers:[],cdPosts:Array.isArray(c.cdPosts)?c.cdPosts:[]}; }
+      if(master && master.contacts){ CONTACTS={fce:master.contacts.fce||{},courier:master.contacts.courier||{},support:Array.isArray(master.contacts.support)?master.contacts.support:[],importLog:Array.isArray(master.contacts.importLog)?master.contacts.importLog:[],plantNames:(master.contacts.plantNames&&typeof master.contacts.plantNames==='object')?master.contacts.plantNames:{},cdCustomers:Array.isArray(master.contacts.cdCustomers)?master.contacts.cdCustomers:[],cdPosts:Array.isArray(master.contacts.cdPosts)?master.contacts.cdPosts:[],retReasons:Array.isArray(master.contacts.retReasons)?master.contacts.retReasons:[],logoData:master.contacts.logoData||'',logoCrop:master.contacts.logoCrop||''}; lsSet('sc_contacts',CONTACTS); }
+      else { const c=lsGet('sc_contacts',null); if(c)CONTACTS={fce:c.fce||{},courier:c.courier||{},support:Array.isArray(c.support)?c.support:[],plantNames:(c.plantNames&&typeof c.plantNames==='object')?c.plantNames:{},cdCustomers:Array.isArray(c.cdCustomers)?c.cdCustomers:[],cdPosts:Array.isArray(c.cdPosts)?c.cdPosts:[],retReasons:Array.isArray(c.retReasons)?c.retReasons:[],logoData:c.logoData||'',logoCrop:c.logoCrop||''}; }
     }catch(ce){}
     try{ CACHE.announcements=await dbGetAnnouncements(); ANN_CLOUD=true; }catch(ae){ CACHE.announcements=null; ANN_CLOUD=false; }
     setSync(true,'Cloud synced');
@@ -1326,6 +1329,29 @@ async function mdDeleteAllMap(){
   await mdPersistMap();
   showToast('All mapping data deleted.');
 }
+const RR_DEFAULTS=['Wrong shade','Wrong Tex / material','Quality issue','Excess quantity','Customer rejected','Damaged in transit','Late delivery','Other'];
+function rrList(){ if(typeof CONTACTS==='undefined'||!CONTACTS)return RR_DEFAULTS.slice(); if(!Array.isArray(CONTACTS.retReasons)||!CONTACTS.retReasons.length)return RR_DEFAULTS.slice(); return CONTACTS.retReasons; }
+function rrRender(){ const el=document.getElementById('master-retreason-list'); if(!el)return; const list=rrList(); const adm=isAdmin();
+  el.innerHTML=list.map((x,i)=>`<div class="master-item"><span class="mi-name">${attEsc(x)}</span>${adm?`<div style="display:flex;gap:6px;"><button type="button" class="btn-icon rr-act" data-act="edit" data-idx="${i}" style="padding:3px 6px;" title="Edit"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="pointer-events:none;"><path d="M17 3a2.828 2.828 0 114 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg></button><button type="button" class="btn-icon rr-act" data-act="del" data-idx="${i}" style="padding:3px 6px;color:var(--red);" title="Remove"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="pointer-events:none;"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>`:''}</div>`).join('');
+}
+async function rrPersist(){ try{ await dbSaveContacts(); showToast('Return reasons saved · shared to all PCs.'); }catch(e){ showToast('Save failed: '+(e.message||e),'err'); } rrRender(); }
+async function rrAdd(){ if(!isAdmin()){ showToast('Only Super Admin can edit master data.','err'); return; } const inp=document.getElementById('new-retreason-input'); const v=(inp.value||'').trim(); if(!v)return; if(!Array.isArray(CONTACTS.retReasons)||!CONTACTS.retReasons.length)CONTACTS.retReasons=RR_DEFAULTS.slice(); if(CONTACTS.retReasons.some(x=>x.toLowerCase()===v.toLowerCase())){ showToast('Already in the list.','err'); return; } CONTACTS.retReasons.push(v); inp.value=''; await rrPersist(); }
+document.addEventListener('click',function(e){
+  try{
+    const b=e.target.closest&&e.target.closest('.rr-act'); if(!b)return; e.preventDefault();
+    if(!isAdmin()){ showToast('Only Super Admin can edit master data.','err'); return; }
+    const idx=parseInt(b.getAttribute('data-idx'));
+    if(!Array.isArray(CONTACTS.retReasons)||!CONTACTS.retReasons.length)CONTACTS.retReasons=RR_DEFAULTS.slice();
+    if(b.getAttribute('data-act')==='del'){ if(!confirm('Remove "'+CONTACTS.retReasons[idx]+'"?'))return; CONTACTS.retReasons.splice(idx,1); rrPersist(); return; }
+    const old=document.getElementById('md-edit-overlay'); if(old)old.remove();
+    const ov=document.createElement('div'); ov.id='md-edit-overlay';
+    ov.style.cssText='position:fixed;inset:0;background:rgba(4,10,30,.72);z-index:100000;display:flex;align-items:center;justify-content:center;';
+    ov.innerHTML=`<div class="card" style="max-width:420px;width:92%;padding:18px;"><div class="card-title" style="margin-bottom:10px;">Edit return reason</div><input class="form-input" id="rr-edit-input" type="text" value="${attEsc(CONTACTS.retReasons[idx])}" style="width:100%;margin-bottom:14px;"/><div style="display:flex;justify-content:flex-end;gap:8px;"><button class="btn btn-ghost btn-sm" onclick="document.getElementById('md-edit-overlay').remove()">Cancel</button><button class="btn btn-primary btn-sm" onclick="(async()=>{const v=(document.getElementById('rr-edit-input').value||'').trim(); if(!v)return; CONTACTS.retReasons[${idx}]=v; document.getElementById('md-edit-overlay').remove(); await rrPersist();})()">💾 Save</button></div></div>`;
+    ov.addEventListener('click',ev=>{ if(ev.target===ov)ov.remove(); });
+    document.body.appendChild(ov);
+    setTimeout(()=>{ const i2=document.getElementById('rr-edit-input'); if(i2){ i2.focus(); i2.select(); } },30);
+  }catch(err){ console.error(err); if(typeof showToast==='function')showToast('Action failed: '+(err.message||err),'err'); }
+},true);
 function mdCancelUpload(){ const f=document.getElementById('md-cmap-file'); if(f)f.value=''; const ov=document.getElementById('md-map-overlay'); if(ov)ov.remove(); showToast('Cancelled — mapping unchanged.'); }
 // ── Editable mapping table (Master Data) ──
 function mdCmRows(){ return (window.PKM_CMFULL||[]).map((r,ix)=>({r,ix})).filter(x=>Array.isArray(x.r)&&x.r[0]==='#CMAP'); }
@@ -1421,6 +1447,7 @@ function renderMasterData(){
   cdRenderMaster();
   mdPaintMapStatus();
   mdRenderMapTable();
+  rrRender();
   const act=document.getElementById('md-cmap-actions'); if(act)act.style.display=isAdmin()?'':'none';
   document.querySelectorAll('#page-masterdata .add-item-row').forEach(r=>{ r.style.display=isAdmin()?'':'none'; });
   if(document.getElementById('master-fce-list')) renderMasterList('master-fce-list',m.fce,'fce');
@@ -2718,6 +2745,7 @@ const CD_BINS=['Tiger','Astra Ecoverde','Epic Ecoverde','Dual Duty Ecoverde','Dy
 const CD_BIN_CAP=14; // cartons per bin
 let cdBinFilter='', cdStatusFilter='open', cdSearch='';
 function cdCanEditBin(){ return isAdmin()||isAuthorizer()||isPacker(); } // carton/bin-level edit access
+function cdCanAck(){ return !!currentUser&&['admin','authorizer','teamleader','packer','user'].includes(currentUser.role); }
 function cdBinUsage(){ const u={}; CD_BINS.forEach(b=>u[b]=0); cdPosts().forEach(p=>{ if(p.status==='open'&&u[p.bin]!=null)u[p.bin]+=(parseInt(p.cartons)||1); }); return u; }
 function cdList(){ return (typeof CONTACTS!=='undefined'&&CONTACTS&&Array.isArray(CONTACTS.cdCustomers))?CONTACTS.cdCustomers:[]; }
 function cdPosts(){ if(typeof CONTACTS==='undefined'||!CONTACTS)return []; if(!Array.isArray(CONTACTS.cdPosts))CONTACTS.cdPosts=[]; return CONTACTS.cdPosts; }
@@ -2822,7 +2850,7 @@ async function cdSaveSel(){
 }
 
 async function cdAck(id){
-  if(!isAdmin()){ showToast('Only Super Admin can acknowledge orders.','err'); return; }
+  if(!cdCanAck()){ showToast('You do not have permission to acknowledge orders.','err'); return; }
   const p=cdPosts().find(x=>x.id===id); if(!p)return;
   if(!confirm('Acknowledge order '+p.orderNo+'?\n\nThis confirms all order lines are completed and removes it from bin "'+p.bin+'".'))return;
   p.status='done'; p.ackAt=new Date().toISOString(); p.ackBy=(currentUser&&currentUser.name)||'';
@@ -2873,7 +2901,7 @@ function renderCDM(){
       <td style="width:34px;"><button class="btn-icon" onclick="cdToggleRow('${p.id}')" title="Expand — remarks & notes"><svg id="cd-chev-${p.id}" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="transition:transform .15s;"><polyline points="9 18 15 12 9 6"/></svg></button></td>
       <td style="white-space:nowrap;">${fmtDateTime(p.postedAt)}</td><td style="font-family:'DM Mono',monospace;"><b>${attEsc(p.orderNo)}</b></td><td style="min-width:170px;">${attEsc(p.soldToName||p.shipTo)}</td><td style="white-space:nowrap;">${attEsc(p.bin)}</td><td style="text-align:center;font-weight:700;color:var(--accent2);">${(p.cartonNos&&p.cartonNos.length)?attEsc(p.cartonNos.join(', ')):(p.cartons||1)}</td><td><div style="max-width:420px;min-width:200px;white-space:normal;word-break:break-word;font-size:11px;line-height:1.6;color:var(--muted);">${attEsc(p.lineNos||'—')}</div></td><td style="text-align:center;font-weight:700;">${p.totalQty||0}</td>
       <td>${p.status==='open'?'<span class="badge" style="background:rgba(255,159,90,.15);color:#ff9f5a;">Incomplete</span>':`<span class="badge" style="background:rgba(70,230,160,.15);color:#46e6a0;">Acknowledged</span><div style="font-size:10px;color:var(--dim);">${attEsc(p.ackBy||'')} ${p.ackAt?fmtDate(p.ackAt):''}</div>`}</td>
-      <td style="white-space:nowrap;">${p.status==='open'&&canBin?`<button class="btn btn-ghost btn-sm" onclick="cdEditPost('${p.id}')" title="Edit bin / carton no.">✎ Bin/Ctn</button> `:''}${p.status==='open'&&adm?`<button class="btn btn-primary btn-sm" onclick="cdAck('${p.id}')">Acknowledge</button> `:''}<button class="btn btn-ghost btn-sm" onclick="cdAddNote('${p.id}')">+ Note</button>${adm?` <button class="btn btn-sm" style="background:rgba(255,107,107,.14);color:#ff6b6b;border:1px solid rgba(255,107,107,.4);" onclick="cdDeletePost('${p.id}')" title="Super Admin only — delete this posting">🗑</button>`:''}</td></tr>`;
+      <td style="white-space:nowrap;">${p.status==='open'&&canBin?`<button class="btn btn-ghost btn-sm" onclick="cdEditPost('${p.id}')" title="Edit bin / carton no.">✎ Bin/Ctn</button> `:''}${p.status==='open'&&cdCanAck()?`<button class="btn btn-primary btn-sm" onclick="cdAck('${p.id}')">Acknowledge</button> `:''}<button class="btn btn-ghost btn-sm" onclick="cdAddNote('${p.id}')">+ Note</button>${adm?` <button class="btn btn-sm" style="background:rgba(255,107,107,.14);color:#ff6b6b;border:1px solid rgba(255,107,107,.4);" onclick="cdDeletePost('${p.id}')" title="Super Admin only — delete this posting">🗑</button>`:''}</td></tr>`;
     const detail=`<tr id="cd-detail-${p.id}" style="display:none;"><td style="background:var(--surface2);"></td><td colspan="9" style="padding:10px 14px 14px;background:var(--surface2);">
       <div style="background:linear-gradient(135deg,rgba(110,160,255,.07),rgba(20,32,64,.35));border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:12px;padding:12px 16px;">
         <div style="display:flex;flex-wrap:wrap;gap:8px 30px;margin-bottom:8px;font-size:12px;">
@@ -2948,8 +2976,10 @@ function pkHeader(lines){
 // dd/mm/yyyy from common formats (dd-mm-yyyy…, yyyy-mm-dd…, or any parseable date)
 function pkFmtDate(v){ if(v==null||v==='')return ''; const s=(''+v).trim(); let m=s.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})/); if(m)return m[1].padStart(2,'0')+'/'+m[2].padStart(2,'0')+'/'+m[3]; m=s.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/); if(m)return m[3].padStart(2,'0')+'/'+m[2].padStart(2,'0')+'/'+m[1]; const d=new Date(s); if(!isNaN(d))return String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+d.getFullYear(); return s; }
 function pkNow(){ const d=new Date(); const dd=String(d.getDate()).padStart(2,'0'),mm=String(d.getMonth()+1).padStart(2,'0'); let h=d.getHours(); const ap=h>=12?'PM':'AM'; h=h%12||12; return dd+'/'+mm+'/'+d.getFullYear()+', '+h+':'+String(d.getMinutes()).padStart(2,'0')+' '+ap; }
-function pkLogoCropStyle(sizeCss){ const pos=lsGet('sc_print_logo_crop','left'); if(pos==='full')return 'width:auto;height:'+sizeCss+';max-width:'+sizeCss+';object-fit:contain;'; return 'width:'+sizeCss+';height:'+sizeCss+';object-fit:cover;object-position:'+pos+' center;border-radius:50%;'; }
-function pkLogoImg(big){ const l=lsGet('sc_print_logo','');
+function pkGetLogo(){ const l=lsGet('sc_print_logo',''); if(l)return l; try{ if(CONTACTS&&CONTACTS.logoData){ lsSet('sc_print_logo',CONTACTS.logoData); return CONTACTS.logoData; } }catch(_){} return ''; }
+function pkGetLogoCrop(){ const c=lsGet('sc_print_logo_crop',''); if(c)return c; try{ if(CONTACTS&&CONTACTS.logoCrop)return CONTACTS.logoCrop; }catch(_){} return 'left'; }
+function pkLogoCropStyle(sizeCss){ const pos=pkGetLogoCrop(); if(pos==='full')return 'width:auto;height:'+sizeCss+';max-width:'+sizeCss+';object-fit:contain;'; return 'width:'+sizeCss+';height:'+sizeCss+';object-fit:cover;object-position:'+pos+' center;border-radius:50%;'; }
+function pkLogoImg(big){ const l=pkGetLogo();
   if(big){ // sticker bottom — round logo ONLY, ~42mm
     if(l)return '<img src="'+l+'" style="'+pkLogoCropStyle('52mm')+'"/>';
     return '<div style="font-weight:900;font-size:42px;letter-spacing:2px;color:#0b3b8f;border:3px solid #0b3b8f;border-radius:50%;width:42mm;height:42mm;display:flex;align-items:center;justify-content:center;">COATS</div>';
@@ -3033,6 +3063,7 @@ function pkOpenRoadModal(mode){
   document.getElementById('pk-road-title').textContent=mode==='return'?'Add to Return':'Add to Trip';
   document.getElementById('pk-road-confirm').textContent=mode==='return'?'Add Return':'Add to Trip';
   document.getElementById('pk-road-sel').innerHTML='<option value="">— select road —</option>'+zones.map(z=>`<option>${attEsc(z)}</option>`).join('');
+  const rw=document.getElementById('pk-road-reason-wrap'); if(rw){ rw.style.display=mode==='return'?'':'none'; if(mode==='return'){ document.getElementById('pk-road-reason').innerHTML='<option value="">— select reason —</option>'+rrList().map(r=>`<option>${attEsc(r)}</option>`).join(''); } }
   document.getElementById('pk-road-carton').value='1';
   document.getElementById('pk-road-date').value=new Date().toISOString().split('T')[0];
   const sel=pkSelectedLines(); const n=sel.length?sel.length:pkOrder.lines.length;
@@ -3044,8 +3075,10 @@ async function pkRoadConfirm(){
   if(!road){ showToast('Please select a road name first — it is required.','err'); return; }
   const carton=parseInt((document.getElementById('pk-road-carton')||{}).value,10)||0;
   const date=((document.getElementById('pk-road-date')||{}).value||'').trim()||new Date().toISOString().split('T')[0];
+  let reason='';
+  if(__pkRoadMode==='return'){ reason=((document.getElementById('pk-road-reason')||{}).value||'').trim(); if(!reason){ showToast('Please select a Return Reason — it is required.','err'); return; } }
   closeModal('pk-road-modal');
-  if(__pkRoadMode==='return') await pkDoAddReturn(road,carton,date); else await pkDoAddTrip(road,carton,date);
+  if(__pkRoadMode==='return') await pkDoAddReturn(road,carton,date,reason); else await pkDoAddTrip(road,carton,date);
 }
 async function pkDoAddTrip(road,carton,date){
   if(!pkOrder)return; const o=pkOrder;
@@ -3058,7 +3091,7 @@ async function pkDoAddTrip(road,carton,date){
   try{ await dbInsertTrip([rec]); await pkLoadTrips(true); pkTripDate=day; pkTripRoad=road; pkTab='trip'; pkRender(); showToast('Added to trip — '+road+' · '+o.orderNo+' (lines '+(lineNos||'—')+') on '+fmtDate(day)+'.'); }
   catch(e){ showToast('Failed: '+e.message,'err'); }
 }
-async function pkDoAddReturn(road,carton,date){
+async function pkDoAddReturn(road,carton,date,reason){
   if(!pkOrder)return; const o=pkOrder;
   const day=date||new Date().toISOString().split('T')[0];
   const sel=pkSelectedLines(); const used=(sel.length?sel:o.lines);
@@ -3066,9 +3099,11 @@ async function pkDoAddReturn(road,carton,date){
   const totalQty=used.reduce((s,l)=>s+(parseFloat(l.qty)||0),0);
   const prev=(CACHE.trips||[]).filter(t=>t.kind==='return'&&t.order_no===o.orderNo&&(t.line_nos||'')===lineNos).length;
   const rno=prev+1;
-  const rec={id:'ret_'+Date.now()+'_'+Math.random().toString(36).slice(2,5),kind:'return',return_no:rno,trip_date:day,road:road,serial:rno,ship_to:o.shipTo,order_no:o.orderNo,line_nos:lineNos,total_qty:totalQty,carton_qty:carton,created_by:currentUser.id,created_at:new Date().toISOString()};
-  try{ await dbInsertTrip([rec]); await pkLoadTrips(true); showToast('Recorded as Return-'+rno+' ('+o.orderNo+' · lines '+(lineNos||'—')+') on '+fmtDate(day)+'.'); }
-  catch(e){ showToast('Failed: '+e.message+' — did you run SAMPLE_RETURNS_SETUP.sql?','err'); }
+  const rec={id:'ret_'+Date.now()+'_'+Math.random().toString(36).slice(2,5),kind:'return',return_no:rno,trip_date:day,road:road,serial:rno,ship_to:o.shipTo,order_no:o.orderNo,line_nos:lineNos,total_qty:totalQty,carton_qty:carton,return_reason:reason||'',created_by:currentUser.id,created_at:new Date().toISOString()};
+  try{ await dbInsertTrip([rec]); }
+  catch(e){ if(/return_reason/i.test((e.message||'')+(e.details||''))){ const c={...rec}; delete c.return_reason; try{ await dbInsertTrip([c]); showToast('Saved without reason — run in Supabase: alter table trip_schedule add column if not exists return_reason text;','err'); }catch(e2){ showToast('Failed: '+e2.message,'err'); return; } } else { showToast('Failed: '+e.message+' — did you run SAMPLE_RETURNS_SETUP.sql?','err'); return; } }
+  try{ await pkLoadTrips(true); }catch(_){ }
+  showToast('Recorded as Return-'+rno+' ('+o.orderNo+' · lines '+(lineNos||'—')+')'+(reason?(' · '+reason):'')+' on '+fmtDate(day)+'.');
 }
 
 // ── Trip Schedule builder ──
@@ -3154,7 +3189,7 @@ function pkRenderList(){
       <button class="btn btn-ghost btn-sm" onclick="pkPrintSelectedList()">🖨 Print selected</button>
       <button class="btn btn-ghost btn-sm" onclick="pkExportList()">Download CSV</button>
     </div></div>
-    <div style="overflow:auto;"><table><thead><tr><th style="width:30px;text-align:center;"><input type="checkbox" id="pk-list-all" onchange="pkListTickAll(this.checked)" title="Tick all"/></th><th>Serial</th><th>Type</th><th>Schedule Date</th><th>Ship to Party</th><th>Order No</th><th>Line Nos</th><th>Total Qty</th><th>Carton Qty</th><th>Road</th><th>Actions</th></tr></thead><tbody id="pk-list-rows"></tbody></table></div></div>`;
+    <div style="overflow:auto;"><table><thead><tr><th style="width:30px;text-align:center;"><input type="checkbox" id="pk-list-all" onchange="pkListTickAll(this.checked)" title="Tick all"/></th><th>Serial</th><th>Type</th><th>Schedule Date</th><th>Ship to Party</th><th>Order No</th><th>Line Nos</th><th>Total Qty</th><th>Carton Qty</th><th>Road</th><th>DN Status</th><th>Completion</th><th>Actions</th></tr></thead><tbody id="pk-list-rows"></tbody></table></div></div>`;
   pkRenderListRows();
 }
 function pkListFiltered(){
@@ -3174,7 +3209,11 @@ function pkListType(t){ return t.kind==='return'?('Return-'+(t.return_no||1)):'R
 function pkRenderListRows(){
   const tb=document.getElementById('pk-list-rows'); if(!tb)return;
   const rows=pkListFiltered();
-  tb.innerHTML=rows.map((t,i)=>{ const isRet=t.kind==='return'; const typeBadge=`<span style="font-size:11px;font-weight:600;color:${isRet?'#e0913a':'#4ecdc4'};">${pkListType(t)}</span>`; return `<tr><td style="text-align:center;"><input type="checkbox" ${pkListSel.has(t.id)?'checked':''} onchange="pkListTick('${t.id}')"/></td><td>${i+1}</td><td>${typeBadge}</td><td style="white-space:nowrap;">${fmtDate(t.trip_date)}</td><td>${attEsc(t.ship_to)}</td><td>${attEsc(t.order_no)}</td><td><div style="max-width:380px;min-width:160px;white-space:normal;word-break:break-word;font-size:11px;line-height:1.6;color:var(--muted);">${attEsc(t.line_nos)}</div></td><td>${attEsc(t.total_qty)}</td><td>${attEsc(t.carton_qty)}</td><td>${attEsc(t.road)||(isRet?'—':'')}</td><td style="white-space:nowrap;"><button class="btn btn-ghost btn-sm" onclick="pkListEdit('${t.id}')">Edit</button> ${(isPacker()||isFCE())?'':`<button class="btn btn-reject btn-sm" onclick="pkListDelete('${t.id}')">Delete</button>`}</td></tr>`;}).join('')||`<tr><td colspan="11" style="text-align:center;color:var(--muted);padding:16px;">No entries yet.</td></tr>`;
+  // Order Tracker lookup: DN uploaded? + completion status
+  const ordMap={}; try{ getOrders().forEach(o=>{ const k=(o.orderNo||'').trim().toLowerCase(); if(k&&!ordMap[k])ordMap[k]=o; }); }catch(e){}
+  const dnCell=t=>{ const o=ordMap[(t.order_no||'').trim().toLowerCase()]; const has=!!(o&&((o.noteFiles&&o.noteFiles.length)||o.noteFile)); return has?'<span class="badge" style="background:rgba(70,230,160,.15);color:#46e6a0;">Available</span>':'<span class="badge" style="background:rgba(255,107,107,.12);color:#ff8a8a;">Not Available</span>'; };
+  const cmCell=t=>{ const o=ordMap[(t.order_no||'').trim().toLowerCase()]; if(!o)return '<span style="color:var(--dim);font-size:11px;">—</span>'; if(o.status==='Delivered')return '<span class="badge" style="background:rgba(70,230,160,.15);color:#46e6a0;">Fully Completed</span>'; if(o.status==='Partially Completed')return '<span class="badge" style="background:rgba(255,159,90,.15);color:#ff9f5a;">Partially Completed</span>'; return '<span style="color:var(--dim);font-size:11px;">'+attEsc(o.status||'—')+'</span>'; };
+  tb.innerHTML=rows.map((t,i)=>{ const isRet=t.kind==='return'; const typeBadge=`<span style="font-size:11px;font-weight:600;color:${isRet?'#e0913a':'#4ecdc4'};">${pkListType(t)}</span>`; return `<tr><td style="text-align:center;"><input type="checkbox" ${pkListSel.has(t.id)?'checked':''} onchange="pkListTick('${t.id}')"/></td><td>${i+1}</td><td>${typeBadge}</td><td style="white-space:nowrap;">${fmtDate(t.trip_date)}</td><td>${attEsc(t.ship_to)}</td><td>${attEsc(t.order_no)}</td><td><div style="max-width:380px;min-width:160px;white-space:normal;word-break:break-word;font-size:11px;line-height:1.6;color:var(--muted);">${attEsc(t.line_nos)}</div></td><td>${attEsc(t.total_qty)}</td><td>${attEsc(t.carton_qty)}</td><td>${attEsc(t.road)||(isRet?'—':'')}</td><td>${dnCell(t)}</td><td>${cmCell(t)}</td><td style="white-space:nowrap;"><button class="btn btn-ghost btn-sm" onclick="pkListEdit('${t.id}')">Edit</button> ${(isPacker()||isFCE())?'':`<button class="btn btn-reject btn-sm" onclick="pkListDelete('${t.id}')">Delete</button>`}</td></tr>`;}).join('')||`<tr><td colspan="13" style="text-align:center;color:var(--muted);padding:16px;">No entries yet.</td></tr>`;
 }
 function pkListTick(id){ if(pkListSel.has(id))pkListSel.delete(id); else pkListSel.add(id); pkRenderListRows(); }
 function pkListTickAll(on){ pkListSel=new Set(on?pkListFiltered().map(t=>t.id):[]); pkRenderListRows(); }
@@ -3261,6 +3300,7 @@ function pkRenderReturns(){
    </div>
    <div class="att-charts" style="margin-bottom:14px;">
      <div class="card"><div class="form-label" style="margin:0 0 6px;">Returns by ${pkRetGran==='day'?'day':'month'}</div><canvas id="pk-ret-month"></canvas></div>
+     <div class="card" style="grid-column:1/-1;"><div class="form-label" style="margin:0 0 6px;">Return Trends — category comparison (stacked by reason)</div><canvas id="pk-ret-cat" height="90"></canvas></div>
      <div class="card"><div class="form-label" style="margin:0 0 6px;">Top customers by returns</div><canvas id="pk-ret-cust"></canvas></div>
    </div>
    <div class="card" style="margin-bottom:14px;"><div class="card-header"><div><div class="card-title">Returns by road</div><div class="card-sub">Road-wise returns grouped by ${pkRetGran==='day'?'day':'month'} — follows the filters above.</div></div></div>
@@ -3275,6 +3315,16 @@ function pkRenderReturns(){
   setTimeout(()=>{ try{
     if(pkRetChart1)pkRetChart1.destroy(); if(pkRetChart2)pkRetChart2.destroy();
     const mk=Object.keys(byMonth).sort(); 
+    (function(){ // stacked category comparison: period x return reason
+      const cats={}; const perSet=new Set();
+      rets.forEach(r=>{ const per=(pkRetGran==='day'?((r.trip_date||'').slice(0,10)):((r.trip_date||'').slice(0,7)))||'—'; if(per==='—')return; perSet.add(per); const rs=(r.return_reason||'Unspecified').trim()||'Unspecified'; if(!cats[rs])cats[rs]={}; cats[rs][per]=(cats[rs][per]||0)+1; });
+      const pers=[...perSet].sort(); const reasons=Object.keys(cats).sort((a,b)=>a.localeCompare(b));
+      const cols=['#6ea0ff','#46e6a0','#ff9f5a','#c792ea','#ffd166','#4ecdc4','#ff6b6b','#94a3b8'];
+      const cnv=document.getElementById('pk-ret-cat');
+      if(cnv){ if(window._pkRetCatChart){ try{window._pkRetCatChart.destroy();}catch(_){}} 
+        window._pkRetCatChart=new Chart(cnv,{type:'bar',data:{labels:pers.map(m=>pkRetGran==='day'?fmtDate(m):monthLabel(m)),datasets:reasons.map((rs,i)=>({label:rs,data:pers.map(m=>cats[rs][m]||0),backgroundColor:cols[i%cols.length]}))},options:{plugins:{legend:{labels:{color:'#b0c6fa'}}},scales:{x:{stacked:true,ticks:{color:'#b0c6fa'},grid:{color:'rgba(255,255,255,.06)'}},y:{stacked:true,beginAtZero:true,ticks:{color:'#b0c6fa',precision:0},grid:{color:'rgba(255,255,255,.10)'}}}}});
+      }
+    })();
     const c1=document.getElementById('pk-ret-month'); if(c1)pkRetChart1=new Chart(c1,{type:'bar',data:{labels:mk.map(m=>m==='—'?m:(pkRetGran==='day'?fmtDate(m):monthLabel(m))),datasets:[{label:'Returns',data:mk.map(m=>byMonth[m]),backgroundColor:'#e0913a'}]},options:{plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{precision:0}}}}});
     const c2=document.getElementById('pk-ret-cust'); if(c2)pkRetChart2=new Chart(c2,{type:'bar',data:{labels:custTop.map(x=>x[0].length>18?x[0].slice(0,18)+'…':x[0]),datasets:[{label:'Returns',data:custTop.map(x=>x[1]),backgroundColor:fceColorList(custTop.map(x=>x[0]))}]},options:{indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{beginAtZero:true,ticks:{precision:0}}}}});
   }catch(e){} },60);
@@ -3451,7 +3501,7 @@ async function pkDashLinesView(){
   setTimeout(()=>{ const si=document.getElementById('pk-rep-search'); if(si&&pkRepeatSearch&&document.activeElement!==si){ si.focus(); si.setSelectionRange(si.value.length,si.value.length); } pkDashChart('pk-dash-trend',{type:'line',data:{labels:trendKeys.map(m=>monthLabel(m)),datasets:[{label:'Order lines',data:trendKeys.map(m=>byMonth[m]),borderColor:'#6ea0ff',backgroundColor:'rgba(110,160,255,.14)',borderWidth:2,fill:true,tension:.3,pointBackgroundColor:'#6ea0ff'}]},options:{plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{color:'#b0c6fa',precision:0},grid:{color:'rgba(255,255,255,.10)'}},x:{ticks:{color:'#b0c6fa'},grid:{color:'rgba(255,255,255,.06)'}}}}}); },40);
 }
 function pkRenderImport(){
-  const hasLogo=!!lsGet('sc_print_logo','');
+  const hasLogo=!!pkGetLogo();
   document.getElementById('pk-body').innerHTML=`<div class="card"><div class="card-header"><div><div class="card-title">Import Sample Order Data</div><div class="card-sub">Upload your Coats export (.xlsx / .xlsm / .csv). Select one or more files (e.g. 1–3 months) — new & updated order lines are merged in.</div></div></div>
    <div style="padding:16px;">
      <input type="file" id="pk-file" accept=".xlsx,.xlsm,.csv" multiple class="form-input" style="max-width:360px;display:inline-block;" onchange="pkImportNames(this)"/>
@@ -3476,7 +3526,7 @@ function pkRenderImport(){
        <input type="file" id="pk-logo-file" accept="image/*" class="form-input" style="max-width:300px;display:inline-block;"/>
        <button class="btn btn-ghost btn-sm" onclick="pkSaveLogo()">Save logo</button>
        <button class="btn btn-ghost btn-sm" onclick="pkClearLogo()">Remove</button>
-       <span id="pk-logo-state" style="font-size:12px;color:var(--muted);margin-left:8px;">${hasLogo?'Logo set on this device.':'No logo set — prints show a text header.'}</span>
+       <span id="pk-logo-state" style="font-size:12px;color:var(--muted);margin-left:8px;">${hasLogo?'Logo is shared to all users & PCs.':'No logo set — prints show a text header.'}</span>
        <div style="margin-top:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
          <span style="font-size:12px;color:var(--muted);">If your image has the round logo + words, choose where the round logo sits so only the circle is used:</span>
          <select class="filter-sel" id="pk-logo-crop" onchange="pkSetLogoCrop(this.value)">
@@ -3567,12 +3617,12 @@ function fmtDateTime(iso){ try{ const d=new Date(iso); const p=n=>(''+n).padStar
 function pkSaveLogo(){
   const fi=document.getElementById('pk-logo-file'); const f=fi&&fi.files[0]; if(!f){ showToast('Choose an image first.','err'); return; }
   const r=new FileReader();
-  r.onload=()=>{ const img=new Image(); img.onload=()=>{ const max=420; let w=img.width,h=img.height; if(w>max){h=Math.round(h*max/w);w=max;} const c=document.createElement('canvas'); c.width=w;c.height=h; c.getContext('2d').drawImage(img,0,0,w,h); let url; try{url=c.toDataURL('image/png');}catch(_){url=r.result;} lsSet('sc_print_logo',url); const s=document.getElementById('pk-logo-state'); if(s)s.textContent='Logo saved on this device.'; pkLogoPreview(); showToast('Print logo saved.'); }; img.onerror=()=>{ lsSet('sc_print_logo',r.result); pkLogoPreview(); showToast('Logo saved.'); }; img.src=r.result; };
+  r.onload=()=>{ const img=new Image(); img.onload=()=>{ const max=420; let w=img.width,h=img.height; if(w>max){h=Math.round(h*max/w);w=max;} const c=document.createElement('canvas'); c.width=w;c.height=h; c.getContext('2d').drawImage(img,0,0,w,h); let url; try{url=c.toDataURL('image/png');}catch(_){url=r.result;} lsSet('sc_print_logo',url); try{ CONTACTS.logoData=url; CONTACTS.logoCrop=pkGetLogoCrop(); if(typeof dbSaveContacts==='function')dbSaveContacts(); }catch(_){} const s=document.getElementById('pk-logo-state'); if(s)s.textContent='Logo saved · shared to ALL users & PCs.'; pkLogoPreview(); showToast('Print logo saved · shared to all users.'); }; img.onerror=()=>{ lsSet('sc_print_logo',r.result); try{ CONTACTS.logoData=r.result; if(typeof dbSaveContacts==='function')dbSaveContacts(); }catch(_){} pkLogoPreview(); showToast('Logo saved · shared to all users.'); }; img.src=r.result; };
   r.readAsDataURL(f);
 }
-function pkClearLogo(){ localStorage.removeItem('sc_print_logo'); const s=document.getElementById('pk-logo-state'); if(s)s.textContent='No logo set — prints show a text header.'; pkLogoPreview(); showToast('Logo removed.'); }
-function pkSetLogoCrop(pos){ lsSet('sc_print_logo_crop',pos); pkLogoPreview(); showToast('Logo crop updated — re-print to see it.'); }
-function pkLogoPreview(){ const sel=document.getElementById('pk-logo-crop'); if(sel)sel.value=lsGet('sc_print_logo_crop','left'); const box=document.getElementById('pk-logo-preview'); if(!box)return; const l=lsGet('sc_print_logo',''); box.innerHTML = l ? '<img src="'+l+'" style="'+pkLogoCropStyle('64px')+'"/>' : '<span style="font-size:10px;color:var(--muted);">no logo</span>'; }
+function pkClearLogo(){ localStorage.removeItem('sc_print_logo'); try{ CONTACTS.logoData=''; if(typeof dbSaveContacts==='function')dbSaveContacts(); }catch(_){} const s=document.getElementById('pk-logo-state'); if(s)s.textContent='No logo set — prints show a text header.'; pkLogoPreview(); showToast('Logo removed for all users.'); }
+function pkSetLogoCrop(pos){ lsSet('sc_print_logo_crop',pos); try{ CONTACTS.logoCrop=pos; if(typeof dbSaveContacts==='function')dbSaveContacts(); }catch(_){} pkLogoPreview(); showToast('Logo crop updated · shared to all users.'); }
+function pkLogoPreview(){ const sel=document.getElementById('pk-logo-crop'); if(sel)sel.value=pkGetLogoCrop(); const box=document.getElementById('pk-logo-preview'); if(!box)return; const l=pkGetLogo(); box.innerHTML = l ? '<img src="'+l+'" style="'+pkLogoCropStyle('64px')+'"/>' : '<span style="font-size:10px;color:var(--muted);">no logo</span>'; }
 function pkImportNames(input){ const el=document.getElementById('pk-import-files'); if(!el)return; const fs=input&&input.files?[...input.files]:[]; if(!fs.length){ el.innerHTML=''; return; } el.innerHTML='<b>'+fs.length+' file'+(fs.length>1?'s':'')+' selected:</b><br>'+fs.map(f=>'📄 '+attEsc(f.name)).join('<br>'); }
 function pkCancelImport(){ const fi=document.getElementById('pk-file'); if(fi)fi.value=''; const el=document.getElementById('pk-import-files'); if(el)el.innerHTML=''; const st=document.getElementById('pk-import-status'); if(st)st.textContent='Selection cleared.'; }
 async function pkClearImport(){ if(packerBlocked())return;
@@ -4036,7 +4086,15 @@ function aiToday(){ const d=new Date(),p=n=>(''+n).padStart(2,'0'); return d.get
 function aiThisMonth(){ return aiToday().slice(0,7); }
 function aiHelp(){ return '<div style="font-size:12.5px;color:var(--muted,#8aa2c4);line-height:1.8;">Ask things like:<br>• “orders delivered today” / “pending orders”<br>• “returns this month”<br>• “absent today”<br>• “find RS40295803”<br>• “orders for Old DEPZ” or any name / customer<br><span style="font-size:11px;">Answers come from the data already loaded in the app.</span></div>'; }
 function aiStat(v,l,color){ return '<div style="display:inline-block;min-width:92px;background:var(--surface,rgba(255,255,255,.06));border:1px solid var(--border,#244372);border-radius:10px;padding:8px 12px;margin:4px 6px 0 0;"><div style="font-size:20px;font-weight:800;color:'+(color||'var(--accent,#6ea0ff)')+';">'+v+'</div><div style="font-size:10px;color:var(--muted,#8aa2c4);text-transform:uppercase;letter-spacing:.05em;">'+l+'</div></div>'; }
-function aiOrderCard(o){ return '<div style="background:var(--surface,rgba(255,255,255,.06));border:1px solid var(--border,#244372);border-radius:10px;padding:9px 12px;margin-bottom:7px;font-size:12.5px;color:var(--text,#fff);"><b>'+attEsc(o.orderNo||'—')+'</b> · '+attEsc(o.status||'')+'<br><span style="color:var(--muted,#8aa2c4);">'+attEsc(o.customer||'')+(o.buyer?(' → '+attEsc(o.buyer)):'')+'</span><br><span style="color:var(--muted,#8aa2c4);">'+attEsc(o.task||'')+(o.fce?(' · '+attEsc(o.fce)):'')+(o.to?(' · '+attEsc(o.to)):'')+(o.deliveredAt?(' · delivered '+fmtDate(o.deliveredAt)):'')+'</span></div>'; }
+function aiOrderCard(o){
+  const hasDN=!!((o.noteFiles&&o.noteFiles.length)||o.noteFile);
+  const dnBadge='<span style="background:'+(hasDN?'rgba(70,230,160,.15)':'rgba(255,107,107,.12)')+';color:'+(hasDN?'#46e6a0':'#ff8a8a')+';border-radius:999px;padding:1px 9px;font-size:11px;font-weight:700;">DN: '+(hasDN?'Available':'Not Available')+'</span>';
+  let comp='', compCol='';
+  if(o.status==='Delivered'){ comp='Fully Completed'; compCol='#46e6a0'; }
+  else if(o.status==='Partially Completed'){ comp='Partially Completed'; compCol='#ff9f5a'; }
+  const compBadge=comp?(' <span style="background:'+(compCol==='#46e6a0'?'rgba(70,230,160,.15)':'rgba(255,159,90,.15)')+';color:'+compCol+';border-radius:999px;padding:1px 9px;font-size:11px;font-weight:700;">'+comp+'</span>'):'';
+  return '<div style="background:var(--surface,rgba(255,255,255,.06));border:1px solid var(--border,#244372);border-radius:10px;padding:9px 12px;margin-bottom:7px;font-size:12.5px;color:var(--text,#fff);"><b>'+attEsc(o.orderNo||'—')+'</b> · '+attEsc(o.status||'')+'<br><span style="color:var(--muted,#8aa2c4);">'+attEsc(o.customer||'')+(o.buyer?(' → '+attEsc(o.buyer)):'')+'</span><br><span style="color:var(--muted,#8aa2c4);">'+attEsc(o.task||'')+(o.fce?(' · '+attEsc(o.fce)):'')+(o.to?(' · '+attEsc(o.to)):'')+(o.deliveredAt?(' · delivered '+fmtDate(o.deliveredAt)):'')+'</span><div style="margin-top:5px;display:flex;gap:6px;flex-wrap:wrap;">'+dnBadge+compBadge+'</div></div>';
+}
 function aiOrderList(list){ if(!list.length)return '<div style="color:var(--muted,#8aa2c4);">None.</div>'; return list.slice(0,8).map(aiOrderCard).join('')+(list.length>8?('<div style="color:var(--muted,#8aa2c4);font-size:11.5px;">+'+(list.length-8)+' more…</div>'):''); }
 function askToggle(show){ const o=document.getElementById('ask-overlay'); if(!o)return; if(show){ o.style.display='flex'; const i=document.getElementById('ask-in'); if(i){ i.value=''; setTimeout(()=>i.focus(),30); } const out=document.getElementById('ask-out'); if(out)out.innerHTML=aiHelp(); } else { o.style.display='none'; } }
 function askChip(q){ const i=document.getElementById('ask-in'); if(i)i.value=q; askRun(q); }
