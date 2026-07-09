@@ -665,7 +665,7 @@ input[type="date"]::-moz-clear{display:none!important;}
            <div id="o-file-list" style="font-size:11px;color:var(--muted);margin-top:6px;display:flex;flex-direction:column;gap:4px;"></div>
          </div>
          <div class="form-group"><label class="form-label">Delivery Zone <span style="text-transform:none;color:var(--dim);">(road)</span></label><select class="form-input" id="o-zone" onchange="onZoneSelect(this)"></select></div>
-         <div class="form-group"><label class="form-label">Status</label><select class="form-input" id="o-status" onchange="onOrderStatusChange()"><option>Requested</option><option>Returned</option><option>In Development</option><option>Partially Completed</option><option>Delivered</option></select></div>
+         <div class="form-group"><label class="form-label">Status</label><select class="form-input" id="o-status" onchange="onOrderStatusChange()"><option>Requested</option><option>Returned</option><option>In Development</option><option>Partially Delivered</option><option>Partially Completed</option><option>Delivery Completed</option></select></div>
          <div class="form-group"><label class="form-label">Service / Delivery By *</label><select class="form-input" id="o-service"><option value="">Select task first…</option></select></div>
          <div class="form-group full"><label class="form-label">Remarks</label><textarea class="form-input" id="o-remarks" style="min-height:48px;"></textarea></div>
        </div>
@@ -763,7 +763,9 @@ let CACHE = { entries:[], users:[], master:null, orders:[], employees:[], attend
 let editingOrderId=null;
 const COLLECTION_SERVICES=['FCE (Urgent)','Excelsior Courier'];
 const DELIVERY_SERVICES=['Excelsior Courier','Supply Chain Van','FCE (Urgent)'];
-const ORDER_STATUSES=['Requested','Returnted','In Development','Delivered'];
+const ORDER_STATUSES=['Requested','Returned','In Development','Partially Delivered'];
+// Normalise legacy / alternate spellings of order-status values to the current set.
+function normOrderStatus(s){ const t=(''+(s||'')).trim(); const m={'returnted':'Returned','delivered':'Partially Delivered','completed':'Delivery Completed'}; return m[t.toLowerCase()]||t; }
 let currentUser=null, editingId=null, approveId=null, activeFCE=null, activeMonthLog='all', activeChartsMonth='all';
 let comboMatches=[], comboHi=-1;
 
@@ -942,7 +944,7 @@ const I18N_BN={
  'Order No':'অর্ডার নং','Task':'কাজ','Buyer':'বায়ার','Service By':'সার্ভিস প্রদানকারী','Responsibility To':'দায়িত্বপ্রাপ্ত',
  'Delivery Zone':'ডেলিভারি জোন','Req. Time / Delivered':'অনুরোধের সময় / ডেলিভারি','DN Download':'ডিএন ডাউনলোড','New Order Entry':'নতুন অর্ডার এন্ট্রি',
  'All tasks':'সব কাজ','All zones':'সব জোন','All services':'সব সার্ভিস','Collection':'কালেকশন','Delivery':'ডেলিভারি',
- 'Requested':'অনুরোধকৃত','Returned':'ফেরত','In Development':'ডেভেলপমেন্টে','Delivered':'ডেলিভারি সম্পন্ন','Download CSV':'সিএসভি ডাউনলোড',
+ 'Requested':'অনুরোধকৃত','Returned':'ফেরত','In Development':'ডেভেলপমেন্টে','Delivered':'আংশিক ডেলিভারি','Partially Delivered':'আংশিক ডেলিভারি','Download CSV':'সিএসভি ডাউনলোড',
  'Send combined':'একসাথে পাঠান','Service Review':'সার্ভিস রিভিউ',
  // attendance
  'Mark Attendance':'উপস্থিতি চিহ্নিত করুন','Employees Name':'কর্মচারীদের নাম','Present':'উপস্থিত','Absent':'অনুপস্থিত','Leave':'ছুটি',
@@ -988,7 +990,7 @@ const I18N_BN={
  'Manage':'ম্যানেজ','↻ Reload':'↻ রিলোড','Reload':'রিলোড','Upload':'আপলোড','Download template':'টেমপ্লেট ডাউনলোড',
  'Delete ALL':'সব মুছুন','Save':'সংরক্ষণ','💾 Save':'💾 সংরক্ষণ','Search':'অনুসন্ধান','Print selected':'নির্বাচিত প্রিন্ট',
  'Requester':'অনুরোধকারী','Customer Service':'কাস্টমার সার্ভিস','Creation':'তৈরির তারিখ','Order status':'অর্ডারের অবস্থা',
- 'Completed':'সম্পন্ন','Partially Completed':'আংশিক সম্পন্ন','DN Copy':'ডিএন কপি','Sticker':'স্টিকার','Add to Trip':'ট্রিপে যোগ করুন','↩ Add to Return':'↩ রিটার্নে যোগ করুন',
+ 'Completed':'ডেলিভারি সম্পন্ন','Delivery Completed':'ডেলিভারি সম্পন্ন','Partially Completed':'আংশিক সম্পন্ন','DN Copy':'ডিএন কপি','Sticker':'স্টিকার','Add to Trip':'ট্রিপে যোগ করুন','↩ Add to Return':'↩ রিটার্নে যোগ করুন',
  'Deliveries by month':'মাস অনুযায়ী ডেলিভারি','DN received vs pending':'ডিএন প্রাপ্ত বনাম অপেক্ষমাণ','total entries':'মোট এন্ট্রি',
  'Repeats only (ordered ≥ 2×)':'শুধু পুনরাবৃত্ত (≥২ বার)','Despatched only':'শুধু ডেসপ্যাচকৃত','All line statuses':'সব লাইন স্ট্যাটাস',
  'Customer + BP + Material':'কাস্টমার + বিপি + ম্যাটেরিয়াল','Customer + Material':'কাস্টমার + ম্যাটেরিয়াল',
@@ -1912,11 +1914,11 @@ function ordZoneFor(o){ try{ const c=ordSoldCodeFor(o); if(c&&PKM.soldRoad&&PKM.
 function scopedOrders(){ const mf=myFCE(); return mf?getOrders().filter(o=>o.fce===mf):getOrders(); }
 function buildOrderStatusBar(){
   const bar=document.getElementById('order-status-bar'); if(!bar)return;
-  const chips=['all',...ORDER_STATUSES,'Partially Completed','Completed'];
+  const chips=['all',...ORDER_STATUSES,'Partially Completed','Delivery Completed'];
   bar.innerHTML=chips.map(s=>`<button class="month-chip${(activeOrderStatus===s)?' active':''}" onclick="setOrderStatus('${s}',this)">${s==='all'?'All':s}</button>`).join('');
 }
 function setOrderStatus(s,btn){ activeOrderStatus=s; ordPage=1; document.querySelectorAll('#order-status-bar .month-chip').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); renderOrders(); }
-function orderStatusBadge(s){ const m={'Requested':'s-pending','Collected':'s-draft','In Development':'s-pending','Delivered':'s-approved','Partially Completed':'s-pending','Completed':'s-approved'}; const st={'Partially Completed':'background:rgba(255,159,90,.15);color:#ff9f5a;','Completed':'background:rgba(70,230,160,.18);color:#46e6a0;'}; return `<span class="status-badge ${m[s]||'s-draft'}" style="${st[s]||''}">${s}</span>`; }
+function orderStatusBadge(s){ const m={'Requested':'s-pending','Collected':'s-draft','In Development':'s-pending','Partially Delivered':'s-pending','Delivery Completed':'s-approved','Partially Completed':'s-pending','Completed':'s-approved','Delivered':'s-approved'}; const st={'Partially Delivered':'background:rgba(255,194,77,.16);color:#ffc24d;','Partially Completed':'background:rgba(255,159,90,.15);color:#ff9f5a;','Delivery Completed':'background:rgba(70,230,160,.18);color:#46e6a0;','Completed':'background:rgba(70,230,160,.18);color:#46e6a0;'}; return `<span class="status-badge ${m[s]||'s-draft'}" style="${st[s]||''}">${s}</span>`; }
 let visibleOrders=[];
 let ordPage=1, ordPageSize=50;
 function renderOrdersPager(total,totalPages,startIdx,shown){
@@ -1959,7 +1961,7 @@ function renderServiceReview(){
   const chips=['all',...months].map(m=>`<button class="month-chip ${__svcMonth===m?'active':''}" onclick="setSvcMonth('${m}')">${m==='all'?'All months':monthLabel(m)}</button>`).join('');
   const orders=scopedOrders().filter(o=>__svcMonth==='all'||((o.date||'').slice(0,7)===__svcMonth));
   const svcMap={};
-  orders.forEach(o=>{ let s=(o.service||'(unassigned)').trim(); if(/^fce$/i.test(s))s='FCE (Urgent)'; if(!s)s='(unassigned)'; const t=o.task||''; if(!svcMap[s])svcMap[s]={swatch:0,delivery:0,total:0,delivered:0}; if(t==='Sample Delivery')svcMap[s].delivery++; else if(t==='Swatch Collection')svcMap[s].swatch++; svcMap[s].total++; if(o.status==='Delivered')svcMap[s].delivered++; });
+  orders.forEach(o=>{ let s=(o.service||'(unassigned)').trim(); if(/^fce$/i.test(s))s='FCE (Urgent)'; if(!s)s='(unassigned)'; const t=o.task||''; if(!svcMap[s])svcMap[s]={swatch:0,delivery:0,total:0,delivered:0}; if(t==='Sample Delivery')svcMap[s].delivery++; else if(t==='Swatch Collection')svcMap[s].swatch++; svcMap[s].total++; if(o.status==='Delivery Completed')svcMap[s].delivered++; });
   const svcs=Object.keys(svcMap).sort((a,b)=>svcMap[b].total-svcMap[a].total);
   let tS=0,tD=0,tT=0,tDel=0;
   const rows=svcs.map((s,i)=>{ const r=svcMap[s]; tS+=r.swatch;tD+=r.delivery;tT+=r.total;tDel+=r.delivered; const c=distinctColor(i,svcs.length); return `<tr><td><span class="fw6" style="color:${c};">${attEsc(s)}</span></td><td class="mono">${r.swatch}</td><td class="mono">${r.delivery}</td><td class="mono fw6">${r.total}</td></tr>`; }).join('')||'<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:18px;">No orders for this period.</td></tr>';
@@ -1985,7 +1987,7 @@ function renderOrders(){
   { const dl=document.getElementById('order-resp-list'); if(dl){ const names=[...new Set(scopedOrders().map(o=>o.fce).filter(Boolean))].sort((a,b)=>(''+a).localeCompare(''+b)); dl.innerHTML=names.map(n=>`<option value="${attEsc(n)}"></option>`).join(''); } }
   { const sf=document.getElementById('order-service-filter'); if(sf){ const cur=sf.value; const RETIRED=['internal fce','internal supply chain van']; const normSvc=v=>{ const t=(''+v).trim(); if(/^fce$/i.test(t))return 'FCE (Urgent)'; if(/^supply chain van$/i.test(t))return 'Supply Chain Van'; return t; }; const svcs=[...new Set([...DEFAULT_SERVICE_BY,...DELIVERY_SERVICES,...scopedOrders().map(o=>o.service).filter(Boolean)].map(normSvc))].filter(s=>!RETIRED.includes((''+s).trim().toLowerCase())).sort((a,b)=>(''+a).localeCompare(''+b)); sf.innerHTML='<option value="">All services</option>'+svcs.map(s=>`<option ${cur===s?'selected':''}>${attEsc(s)}</option>`).join(''); } }
   let rows=scopedOrders().filter(o=>{
-    if(activeOrderStatus!=='all'&&o.status!==activeOrderStatus)return false;
+    if(activeOrderStatus!=='all'&&normOrderStatus(o.status)!==normOrderStatus(activeOrderStatus))return false;
     if(taskF&&o.task!==taskF)return false;
     if(zoneF&&(o.to||'')!==zoneF)return false;
     if(serviceF){ let os=(o.service||'').trim(); if(/^fce$/i.test(os))os='FCE (Urgent)'; if(os!==serviceF)return false; }
@@ -2127,7 +2129,7 @@ function onTaskChange(){
 function onOrderStatusChange(){
   const st=document.getElementById('o-status').value;
   const del=document.getElementById('o-delivered');
-  if(st==='Delivered'&&!del.value){ del.value=new Date().toISOString().split('T')[0]; }
+  if((st==='Partially Delivered'||st==='Delivery Completed')&&!del.value){ del.value=new Date().toISOString().split('T')[0]; }
 }
 // Searchable combos for Customer (from 705 list) and Buyer (from master buyers)
 let oCombo={field:null,matches:[]};
@@ -2186,11 +2188,11 @@ async function oFileParse(input){
     const ci={ order:col('Order No','OrderNo','Order'), cust:col('Customer','Customer Name'), buyer:col('Buyer','Buyer Name'),
       svc:col('Service By','Service','Service By Name'), zone:col('Delivery Zone','Zone','Road'), status:col('Status'),
       req:col('Req Time/Delivered','Req Time','Requested Time','Delivered','Delivery Date'), rem:col('Remarks','Remark','Note') };
-    const ALLOWED=['Requested','Collected','In Development','Partially Completed','Delivered']; const val=v=>v==null?'':(''+v).trim();
+    const ALLOWED=['Requested','Returned','Collected','In Development','Partially Delivered','Partially Completed','Delivery Completed']; const val=v=>v==null?'':(''+v).trim();
     oBulkRows=[];
     for(let i=1;i<rows.length;i++){ const r=rows[i]; if(!r)continue;
       const order=val(r[ci.order]), cust=val(r[ci.cust]); if(!order&&!cust)continue;
-      let st=val(r[ci.status]); st=ALLOWED.find(a=>a.toLowerCase()===st.toLowerCase())||'Requested';
+      let st=normOrderStatus(val(r[ci.status])); st=ALLOWED.find(a=>a.toLowerCase()===st.toLowerCase())||'Requested';
       let reqv=r[ci.req]; reqv=(reqv instanceof Date)?reqv.toISOString().slice(0,10):val(reqv);
       oBulkRows.push({ orderNo:order, customer:cust, buyer:val(r[ci.buyer]), service:val(r[ci.svc]), zone:val(r[ci.zone]), status:st, req:reqv, remarks:val(r[ci.rem]) });
     }
@@ -3162,7 +3164,7 @@ function pkRenderOrderView(){
   const _cdFull=cdIsComplete(o.shipTo,o.soldToCode,o.shipToCode,o.soldToName); const _cdPosted=cdOpenPostFor(o.orderNo);
   const _disp=s=>/despatch|dispatch/i.test(''+(s||''));
   const _allDisp=o.lines.length>0&&o.lines.every(l=>_disp(l.line_status));
-  const _ordStatus=_allDisp?'Completed':'Partially Completed';
+  const _ordStatus=_allDisp?'Delivery Completed':'Partially Completed';
   const _ordStColor=_allDisp?'background:rgba(70,230,160,.15);color:#46e6a0;':'background:rgba(255,159,90,.15);color:#ff9f5a;';
   const _road=pkRoadFor(o.shipTo,o.shipToCode)||'';
   // Fully completed = every line already accounted for in a bin note (Delivered). Post-to-Bin hidden once fully done.
@@ -3179,7 +3181,7 @@ function pkRenderOrderView(){
     </div></div>
     <div style="padding:0 16px 8px;"><div style="display:flex;flex-wrap:wrap;gap:6px 24px;align-items:center;font-size:13px;padding:8px 0;">
       <div><span style="color:var(--muted);">Creation:</span> ${pkFmtDate(o.creationDate)}</div>
-      <div><span style="color:var(--muted);">Order status:</span> <span class="badge" style="${_ordStColor}" title="Completed = every line's status is Despatched. Any other line status → Partially Completed.">${_ordStatus}</span></div>
+      <div><span style="color:var(--muted);">Order status:</span> <span class="badge" style="${_ordStColor}" title="Delivery Completed = every line's status is Despatched. Any other line status → Partially Completed.">${_ordStatus}</span></div>
       ${_road?`<div><span style="color:var(--muted);">Location:</span> <span class="badge" style="background:rgba(110,160,255,.14);color:#9fb8e8;">${attEsc(_road)}</span></div>`:''}
       <div><span style="color:var(--muted);">Lines:</span> ${o.lines.length} · Qty ${o.totalQty}</div>
     </div>${(function(){ try{ const hist=cdPosts().filter(p=>p.orderNo===o.orderNo); if(!hist.length)return ''; const nNotes=hist.reduce((s2,p)=>s2+((p.notes||[]).length),0); const open=hist.filter(p=>p.status==='open').length;
@@ -3368,7 +3370,7 @@ function pkRenderListRows(){
   // Order Tracker lookup: DN uploaded? + completion status
   const ordMap={}; try{ getOrders().forEach(o=>{ const k=(o.orderNo||'').trim().toLowerCase(); if(k&&!ordMap[k])ordMap[k]=o; }); }catch(e){}
   const dnCell=t=>{ const o=ordMap[(t.order_no||'').trim().toLowerCase()]; const has=!!(o&&((o.noteFiles&&o.noteFiles.length)||o.noteFile)); return has?'<span class="badge" style="background:rgba(70,230,160,.15);color:#46e6a0;">Available</span>':'<span class="badge" style="background:rgba(255,107,107,.12);color:#ff8a8a;">Not Available</span>'; };
-  const cmCell=t=>{ const o=ordMap[(t.order_no||'').trim().toLowerCase()]; if(!o)return '<span style="color:var(--dim);font-size:11px;">—</span>'; if(o.status==='Delivered')return '<span class="badge" style="background:rgba(70,230,160,.15);color:#46e6a0;">Fully Completed</span>'; if(o.status==='Partially Completed')return '<span class="badge" style="background:rgba(255,159,90,.15);color:#ff9f5a;">Partially Completed</span>'; return '<span style="color:var(--dim);font-size:11px;">'+attEsc(o.status||'—')+'</span>'; };
+  const cmCell=t=>{ const o=ordMap[(t.order_no||'').trim().toLowerCase()]; if(!o)return '<span style="color:var(--dim);font-size:11px;">—</span>'; if(o.status==='Delivery Completed')return '<span class="badge" style="background:rgba(70,230,160,.15);color:#46e6a0;">Fully Completed</span>'; if(o.status==='Partially Completed')return '<span class="badge" style="background:rgba(255,159,90,.15);color:#ff9f5a;">Partially Completed</span>'; if(o.status==='Partially Delivered')return '<span class="badge" style="background:rgba(255,194,77,.16);color:#ffc24d;">Partially Delivered</span>'; return '<span style="color:var(--dim);font-size:11px;">'+attEsc(o.status||'—')+'</span>'; };
   tb.innerHTML=rows.map((t,i)=>{ const isRet=t.kind==='return'; const typeBadge=`<span style="font-size:11px;font-weight:600;color:${isRet?'#e0913a':'#4ecdc4'};">${pkListType(t)}</span>`; return `<tr><td style="text-align:center;"><input type="checkbox" ${pkListSel.has(t.id)?'checked':''} onchange="pkListTick('${t.id}')"/></td><td>${i+1}</td><td>${typeBadge}</td><td style="white-space:nowrap;">${fmtDate(t.trip_date)}</td><td>${attEsc(t.ship_to)}</td><td>${attEsc(t.order_no)}</td><td><div style="max-width:380px;min-width:160px;white-space:normal;word-break:break-word;font-size:11px;line-height:1.6;color:var(--muted);">${attEsc(t.line_nos)}</div></td><td>${attEsc(t.total_qty)}</td><td>${attEsc(t.carton_qty)}</td><td>${attEsc(t.road)||(isRet?'—':'')}</td><td>${dnCell(t)}</td><td>${cmCell(t)}</td><td style="white-space:nowrap;"><button class="btn btn-ghost btn-sm" onclick="pkListEdit('${t.id}')">Edit</button> ${(isPacker()||isFCE())?'':`<button class="btn btn-reject btn-sm" onclick="pkListDelete('${t.id}')">Delete</button>`}</td></tr>`;}).join('')||`<tr><td colspan="13" style="text-align:center;color:var(--muted);padding:16px;">No entries yet.</td></tr>`;
 }
 function pkListTick(id){ if(pkListSel.has(id))pkListSel.delete(id); else pkListSel.add(id); pkRenderListRows(); }
@@ -3538,12 +3540,12 @@ function pkDashOps(){
   const gran=pkDashGran, road=pkDashRoad, dPlant=pkDashDelPlant, sPlant=pkDashSupPlant, opsMonth=pkOpsMonth;
   const tripMonth=t=>(''+(t.trip_date||'')).slice(0,7);
   const ordMonth=o=>(''+(o.deliveredAt||o.date||'')).slice(0,7);
-  const opsMonths=[...new Set([].concat(trips.map(tripMonth),orders.filter(o=>o.status==='Delivered').map(ordMonth)).filter(Boolean))].sort().reverse();
+  const opsMonths=[...new Set([].concat(trips.map(tripMonth),orders.filter(o=>o.status==='Delivery Completed'||o.status==='Partially Delivered').map(ordMonth)).filter(Boolean))].sort().reverse();
   const plantFiltered=trips.filter(t=>(!dPlant||tdp(t)===dPlant)&&(!sPlant||tsp(t)===sPlant)&&(!opsMonth||tripMonth(t)===opsMonth));
   const tsrc=road?plantFiltered.filter(t=>(t.road||'')===road):plantFiltered;
   const byPer={}; tsrc.forEach(t=>{ const k=pkDashGranKey(t.trip_date,gran)||'—'; if(!byPer[k])byPer[k]={n:0,orders:new Set(),qty:0}; byPer[k].n++; byPer[k].orders.add(t.order_no); byPer[k].qty+=parseFloat(t.total_qty)||0; });
   const perKeys=Object.keys(byPer).filter(k=>k!=='—').sort();
-  const delivOrders=orders.filter(o=>o.status==='Delivered'&&(!opsMonth||ordMonth(o)===opsMonth));
+  const delivOrders=orders.filter(o=>(o.status==='Delivery Completed'||o.status==='Partially Delivered')&&(!opsMonth||ordMonth(o)===opsMonth));
   const received=delivOrders.filter(o=>o.noteFiles&&o.noteFiles.length);
   const pending=delivOrders.filter(o=>!(o.noteFiles&&o.noteFiles.length));
   const gdisp=k=>(k==='—'?'—':(gran==='month'?monthLabel(k):fmtDate(k)));
@@ -3976,10 +3978,12 @@ async function pkAutoCreateOrders(recs){
   }catch(e){ console.error('auto-create orders',e); showToast('Order Tracker auto-population failed: '+(e.message||e),'err'); return 0; }
 }
 async function pkSyncOrderStatuses(recs){
-  // Order status from line statuses (+ Trip List date when available):
-  //  all lines Despatched          -> Delivered
-  //  some Despatched, some not      -> Partially Completed
-  //  all lines open / none dispatched -> Requested
+  // Order status derived from Trip List (Despatched line status) + Complete Delivery List (CD postings / acknowledgment):
+  //   • ANY line in the Trip List (some, not all)                 -> Partially Delivered
+  //   • ALL lines in the Trip List, but no CD postings yet        -> Delivery Completed
+  //   • ANY CD posting exists (line in Complete Delivery List)    -> Partially Completed  (until fully acknowledged)
+  //   • ALL lines in the Trip List AND every CD posting acknowledged (done) -> Delivery Completed
+  //   • no line dispatched / none in Trip List                    -> Requested
   const dispRe=/despatch|dispatch/i;
   const openRe=/open|requested|pending/i;
   const byOrder={};
@@ -3988,7 +3992,7 @@ async function pkSyncOrderStatuses(recs){
   const tripByOrder={};
   (CACHE.trips||[]).forEach(t=>{ if(t.kind==='return')return; const k=(t.order_no||'').trim().toLowerCase(); if(!k)return; const d=t.trip_date||''; if(!tripByOrder[k]||d>tripByOrder[k])tripByOrder[k]=d; });
   const changed=[];
-  // Orders whose CD postings are all acknowledged (done) covering every line → eligible for "Completed"
+  // CD postings = lines that appear in the Complete Delivery List; acknowledgment complete when every posting is 'done'.
   const cdByOrder={}; cdPosts().forEach(p=>{ const k=(p.orderNo||'').trim().toLowerCase(); if(!k)return; (cdByOrder[k]=cdByOrder[k]||[]).push(p); });
   getOrders().forEach(o=>{
     const k=(o.orderNo||'').trim().toLowerCase(); if(!k||!byOrder[k])return;
@@ -3996,20 +4000,21 @@ async function pkSyncOrderStatuses(recs){
     const sts=byOrder[k].sts; const withSt=sts.filter(x=>x);
     if(!withSt.length)return;
     const dispCount=withSt.filter(x=>dispRe.test(x)).length;
-    const allDisp=dispCount===sts.length;
-    const someDisp=dispCount>0;
+    const allDisp=dispCount===sts.length;   // every line in the Trip List
+    const someDisp=dispCount>0;             // at least one line in the Trip List
     const trip=tripByOrder[k]||'';
-    // Acknowledged = every CD posting for this order is 'done' and there is at least one posting
-    const posts=cdByOrder[k]||[]; const allAck=posts.length>0&&posts.every(p=>p.status==='done');
+    // Complete Delivery List membership + acknowledgment
+    const posts=cdByOrder[k]||[]; const hasCd=posts.length>0; const allAck=hasCd&&posts.every(p=>p.status==='done');
     let ns=null, nd=o.deliveredAt||null;
-    if(allDisp&&allAck){ ns='Completed'; nd=trip||o.deliveredAt||null; }
-    else if(allDisp){ ns='Delivered'; nd=trip||o.deliveredAt||null; }
-    else if(someDisp){ ns='Partially Completed'; }
+    if(allDisp&&allAck){ ns='Delivery Completed'; nd=trip||o.deliveredAt||null; }   // all in Trip List + acknowledgment complete
+    else if(hasCd){ ns='Partially Completed'; }                                     // appears in Complete Delivery List, ack not yet complete
+    else if(allDisp){ ns='Delivery Completed'; nd=trip||o.deliveredAt||null; }       // all lines in Trip List, CD not started
+    else if(someDisp){ ns='Partially Delivered'; }                                   // some lines in Trip List only
     else { ns='Requested'; }
-    if(ns&&(o.status!==ns||((ns==='Delivered'||ns==='Completed')&&o.deliveredAt!==nd))){ o.status=ns; o.deliveredAt=nd; changed.push(orderToRow(o)); }
+    if(ns&&(o.status!==ns||(ns==='Delivery Completed'&&o.deliveredAt!==nd))){ o.status=ns; o.deliveredAt=nd; changed.push(orderToRow(o)); }
   });
   for(let i=0;i<changed.length;i+=400){ const {error}=await sb.from('sample_orders').upsert(changed.slice(i,i+400)); if(error)throw error; }
-  if(changed.length){ try{ await refreshAll(); }catch(_){} showToast(changed.length+' order status(es) auto-updated from line statuses & trip list.'); }
+  if(changed.length){ try{ await refreshAll(); }catch(_){} showToast(changed.length+' order status(es) auto-updated from Trip List &amp; Complete Delivery List.'); }
   return changed.length;
 }
 function pkRoadFor(shipTo,shipCode){ if(shipCode&&PKM.roadByShipCode&&PKM.roadByShipCode.get((''+shipCode).trim()))return PKM.roadByShipCode.get((''+shipCode).trim()); if(!PKM.shipRoad)return ''; const k=pkmKey(shipTo); let r=PKM.shipRoad.get(k); if(r)return r; const lk=pkmRoadLoose(shipTo); r=PKM.shipRoadLoose&&PKM.shipRoadLoose.get(lk); return r||''; }
@@ -4270,8 +4275,9 @@ function aiOrderCard(o){
   const hasDN=!!((o.noteFiles&&o.noteFiles.length)||o.noteFile);
   const dnBadge='<span style="background:'+(hasDN?'rgba(70,230,160,.15)':'rgba(255,107,107,.12)')+';color:'+(hasDN?'#46e6a0':'#ff8a8a')+';border-radius:999px;padding:1px 9px;font-size:11px;font-weight:700;">DN: '+(hasDN?'Available':'Not Available')+'</span>';
   let comp='', compCol='';
-  if(o.status==='Delivered'){ comp='Fully Completed'; compCol='#46e6a0'; }
+  if(o.status==='Delivery Completed'){ comp='Fully Completed'; compCol='#46e6a0'; }
   else if(o.status==='Partially Completed'){ comp='Partially Completed'; compCol='#ff9f5a'; }
+  else if(o.status==='Partially Delivered'){ comp='Partially Delivered'; compCol='#ffc24d'; }
   const compBadge=comp?(' <span style="background:'+(compCol==='#46e6a0'?'rgba(70,230,160,.15)':'rgba(255,159,90,.15)')+';color:'+compCol+';border-radius:999px;padding:1px 9px;font-size:11px;font-weight:700;">'+comp+'</span>'):'';
   return '<div style="background:var(--surface,rgba(255,255,255,.06));border:1px solid var(--border,#244372);border-radius:10px;padding:9px 12px;margin-bottom:7px;font-size:12.5px;color:var(--text,#fff);"><b>'+attEsc(o.orderNo||'—')+'</b> · '+attEsc(o.status||'')+'<br><span style="color:var(--muted,#8aa2c4);">'+attEsc(o.customer||'')+(o.buyer?(' → '+attEsc(o.buyer)):'')+'</span><br><span style="color:var(--muted,#8aa2c4);">'+attEsc(o.task||'')+(o.fce?(' · '+attEsc(o.fce)):'')+(o.to?(' · '+attEsc(o.to)):'')+(o.deliveredAt?(' · delivered '+fmtDate(o.deliveredAt)):'')+'</span><div style="margin-top:5px;display:flex;gap:6px;flex-wrap:wrap;">'+dnBadge+compBadge+'</div></div>';
 }
