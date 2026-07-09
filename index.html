@@ -2871,9 +2871,13 @@ function cdOccupied(bin,excludeId){
 let cdSel={mode:'post',postId:null,bin:'',nos:new Set()};
 function cdShowBinPopup(){
   if(!pkOrder)return; const o=pkOrder;
-  const ex=cdOpenPostFor(o.orderNo); if(ex){ showToast('Order '+o.orderNo+' is already posted to bin "'+ex.bin+'" (open).','err'); return; }
-  cdSel={mode:'post',postId:null,bin:'',nos:new Set()};
-  cdRenderPicker('Post to bin — Complete Delivery','Order <b>'+attEsc(o.orderNo)+'</b> · '+attEsc(o.shipTo)+'. Pick a bin, then the carton number(s). Capacity '+CD_BIN_CAP+'/bin.');
+  const ex=cdOpenPostFor(o.orderNo);
+  // If an open posting exists, LOCK to its bin & cartons — remaining lines must go to the same SC-Bin / CTN.
+  cdSel={mode:'post',postId:ex?ex.id:null,bin:ex?ex.bin:'',nos:new Set(ex&&Array.isArray(ex.cartonNos)?ex.cartonNos.map(n=>parseInt(n)):[]),locked:!!ex};
+  const sub=ex
+    ? 'Order <b>'+attEsc(o.orderNo)+'</b> is already posted to <b>'+attEsc(ex.bin)+'</b>'+(ex.cartonNos&&ex.cartonNos.length?(' · Carton '+ex.cartonNos.join(', ')):'')+'. Remaining lines must use the <b>same bin &amp; carton</b> — tick the DN lines, then Save.'
+    : 'Order <b>'+attEsc(o.orderNo)+'</b> · '+attEsc(o.shipTo)+'. Pick a bin, then the carton number(s). Capacity '+CD_BIN_CAP+'/bin.';
+  cdRenderPicker('Post to bin — Complete Delivery',sub);
 }
 function cdEditPost(id){
   if(!cdCanEditBin()){ showToast('You do not have permission to edit bin/carton.','err'); return; }
@@ -2894,18 +2898,20 @@ function cdRenderPicker(title,sub){
 function cdPaintPicker(){
   const ov=document.getElementById('cd-bin-overlay'); if(!ov)return; const card=document.getElementById('cd-picker-card'); if(!card)return;
   const use=cdBinUsage();
-  const binBtns=CD_BINS.map(b=>{ const cur=b===cdSel.bin; const u=use[b]||0; const full=u>=CD_BIN_CAP&&!cur;
-    return '<button class="btn '+(cur?'btn-primary':'btn-ghost')+' btn-sm" style="justify-content:space-between;'+(full?'opacity:.45;':'')+'" '+(full?'disabled':'')+' onclick="cdPickBin(\''+attEsc(b)+'\')"><span>'+attEsc(b)+(cur?' ✓':'')+'</span><span style="font-size:11px;font-weight:700;color:'+(u>=CD_BIN_CAP?'#ff6b6b':u>=CD_BIN_CAP-3?'#ff9f5a':'#46e6a0')+';">'+u+'/'+CD_BIN_CAP+'</span></button>'; }).join('');
+  const locked=!!cdSel.locked;
+  const binBtns=CD_BINS.map(b=>{ const cur=b===cdSel.bin; const u=use[b]||0; const full=u>=CD_BIN_CAP&&!cur; const dis=full||(locked&&!cur);
+    return '<button class="btn '+(cur?'btn-primary':'btn-ghost')+' btn-sm" style="justify-content:space-between;'+(dis?'opacity:.4;cursor:not-allowed;':'')+'" '+(dis?'disabled':'')+' onclick="cdPickBin(\''+attEsc(b)+'\')"><span>'+attEsc(b)+(cur?(locked?' 🔒':' ✓'):'')+'</span><span style="font-size:11px;font-weight:700;color:'+(u>=CD_BIN_CAP?'#ff6b6b':u>=CD_BIN_CAP-3?'#ff9f5a':'#46e6a0')+';">'+u+'/'+CD_BIN_CAP+'</span></button>'; }).join('');
   let cartonHtml='<div style="font-size:11px;color:var(--dim);margin-top:8px;">Select a bin above to see its carton numbers.</div>';
   if(cdSel.bin){
     const occ=cdOccupied(cdSel.bin,cdSel.postId);
-    cartonHtml='<div style="font-size:11px;color:var(--muted);margin:10px 0 6px;">Carton No. in <b>'+attEsc(cdSel.bin)+'</b> — tap to select (grey = occupied):</div>'
+    const hint=locked?'locked to this order — remaining lines use the same carton':'tap to select (grey = occupied)';
+    cartonHtml='<div style="font-size:11px;color:var(--muted);margin:10px 0 6px;">Carton No. in <b>'+attEsc(cdSel.bin)+'</b> — '+hint+':</div>'
      +'<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px;">'
-     +Array.from({length:CD_BIN_CAP},(_,i)=>i+1).map(n=>{ const taken=occ.has(n); const sel=cdSel.nos.has(n);
-        return '<button class="btn btn-sm" style="justify-content:center;padding:6px 0;'+(taken?'opacity:.35;cursor:not-allowed;background:rgba(140,160,200,.15);':sel?'background:var(--accent);color:#fff;font-weight:800;':'background:rgba(110,160,255,.10);')+'" '+(taken?'disabled':'')+' onclick="cdToggleNo('+n+')">'+n+'</button>'; }).join('')
+     +Array.from({length:CD_BIN_CAP},(_,i)=>i+1).map(n=>{ const taken=occ.has(n); const sel=cdSel.nos.has(n); const dis=taken||(locked&&!sel);
+        return '<button class="btn btn-sm" style="justify-content:center;padding:6px 0;'+(dis&&!sel?'opacity:.35;cursor:not-allowed;background:rgba(140,160,200,.15);':sel?'background:var(--accent);color:#fff;font-weight:800;':'background:rgba(110,160,255,.10);')+'" '+(dis?'disabled':'')+' onclick="cdToggleNo('+n+')">'+n+(sel&&locked?' 🔒':'')+'</button>'; }).join('')
      +'</div>';
   }
-  const selInfo=cdSel.nos.size?('Selected: <b>Carton '+[...cdSel.nos].sort((a,b)=>a-b).join(', ')+'</b> ('+cdSel.nos.size+')'):'No carton selected yet.';
+  const selInfo=cdSel.nos.size?((locked?'Locked to: ':'Selected: ')+'<b>Carton '+[...cdSel.nos].sort((a,b)=>a-b).join(', ')+'</b> ('+cdSel.nos.size+')'):'No carton selected yet.';
   card.innerHTML='<div class="card-title" style="margin-bottom:4px;">'+ov.dataset.title+'</div>'
    +'<div style="font-size:12px;color:var(--muted);margin-bottom:10px;">'+ov.dataset.sub+'</div>'
    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">'+binBtns+'</div>'
@@ -2915,8 +2921,8 @@ function cdPaintPicker(){
    +'<span style="display:flex;gap:8px;"><button class="btn btn-ghost btn-sm" onclick="document.getElementById(\'cd-bin-overlay\').remove()">Cancel</button>'
    +'<button class="btn btn-primary btn-sm" '+(cdSel.bin&&cdSel.nos.size?'':'disabled style="opacity:.5;"')+' onclick="cdSaveSel()">💾 Save</button></span></div>';
 }
-function cdPickBin(b){ if(cdSel.bin!==b){ cdSel.bin=b; cdSel.nos=new Set(); } cdPaintPicker(); }
-function cdToggleNo(n){ if(cdSel.nos.has(n))cdSel.nos.delete(n); else cdSel.nos.add(n); cdPaintPicker(); }
+function cdPickBin(b){ if(cdSel.locked){ showToast('This order is locked to '+cdSel.bin+' — remaining lines must use the same bin.','err'); return; } if(cdSel.bin!==b){ cdSel.bin=b; cdSel.nos=new Set(); } cdPaintPicker(); }
+function cdToggleNo(n){ if(cdSel.locked){ showToast('This order is locked to Carton '+[...cdSel.nos].sort((a,b)=>a-b).join(', ')+' — you cannot change the carton.','err'); return; } if(cdSel.nos.has(n))cdSel.nos.delete(n); else cdSel.nos.add(n); cdPaintPicker(); }
 async function cdSaveSel(){
   if(!cdSel.bin||!cdSel.nos.size)return;
   const nos=[...cdSel.nos].sort((a,b)=>a-b);
@@ -2929,15 +2935,18 @@ async function cdSaveSel(){
     const newLineNos=usedLines.map(l=>l.line_no).filter(x=>x!=null&&x!=='');
     const existing=cdOpenPostFor(o.orderNo);
     if(existing){
-      // 2c: same order posted again → count under the existing post; append new lines sequentially.
+      // Same order posted again → count under the existing post; append only NEW lines.
       const cur=(existing.lineNos||'').split(',').map(s=>s.trim()).filter(Boolean);
-      const merged=[...new Set([...cur,...newLineNos.map(String)])].sort((a,b)=>(''+a).localeCompare(''+b,undefined,{numeric:true}));
+      const curSet=new Set(cur.map(String));
+      const genuinelyNew=newLineNos.map(String).filter(x=>!curSet.has(x));
+      if(!genuinelyNew.length){ showToast('Those line(s) are already posted for '+o.orderNo+'. Tick only the remaining (un-posted) lines.','err'); return; }
+      const merged=[...new Set([...cur,...genuinelyNew])].sort((a,b)=>(''+a).localeCompare(''+b,undefined,{numeric:true}));
       existing.lineNos=merged.join(',');
-      existing.cartonNos=[...new Set([...(existing.cartonNos||[]),...nos])].sort((a,b)=>a-b);
-      existing.cartons=existing.cartonNos.length;
-      existing.totalQty=(existing.totalQty||0)+usedLines.reduce((s,l)=>s+(parseFloat(l.qty)||0),0);
-      existing.notes=existing.notes||[]; existing.notes.push({at:new Date().toISOString(),by:(currentUser&&currentUser.name)||'',text:'Added lines '+newLineNos.join(',')+' to '+cdSel.bin+' (Ctn '+nos.join(',')+')'});
-      try{ if(typeof dbSaveContacts==='function')await dbSaveContacts(); showToast('Lines '+newLineNos.join(',')+' added to existing posting for '+o.orderNo+'.'); }
+      if(!cdSel.locked){ existing.bin=cdSel.bin; existing.cartonNos=[...new Set([...(existing.cartonNos||[]).map(n=>parseInt(n)),...nos])].sort((a,b)=>a-b); existing.cartons=existing.cartonNos.length; }
+      const addQty=usedLines.filter(l=>genuinelyNew.includes(String(l.line_no))).reduce((s,l)=>s+(parseFloat(l.qty)||0),0);
+      existing.totalQty=(existing.totalQty||0)+addQty;
+      existing.notes=existing.notes||[]; existing.notes.push({at:new Date().toISOString(),by:(currentUser&&currentUser.name)||'',text:'Added lines '+genuinelyNew.join(', ')+' to '+existing.bin+' (Ctn '+(existing.cartonNos||[]).join(', ')+')'});
+      try{ if(typeof dbSaveContacts==='function')await dbSaveContacts(); showToast('Lines '+genuinelyNew.join(', ')+' added to existing posting for '+o.orderNo+'.'); }
       catch(e){ showToast('Cloud save failed: '+(e.message||e),'err'); }
       if(pkTab==='orders')pkRenderOrders(); pkRenderOrderView&&pkRenderOrderView(); return;
     }
