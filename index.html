@@ -1912,11 +1912,11 @@ function ordZoneFor(o){ try{ const c=ordSoldCodeFor(o); if(c&&PKM.soldRoad&&PKM.
 function scopedOrders(){ const mf=myFCE(); return mf?getOrders().filter(o=>o.fce===mf):getOrders(); }
 function buildOrderStatusBar(){
   const bar=document.getElementById('order-status-bar'); if(!bar)return;
-  const chips=['all',...ORDER_STATUSES,'Partially Completed'];
+  const chips=['all',...ORDER_STATUSES,'Partially Completed','Completed'];
   bar.innerHTML=chips.map(s=>`<button class="month-chip${(activeOrderStatus===s)?' active':''}" onclick="setOrderStatus('${s}',this)">${s==='all'?'All':s}</button>`).join('');
 }
 function setOrderStatus(s,btn){ activeOrderStatus=s; ordPage=1; document.querySelectorAll('#order-status-bar .month-chip').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); renderOrders(); }
-function orderStatusBadge(s){ const m={'Requested':'s-pending','Collected':'s-draft','In Development':'s-pending','Delivered':'s-approved','Partially Completed':'s-pending'}; const st={'Partially Completed':'background:rgba(255,159,90,.15);color:#ff9f5a;'}; return `<span class="status-badge ${m[s]||'s-draft'}" style="${st[s]||''}">${s}</span>`; }
+function orderStatusBadge(s){ const m={'Requested':'s-pending','Collected':'s-draft','In Development':'s-pending','Delivered':'s-approved','Partially Completed':'s-pending','Completed':'s-approved'}; const st={'Partially Completed':'background:rgba(255,159,90,.15);color:#ff9f5a;','Completed':'background:rgba(70,230,160,.18);color:#46e6a0;'}; return `<span class="status-badge ${m[s]||'s-draft'}" style="${st[s]||''}">${s}</span>`; }
 let visibleOrders=[];
 let ordPage=1, ordPageSize=50;
 function renderOrdersPager(total,totalPages,startIdx,shown){
@@ -2093,7 +2093,7 @@ async function ordLoadLines(id){
     let data=_ordLinesCache[ono];
     if(!data){ const res=await sb.from('sample_lines').select('line_no,line_status,qty').eq('order_no',ono); if(res.error)throw res.error; data=res.data||[]; data.sort((a,b)=>(parseFloat(a.line_no)||0)-(parseFloat(b.line_no)||0)); _ordLinesCache[ono]=data.map(l=>({...l})); }
     // Re-derive display each open so Trip List changes reflect immediately (don't mutate cache).
-    const view=(_ordLinesCache[ono]||[]).map(l=>{ const o2={...l}; if(tripDate&&/despatch|dispatch/i.test(''+(o2.line_status||'')))o2.line_status='Delivered on '+fmtDate(tripDate); return o2; });
+    const view=(_ordLinesCache[ono]||[]).map(l=>{ const o2={...l}; if(tripDate&&/despatch|dispatch/i.test(''+(o2.line_status||'')))o2.line_status='Dispatched on '+fmtDate(tripDate); return o2; });
     paint(view);
   }catch(e){ box.innerHTML='<span style="font-size:11px;color:var(--dim);">Could not load line data.</span>'; }
 }
@@ -2841,6 +2841,29 @@ function cdIsComplete(shipTo,soldCode,shipCode,soldName){
   return cdList().some(c=>pkmKey(c)===k||(soldName&&pkmKey(c)===pkmKey(soldName)));
 }
 function cdOpenPostFor(orderNo){ return cdPosts().find(p=>p.orderNo===orderNo&&p.status==='open'); }
+// Parse a comma/space separated line-number string into a clean array of strings.
+function cdParseLines(str){ return (''+(str||'')).split(/[,\s]+/).map(s=>s.trim()).filter(Boolean); }
+// Lines within a post that have been marked delivered via note-level updates.
+// Extract line numbers from a note that mentions delivery/dispatch, in either order:
+//  "Delivered: 10,20,30"  OR  "Lines 10, 20 and 30 were delivered/dispatched"
+function cdNoteLines(text){ const t=''+(text||''); if(!/deliver|dispatch|despatch/i.test(t))return [];
+  // grab the run of numbers nearest the keyword; fall back to all numbers in the sentence
+  let nums=[]; const after=/(?:deliver[a-z]*|dispatch[a-z]*|despatch[a-z]*)\s*(?:line[s]?)?\s*[:\-]?\s*((?:\d+[,\s]+(?:and\s+)?)*\d+)/i.exec(t);
+  const before=/(?:line[s]?)\s*((?:\d+[,\s]+(?:and\s+)?)*\d+)\s*(?:\w+\s+){0,4}?(?:deliver|dispatch|despatch)/i.exec(t);
+  if(after)nums=cdParseLines(after[1].replace(/\band\b/gi,' ')); else if(before)nums=cdParseLines(before[1].replace(/\band\b/gi,' '));
+  else { const anyLines=/line[s]?\s*((?:\d+[,\s]+(?:and\s+)?)*\d+)/i.exec(t); if(anyLines)nums=cdParseLines(anyLines[1].replace(/\band\b/gi,' ')); }
+  return nums;
+}
+function cdDeliveredLines(p){ const set=new Set((p&&Array.isArray(p.deliveredLines))?p.deliveredLines.map(String):[]);
+  (p&&p.notes||[]).forEach(n=>{ cdNoteLines(n.text).forEach(x=>set.add(String(x))); });
+  return [...set];
+}
+// All posts (open+done) for an order, whether every line is covered & delivered.
+function cdOrderFullyPosted(o){ try{ const posts=cdPosts().filter(p=>p.orderNo===o.orderNo); if(!posts.length)return false;
+  const allLines=new Set((o.lines||[]).map(l=>String(l.line_no)).filter(Boolean)); if(!allLines.size)return false;
+  const deliv=new Set(); posts.forEach(p=>{ cdDeliveredLines(p).forEach(x=>deliv.add(String(x))); if(p.status==='done'){ cdParseLines(p.lineNos).forEach(x=>deliv.add(String(x))); } });
+  for(const ln of allLines){ if(!deliv.has(ln))return false; } return true;
+}catch(e){ return false; } }
 function cdOccupied(bin,excludeId){
   const s=new Set(); cdPosts().forEach(p=>{ if(p.status!=='open'||p.bin!==bin)return; if(excludeId&&p.id===excludeId)return; (Array.isArray(p.cartonNos)?p.cartonNos:[]).forEach(n=>s.add(parseInt(n))); });
   return s;
@@ -2903,13 +2926,28 @@ async function cdSaveSel(){
   if(cdSel.mode==='post'){
     if(!pkOrder)return; const o=pkOrder;
     const sel=pkSelectedLines(); const usedLines=(sel.length?sel:o.lines);
+    const newLineNos=usedLines.map(l=>l.line_no).filter(x=>x!=null&&x!=='');
+    const existing=cdOpenPostFor(o.orderNo);
+    if(existing){
+      // 2c: same order posted again → count under the existing post; append new lines sequentially.
+      const cur=(existing.lineNos||'').split(',').map(s=>s.trim()).filter(Boolean);
+      const merged=[...new Set([...cur,...newLineNos.map(String)])].sort((a,b)=>(''+a).localeCompare(''+b,undefined,{numeric:true}));
+      existing.lineNos=merged.join(',');
+      existing.cartonNos=[...new Set([...(existing.cartonNos||[]),...nos])].sort((a,b)=>a-b);
+      existing.cartons=existing.cartonNos.length;
+      existing.totalQty=(existing.totalQty||0)+usedLines.reduce((s,l)=>s+(parseFloat(l.qty)||0),0);
+      existing.notes=existing.notes||[]; existing.notes.push({at:new Date().toISOString(),by:(currentUser&&currentUser.name)||'',text:'Added lines '+newLineNos.join(',')+' to '+cdSel.bin+' (Ctn '+nos.join(',')+')'});
+      try{ if(typeof dbSaveContacts==='function')await dbSaveContacts(); showToast('Lines '+newLineNos.join(',')+' added to existing posting for '+o.orderNo+'.'); }
+      catch(e){ showToast('Cloud save failed: '+(e.message||e),'err'); }
+      if(pkTab==='orders')pkRenderOrders(); pkRenderOrderView&&pkRenderOrderView(); return;
+    }
     const rec={ id:'cd_'+Date.now()+'_'+Math.random().toString(36).slice(2,6), orderNo:o.orderNo, shipTo:o.shipTo, soldToName:(o.soldToName||''), buyer:o.buyer||'',
-      bin:cdSel.bin, cartons:nos.length, cartonNos:nos, lineNos:usedLines.map(l=>l.line_no).filter(x=>x!=null&&x!=='').join(','), totalQty:usedLines.reduce((s,l)=>s+(parseFloat(l.qty)||0),0),
-      postedAt:new Date().toISOString(), postedBy:(currentUser&&currentUser.name)||'', status:'open', notes:[] };
+      bin:cdSel.bin, cartons:nos.length, cartonNos:nos, lineNos:newLineNos.join(','), totalQty:usedLines.reduce((s,l)=>s+(parseFloat(l.qty)||0),0),
+      postedAt:new Date().toISOString(), postedBy:(currentUser&&currentUser.name)||'', status:'open', notes:[], deliveredLines:[] };
     cdPosts().unshift(rec);
     try{ if(typeof dbSaveContacts==='function')await dbSaveContacts(); showToast('Order '+o.orderNo+' posted to "'+cdSel.bin+'" · Carton '+nos.join(', ')+'.'); }
     catch(e){ showToast('Cloud save failed: '+(e.message||e),'err'); }
-    if(pkTab==='orders')pkRenderOrders();
+    if(pkTab==='orders')pkRenderOrders(); pkRenderOrderView&&pkRenderOrderView();
   } else {
     if(!cdCanEditBin())return;
     const p=cdPosts().find(x=>x.id===cdSel.postId); if(!p)return;
@@ -2927,17 +2965,32 @@ async function cdAck(id){
   const p=cdPosts().find(x=>x.id===id); if(!p)return;
   if(!confirm('Acknowledge order '+p.orderNo+'?\n\nThis confirms all order lines are completed and removes it from bin "'+p.bin+'".'))return;
   p.status='done'; p.ackAt=new Date().toISOString(); p.ackBy=(currentUser&&currentUser.name)||'';
+  // Mark all posted lines delivered by the acknowledger (so history + Completed logic reflect it)
+  const posted=cdParseLines(p.lineNos); p.deliveredLines=p.deliveredLines||[]; p.deliveredMeta=p.deliveredMeta||{};
+  posted.forEach(x=>{ const key=String(x); if(!p.deliveredLines.map(String).includes(key))p.deliveredLines.push(x); if(!p.deliveredMeta[key])p.deliveredMeta[key]={by:p.ackBy,at:p.ackAt}; });
   try{ if(typeof dbSaveContacts==='function')await dbSaveContacts(); showToast('Order '+p.orderNo+' acknowledged — removed from bin.'); }
   catch(e){ showToast('Cloud save failed: '+(e.message||e),'err'); }
-  renderCDM();
+  renderCDM(); pkRenderOrderView&&pkRenderOrderView();
+  try{ const {data,error}=await sb.from('sample_lines').select('order_no,line_status').eq('order_no',p.orderNo); if(!error&&data)await pkSyncOrderStatuses(data); }catch(e){ console.error('ack resync',e); }
 }
 async function cdAddNote(id){
   const p=cdPosts().find(x=>x.id===id); if(!p)return;
-  const t=prompt('Add remark / note for incomplete order '+p.orderNo+':'); if(t==null)return; const txt=t.trim(); if(!txt)return;
+  const t=prompt('Add remark / note for incomplete order '+p.orderNo+':\n\n(Optional) To mark specific lines delivered, start the note with "Delivered: 10,20,30".'); if(t==null)return; const txt=t.trim(); if(!txt)return;
   p.notes=p.notes||[]; p.notes.push({at:new Date().toISOString(),by:(currentUser&&currentUser.name)||'',text:txt});
-  try{ if(typeof dbSaveContacts==='function')await dbSaveContacts(); showToast('Note added.'); }
+  // Line-level delivery tracking: parse lines from the note (either "Delivered: 10,20" or "Lines 10,20 delivered/dispatched")
+  const noteLines=cdNoteLines(txt);
+  if(noteLines.length){ p.deliveredLines=p.deliveredLines||[]; p.deliveredMeta=p.deliveredMeta||{}; const who=(currentUser&&currentUser.name)||'';
+    // Delivery date = latest Trip List date for this order, else today
+    let delivDate=''; try{ if(typeof pkLoadTrips==='function')await pkLoadTrips(); (CACHE.trips||[]).forEach(t=>{ if(t.kind==='return')return; if((t.order_no||'').trim().toLowerCase()!==(p.orderNo||'').trim().toLowerCase())return; const d=t.trip_date||''; if(d>delivDate)delivDate=d; }); }catch(_){}
+    if(!delivDate)delivDate=new Date().toISOString().slice(0,10);
+    const when=new Date().toISOString();
+    noteLines.forEach(x=>{ const key=String(x); if(!p.deliveredLines.map(String).includes(key))p.deliveredLines.push(x); if(!p.deliveredMeta[key])p.deliveredMeta[key]={by:who,at:when,delivDate:delivDate}; });
+    // if every posted line now delivered, mark the post done
+    const posted=cdParseLines(p.lineNos); if(posted.length&&posted.every(x=>p.deliveredLines.map(String).includes(String(x)))){ p.status='done'; p.ackAt=new Date().toISOString(); p.ackBy=who; }
+  }
+  try{ if(typeof dbSaveContacts==='function')await dbSaveContacts(); showToast(noteLines.length?('Note added · lines '+noteLines.join(',')+' marked delivered.'):'Note added.'); }
   catch(e){ showToast('Cloud save failed: '+(e.message||e),'err'); }
-  renderCDM();
+  renderCDM(); pkRenderOrderView&&pkRenderOrderView();
 }
 async function cdDeletePost(id){
   if(!isAdmin()){ showToast('Only Super Admin can delete posted orders.','err'); return; }
@@ -3102,6 +3155,9 @@ function pkRenderOrderView(){
   const _allDisp=o.lines.length>0&&o.lines.every(l=>_disp(l.line_status));
   const _ordStatus=_allDisp?'Completed':'Partially Completed';
   const _ordStColor=_allDisp?'background:rgba(70,230,160,.15);color:#46e6a0;':'background:rgba(255,159,90,.15);color:#ff9f5a;';
+  const _road=pkRoadFor(o.shipTo,o.shipToCode)||'';
+  // Fully completed = every line already accounted for in a bin note (Delivered). Post-to-Bin hidden once fully done.
+  const _cdFullyDone=cdOrderFullyPosted(o);
   const _cdCode=cdResolveSoldCode(o.shipTo,o.soldToCode,o.shipToCode);
   const _cdTip=attEsc('Sold-to code: '+(_cdCode||'not resolved')+(PKM.cdSoldCodes?(' · '+PKM.cdSoldCodes.size+' complete-customer codes loaded'):'')+(_cdCode?(PKM.cdSoldCodes&&PKM.cdSoldCodes.has(_cdCode)?' · code IS in complete list':' · code NOT in complete list'):''));
   v.innerHTML=`<div class="card"><div class="card-header"><div><div class="card-title">Order ${attEsc(o.orderNo)}</div><div class="card-sub">${attEsc(o.shipTo)} · ${attEsc(o.buyer||'')} · <span class="badge" title="${_cdTip}" style="${_cdFull?'background:rgba(255,159,90,.15);color:#ff9f5a;':'background:rgba(110,160,255,.12);color:#9fb8e8;'}">${_cdFull?'Complete Delivery':'Partial Delivery'}</span>${_cdPosted?` <span class="badge" style="background:rgba(70,230,160,.12);color:#46e6a0;">In bin: ${attEsc(_cdPosted.bin)}${(_cdPosted.cartonNos&&_cdPosted.cartonNos.length)?(' · Carton '+attEsc(_cdPosted.cartonNos.join(', '))):''}</span>`:''}</div></div>
@@ -3110,16 +3166,34 @@ function pkRenderOrderView(){
       <button class="btn btn-sm" style="background:linear-gradient(135deg,#34d399,#0d9488);color:#04211a;font-weight:800;padding:8px 16px;box-shadow:0 0 12px rgba(52,211,153,.30);" onclick="pkPrintSticker()">🖨 Sticker</button>
       <button class="btn btn-primary btn-sm" onclick="pkOpenRoadModal('trip')">Add to Trip</button>
       <button class="btn btn-primary btn-sm" onclick="pkOpenRoadModal('return')" title="Record this order as a return">↩ Add to Return</button>
-      ${_cdFull&&!_cdPosted?'<button class="btn btn-sm" style="background:#ff9f5a;color:#1a1005;font-weight:700;" onclick="cdShowBinPopup()" title="Complete Delivery — post this order to a bin">📦 Complete Delivery — Post to Bin</button>':''}
+      ${_cdFull&&!_cdFullyDone?'<button class="btn btn-sm" style="background:#ff9f5a;color:#1a1005;font-weight:700;" onclick="cdShowBinPopup()" title="Complete Delivery — post remaining lines to a bin">📦 Complete Delivery — Post to Bin</button>':''}
     </div></div>
     <div style="padding:0 16px 8px;"><div style="display:flex;flex-wrap:wrap;gap:6px 24px;align-items:center;font-size:13px;padding:8px 0;">
       <div><span style="color:var(--muted);">Creation:</span> ${pkFmtDate(o.creationDate)}</div>
       <div><span style="color:var(--muted);">Order status:</span> <span class="badge" style="${_ordStColor}" title="Completed = every line's status is Despatched. Any other line status → Partially Completed.">${_ordStatus}</span></div>
+      ${_road?`<div><span style="color:var(--muted);">Location:</span> <span class="badge" style="background:rgba(110,160,255,.14);color:#9fb8e8;">${attEsc(_road)}</span></div>`:''}
       <div><span style="color:var(--muted);">Lines:</span> ${o.lines.length} · Qty ${o.totalQty}</div>
     </div>${(function(){ try{ const hist=cdPosts().filter(p=>p.orderNo===o.orderNo); if(!hist.length)return ''; const nNotes=hist.reduce((s2,p)=>s2+((p.notes||[]).length),0); const open=hist.filter(p=>p.status==='open').length;
+      const allLines=(o.lines||[]).map(l=>String(l.line_no)).filter(Boolean);
       return `<div style="background:linear-gradient(135deg,rgba(255,159,90,.08),rgba(20,32,64,.3));border:1px solid rgba(255,159,90,.35);border-left:3px solid #ff9f5a;border-radius:10px;padding:10px 14px;margin:4px 0 8px;">
-        <div style="font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:#ff9f5a;font-family:'DM Mono',monospace;margin-bottom:4px;">Complete Delivery history — ${hist.length} posting${hist.length>1?'s':''} · ${open} incomplete · ${nNotes} note${nNotes===1?'':'s'}</div>
-        ${hist.map(p=>`<div style=\"font-size:12px;margin-bottom:3px;\"><b>${attEsc(p.bin)}</b>${(p.cartonNos&&p.cartonNos.length)?(' · Ctn '+attEsc(p.cartonNos.join(','))):''} · ${p.status==='open'?'<span style=\"color:#ff9f5a;font-weight:700;\">Incomplete</span>':'<span style=\"color:#46e6a0;font-weight:700;\">Acknowledged</span>'} <span style=\"color:var(--dim);font-size:10px;\">(${fmtDate(p.postedAt)})</span>${(p.notes||[]).map(n2=>`<div style=\"font-size:11px;color:var(--muted);margin-left:10px;\">• ${attEsc(n2.text)} <span style=\"color:var(--dim);\">(${attEsc(n2.by)}, ${fmtDate(n2.at)})</span></div>`).join('')}</div>`).join('')}
+        <div style="font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:#ff9f5a;font-family:'DM Mono',monospace;margin-bottom:6px;">Complete Delivery History — ${hist.length} Posting${hist.length>1?'s':''} · ${open} Incomplete · ${nNotes} Note${nNotes===1?'':'s'}</div>
+        ${hist.map(p=>{ const postLines=cdParseLines(p.lineNos);
+          const meta=(p.deliveredMeta&&typeof p.deliveredMeta==='object')?p.deliveredMeta:{};
+          const delivered=cdDeliveredLines(p).map(String).filter(x=>postLines.includes(x));
+          const available=postLines.filter(x=>!delivered.includes(x));
+          const isDone=p.status==='done';
+          const statusLbl=isDone?'<span style="color:#46e6a0;font-weight:700;">Completed</span>':'<span style="color:#ff9f5a;font-weight:700;">Incomplete</span>';
+          // Group delivered lines by delivery date for the "Already Delivered Lines" summary
+          const groups={}; delivered.forEach(ln=>{ const mm=meta[ln]||{}; const dd=mm.delivDate||(mm.at?String(mm.at).slice(0,10):(p.ackAt?String(p.ackAt).slice(0,10):String(p.postedAt).slice(0,10))); (groups[dd]=groups[dd]||{date:dd,by:mm.by||p.ackBy||'',lines:[]}).lines.push(ln); });
+          return `<div style="font-size:12px;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid rgba(255,255,255,.06);">
+            <div style="font-weight:600;color:var(--text);"><b>${attEsc(p.bin)}</b> · CTN ${(p.cartonNos&&p.cartonNos.length)?attEsc(p.cartonNos.join(', ')):(p.cartons||1)}${postLines.length?(' · Updated Lines: '+attEsc(postLines.join(', '))):''} · Status: ${statusLbl} <span style="color:var(--dim);font-size:10px;">(${fmtDate(p.postedAt)})</span></div>
+            <div style="margin:3px 0 0 8px;">
+              <div style="font-size:11.5px;"><span style="color:#9fb8e8;font-weight:700;">Available Lines (Not Yet Delivered):</span> <span style="color:var(--muted);">${available.length?attEsc(available.join(', ')):'—'}</span></div>
+              <div style="font-size:11.5px;"><span style="color:#ffd166;font-weight:700;">Partially Dispatched Lines:</span> <span style="color:var(--text);">${(!isDone&&delivered.length)?attEsc(delivered.join(', ')):'—'}</span></div>
+              ${Object.values(groups).length?Object.values(groups).map(g=>`<div style="font-size:11.5px;"><span style="color:#46e6a0;font-weight:700;">Already Delivered Lines:</span> <span style="color:var(--text);">${attEsc(g.lines.join(', '))}</span> <span style="color:var(--dim);">(${fmtDate(g.date)})</span></div>`).join(''):'<div style="font-size:11.5px;"><span style="color:#46e6a0;font-weight:700;">Already Delivered Lines:</span> <span style="color:var(--muted);">—</span></div>'}
+            </div>
+            ${(p.notes||[]).length?`<div style="margin:4px 0 0 8px;">${(p.notes||[]).map(n2=>`<div style="font-size:11px;color:var(--muted);">Note: ${attEsc(n2.text)} <span style="color:var(--dim);">(Updated by ${attEsc(n2.by)} on ${fmtDate(n2.at)})</span></div>`).join('')}</div>`:''}
+          </div>`; }).join('')}
       </div>`; }catch(e){ return ''; } })()}</div>
     <div style="padding:0 16px 8px;font-size:12px;color:var(--accent2);" id="pk-sel-count">Tick the lines to include in the DN &amp; Sticker — ${sel.size} of ${o.lines.length} selected.</div>
     <div style="overflow:auto;"><table><thead><tr><th style="width:30px;text-align:center;"><input type="checkbox" ${allChecked?'checked':''} onchange="pkToggleAllLines(this.checked)" title="Select all"/></th><th>Line</th><th>COATS Brand/Tex</th><th>Product</th><th>Shade</th><th>Qty</th><th>Style/Ref</th><th>Remarks</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
@@ -3893,28 +3967,37 @@ async function pkAutoCreateOrders(recs){
   }catch(e){ console.error('auto-create orders',e); showToast('Order Tracker auto-population failed: '+(e.message||e),'err'); return 0; }
 }
 async function pkSyncOrderStatuses(recs){
-  // Order status from line statuses + Trip List:
-  //  all lines Despatched AND order on a trip  -> Delivered (deliveredAt = trip date)
-  //  mix of Despatched and other statuses      -> Partially Completed
+  // Order status from line statuses (+ Trip List date when available):
+  //  all lines Despatched          -> Delivered
+  //  some Despatched, some not      -> Partially Completed
+  //  all lines open / none dispatched -> Requested
   const dispRe=/despatch|dispatch/i;
+  const openRe=/open|requested|pending/i;
   const byOrder={};
   recs.forEach(r=>{ const ono=(r.order_no||'').trim(); if(!ono)return; const k=ono.toLowerCase(); if(!byOrder[k])byOrder[k]={sts:[]}; byOrder[k].sts.push((''+(r.line_status||'')).trim()); });
   try{ if(typeof pkLoadTrips==='function')await pkLoadTrips(); }catch(_){}
   const tripByOrder={};
   (CACHE.trips||[]).forEach(t=>{ if(t.kind==='return')return; const k=(t.order_no||'').trim().toLowerCase(); if(!k)return; const d=t.trip_date||''; if(!tripByOrder[k]||d>tripByOrder[k])tripByOrder[k]=d; });
   const changed=[];
+  // Orders whose CD postings are all acknowledged (done) covering every line → eligible for "Completed"
+  const cdByOrder={}; cdPosts().forEach(p=>{ const k=(p.orderNo||'').trim().toLowerCase(); if(!k)return; (cdByOrder[k]=cdByOrder[k]||[]).push(p); });
   getOrders().forEach(o=>{
     const k=(o.orderNo||'').trim().toLowerCase(); if(!k||!byOrder[k])return;
     if(o.status==='Returned'||o.status==='Returnted')return; // manual returns untouched
     const sts=byOrder[k].sts; const withSt=sts.filter(x=>x);
     if(!withSt.length)return;
-    const allDisp=withSt.length===sts.length&&sts.every(x=>dispRe.test(x));
-    const someDisp=sts.some(x=>dispRe.test(x));
+    const dispCount=withSt.filter(x=>dispRe.test(x)).length;
+    const allDisp=dispCount===sts.length;
+    const someDisp=dispCount>0;
     const trip=tripByOrder[k]||'';
+    // Acknowledged = every CD posting for this order is 'done' and there is at least one posting
+    const posts=cdByOrder[k]||[]; const allAck=posts.length>0&&posts.every(p=>p.status==='done');
     let ns=null, nd=o.deliveredAt||null;
-    if(allDisp&&trip){ ns='Delivered'; nd=trip; }
-    else if(someDisp&&!allDisp){ ns='Partially Completed'; }
-    if(ns&&(o.status!==ns||(ns==='Delivered'&&o.deliveredAt!==nd))){ o.status=ns; o.deliveredAt=nd; changed.push(orderToRow(o)); }
+    if(allDisp&&allAck){ ns='Completed'; nd=trip||o.deliveredAt||null; }
+    else if(allDisp){ ns='Delivered'; nd=trip||o.deliveredAt||null; }
+    else if(someDisp){ ns='Partially Completed'; }
+    else { ns='Requested'; }
+    if(ns&&(o.status!==ns||((ns==='Delivered'||ns==='Completed')&&o.deliveredAt!==nd))){ o.status=ns; o.deliveredAt=nd; changed.push(orderToRow(o)); }
   });
   for(let i=0;i<changed.length;i+=400){ const {error}=await sb.from('sample_orders').upsert(changed.slice(i,i+400)); if(error)throw error; }
   if(changed.length){ try{ await refreshAll(); }catch(_){} showToast(changed.length+' order status(es) auto-updated from line statuses & trip list.'); }
