@@ -665,7 +665,7 @@ input[type="date"]::-moz-clear{display:none!important;}
            <div id="o-file-list" style="font-size:11px;color:var(--muted);margin-top:6px;display:flex;flex-direction:column;gap:4px;"></div>
          </div>
          <div class="form-group"><label class="form-label">Delivery Zone <span style="text-transform:none;color:var(--dim);">(road)</span></label><select class="form-input" id="o-zone" onchange="onZoneSelect(this)"></select></div>
-         <div class="form-group"><label class="form-label">Status</label><select class="form-input" id="o-status" onchange="onOrderStatusChange()"><option>Requested</option><option>Returned</option><option>In Development</option><option>Partially Delivered</option><option>Partially Completed</option><option>Delivery Completed</option></select></div>
+         <div class="form-group"><label class="form-label">Status</label><select class="form-input" id="o-status" onchange="onOrderStatusChange()"><option>Yet to Start</option><option>Returned</option><option>In Development</option><option>Partially Delivered</option><option>Partially Completed</option><option>Delivery Completed</option></select></div>
          <div class="form-group"><label class="form-label">Service / Delivery By *</label><select class="form-input" id="o-service"><option value="">Select task first…</option></select></div>
          <div class="form-group full"><label class="form-label">Remarks</label><textarea class="form-input" id="o-remarks" style="min-height:48px;"></textarea></div>
        </div>
@@ -763,9 +763,9 @@ let CACHE = { entries:[], users:[], master:null, orders:[], employees:[], attend
 let editingOrderId=null;
 const COLLECTION_SERVICES=['FCE (Urgent)','Excelsior Courier'];
 const DELIVERY_SERVICES=['Excelsior Courier','Supply Chain Van','FCE (Urgent)'];
-const ORDER_STATUSES=['Requested','Returned','In Development','Partially Delivered'];
+const ORDER_STATUSES=['Yet to Start','Returned','In Development','Partially Delivered'];
 // Normalise legacy / alternate spellings of order-status values to the current set.
-function normOrderStatus(s){ const t=(''+(s||'')).trim(); const m={'returnted':'Returned','delivered':'Partially Delivered','completed':'Delivery Completed'}; return m[t.toLowerCase()]||t; }
+function normOrderStatus(s){ const t=(''+(s||'')).trim(); const m={'requested':'Yet to Start','open':'Yet to Start','returnted':'Returned','delivered':'Partially Delivered','completed':'Delivery Completed'}; return m[t.toLowerCase()]||t; }
 let currentUser=null, editingId=null, approveId=null, activeFCE=null, activeMonthLog='all', activeChartsMonth='all';
 let comboMatches=[], comboHi=-1;
 
@@ -845,7 +845,7 @@ function parseNoteFiles(r){
   return [{path:raw,name:r.note_name||'note'}];
 }
 function rowToOrder(r){ const _nf=parseNoteFiles(r); return {id:r.id,date:r.date,month:r.month,orderNo:r.order_no,task:r.task_type,customer:r.customer,buyer:r.buyer,fce:r.fce,service:r.service,reqTime:r.requested_time,from:r.from_loc,to:r.to_loc,status:r.status,deliveredAt:r.delivered_at,noteFiles:_nf,noteFile:(_nf[0]&&_nf[0].path)||null,noteName:(_nf[0]&&_nf[0].name)||null,remarks:r.remarks,createdBy:r.created_by}; }
-function orderToRow(o){ return {id:o.id,date:o.date,month:o.date.slice(0,7),order_no:o.orderNo||null,task_type:o.task||null,customer:o.customer||null,buyer:o.buyer||null,fce:o.fce||null,service:o.service||null,requested_time:o.reqTime||null,from_loc:o.from||null,to_loc:o.to||null,status:o.status||'Requested',delivered_at:o.deliveredAt||null,note_file:(o.noteFiles&&o.noteFiles.length)?JSON.stringify(o.noteFiles):(o.noteFile||null),note_name:(o.noteFiles&&o.noteFiles.length?o.noteFiles.map(f=>f.name).join(', '):o.noteName)||null,remarks:o.remarks||null,created_by:o.createdBy||null,updated_at:new Date().toISOString()}; }
+function orderToRow(o){ return {id:o.id,date:o.date,month:o.date.slice(0,7),order_no:o.orderNo||null,task_type:o.task||null,customer:o.customer||null,buyer:o.buyer||null,fce:o.fce||null,service:o.service||null,requested_time:o.reqTime||null,from_loc:o.from||null,to_loc:o.to||null,status:o.status||'Yet to Start',delivered_at:o.deliveredAt||null,note_file:(o.noteFiles&&o.noteFiles.length)?JSON.stringify(o.noteFiles):(o.noteFile||null),note_name:(o.noteFiles&&o.noteFiles.length?o.noteFiles.map(f=>f.name).join(', '):o.noteName)||null,remarks:o.remarks||null,created_by:o.createdBy||null,updated_at:new Date().toISOString()}; }
 
 // ═══ AUTH (checks against cloud users table) ═══
 async function doLogin(){
@@ -944,7 +944,7 @@ const I18N_BN={
  'Order No':'অর্ডার নং','Task':'কাজ','Buyer':'বায়ার','Service By':'সার্ভিস প্রদানকারী','Responsibility To':'দায়িত্বপ্রাপ্ত',
  'Delivery Zone':'ডেলিভারি জোন','Req. Time / Delivered':'অনুরোধের সময় / ডেলিভারি','DN Download':'ডিএন ডাউনলোড','New Order Entry':'নতুন অর্ডার এন্ট্রি',
  'All tasks':'সব কাজ','All zones':'সব জোন','All services':'সব সার্ভিস','Collection':'কালেকশন','Delivery':'ডেলিভারি',
- 'Requested':'অনুরোধকৃত','Returned':'ফেরত','In Development':'ডেভেলপমেন্টে','Delivered':'আংশিক ডেলিভারি','Partially Delivered':'আংশিক ডেলিভারি','Download CSV':'সিএসভি ডাউনলোড',
+ 'Requested':'শুরু হয়নি','Yet to Start':'শুরু হয়নি','Returned':'ফেরত','In Development':'ডেভেলপমেন্টে','Delivered':'আংশিক ডেলিভারি','Partially Delivered':'আংশিক ডেলিভারি','Download CSV':'সিএসভি ডাউনলোড',
  'Send combined':'একসাথে পাঠান','Service Review':'সার্ভিস রিভিউ',
  // attendance
  'Mark Attendance':'উপস্থিতি চিহ্নিত করুন','Employees Name':'কর্মচারীদের নাম','Present':'উপস্থিত','Absent':'অনুপস্থিত','Leave':'ছুটি',
@@ -1918,7 +1918,7 @@ function buildOrderStatusBar(){
   bar.innerHTML=chips.map(s=>`<button class="month-chip${(activeOrderStatus===s)?' active':''}" onclick="setOrderStatus('${s}',this)">${s==='all'?'All':s}</button>`).join('');
 }
 function setOrderStatus(s,btn){ activeOrderStatus=s; ordPage=1; document.querySelectorAll('#order-status-bar .month-chip').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); renderOrders(); }
-function orderStatusBadge(s){ const m={'Requested':'s-pending','Collected':'s-draft','In Development':'s-pending','Partially Delivered':'s-pending','Delivery Completed':'s-approved','Partially Completed':'s-pending','Completed':'s-approved','Delivered':'s-approved'}; const st={'Partially Delivered':'background:rgba(255,194,77,.16);color:#ffc24d;','Partially Completed':'background:rgba(255,159,90,.15);color:#ff9f5a;','Delivery Completed':'background:rgba(70,230,160,.18);color:#46e6a0;','Completed':'background:rgba(70,230,160,.18);color:#46e6a0;'}; return `<span class="status-badge ${m[s]||'s-draft'}" style="${st[s]||''}">${s}</span>`; }
+function orderStatusBadge(s){ const m={'Yet to Start':'s-draft','Requested':'s-draft','Collected':'s-draft','In Development':'s-pending','Partially Delivered':'s-pending','Delivery Completed':'s-approved','Partially Completed':'s-pending','Completed':'s-approved','Delivered':'s-approved'}; const st={'Partially Delivered':'background:rgba(255,194,77,.16);color:#ffc24d;','Partially Completed':'background:rgba(255,159,90,.15);color:#ff9f5a;','Delivery Completed':'background:rgba(70,230,160,.18);color:#46e6a0;','Completed':'background:rgba(70,230,160,.18);color:#46e6a0;'}; return `<span class="status-badge ${m[s]||'s-draft'}" style="${st[s]||''}">${s}</span>`; }
 let visibleOrders=[];
 let ordPage=1, ordPageSize=50;
 function renderOrdersPager(total,totalPages,startIdx,shown){
@@ -2061,7 +2061,7 @@ async function ordLoadLines(id){
   const ono=(box.getAttribute('data-ono')||'').trim(); if(!ono){ box.innerHTML=''; return; }
   const paint=lines=>{
     if(!lines.length){ box.innerHTML='<div style="font-size:11px;color:var(--dim);margin-top:8px;">No imported line data for this order.</div>'; return; }
-    const stKey=s=>{ s=(s||'').toLowerCase(); if(/despatch|dispatch|deliver|complete|closed/.test(s))return 'done'; if(/cancel|reject/.test(s))return 'bad'; if(s)return 'wip'; return 'none'; };
+    const stKey=s=>{ s=(s||'').toLowerCase(); if(/cancel|reject/.test(s))return 'bad'; if(/hub|processing|picking|partially_delivered|partially delivered|open/.test(s))return 'wip'; if(/despatch|dispatch|deliver|complete|closed|acknowledg/.test(s))return 'done'; if(s)return 'wip'; return 'none'; };
     const PILL={done:['rgba(70,230,160,.14)','#46e6a0'],wip:['rgba(255,159,90,.14)','#ff9f5a'],bad:['rgba(255,107,107,.14)','#ff6b6b'],none:['rgba(140,160,200,.12)','var(--muted)']};
     const counts={}; let totQ=0;
     lines.forEach(l=>{ const lbl=(l.line_status||'No status'); counts[lbl]=(counts[lbl]||0)+1; totQ+=parseFloat(l.qty)||0; });
@@ -2188,11 +2188,11 @@ async function oFileParse(input){
     const ci={ order:col('Order No','OrderNo','Order'), cust:col('Customer','Customer Name'), buyer:col('Buyer','Buyer Name'),
       svc:col('Service By','Service','Service By Name'), zone:col('Delivery Zone','Zone','Road'), status:col('Status'),
       req:col('Req Time/Delivered','Req Time','Requested Time','Delivered','Delivery Date'), rem:col('Remarks','Remark','Note') };
-    const ALLOWED=['Requested','Returned','Collected','In Development','Partially Delivered','Partially Completed','Delivery Completed']; const val=v=>v==null?'':(''+v).trim();
+    const ALLOWED=['Yet to Start','Requested','Returned','Collected','In Development','Partially Delivered','Partially Completed','Delivery Completed']; const val=v=>v==null?'':(''+v).trim();
     oBulkRows=[];
     for(let i=1;i<rows.length;i++){ const r=rows[i]; if(!r)continue;
       const order=val(r[ci.order]), cust=val(r[ci.cust]); if(!order&&!cust)continue;
-      let st=normOrderStatus(val(r[ci.status])); st=ALLOWED.find(a=>a.toLowerCase()===st.toLowerCase())||'Requested';
+      let st=normOrderStatus(val(r[ci.status])); st=ALLOWED.find(a=>a.toLowerCase()===st.toLowerCase())||'Yet to Start';
       let reqv=r[ci.req]; reqv=(reqv instanceof Date)?reqv.toISOString().slice(0,10):val(reqv);
       oBulkRows.push({ orderNo:order, customer:cust, buyer:val(r[ci.buyer]), service:val(r[ci.svc]), zone:val(r[ci.zone]), status:st, req:reqv, remarks:val(r[ci.rem]) });
     }
@@ -2209,7 +2209,7 @@ function oRenderPreview(){
 }
 function oDownloadTemplate(){
   const headers=['Order No','Customer','Buyer','Service By','Delivery Zone','Status','Req Time/Delivered','Remarks'];
-  const sample=['RS40294323','Example Customer Ltd','NEXT','Excelsior Courier','Konabari','Requested','10:30 AM',''];
+  const sample=['RS40294323','Example Customer Ltd','NEXT','Excelsior Courier','Konabari','Yet to Start','10:30 AM',''];
   const esc=v=>{ const s=(''+v).replace(/"/g,'""'); return /[",\n]/.test(s)?'"'+s+'"':s; };
   const csv=[headers.join(','),sample.map(esc).join(',')].join('\n');
   const blob=new Blob([csv],{type:'text/csv'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='Order_Tracker_template.csv'; a.click();
@@ -2230,7 +2230,7 @@ async function saveOrderBulk(){
       const o={ id:'o_'+Date.now()+'_'+Math.random().toString(36).slice(2,7), date, task,
         orderNo:ono, service:r.service||'', customer:r.customer||'', buyer:r.buyer||'', fce:'',
         reqTime:(task==='Swatch Collection'?(r.req||''):''), to:r.zone||null,
-        status:r.status||'Requested', deliveredAt:(task==='Sample Delivery'?(oToISO(r.req)||null):null),
+        status:r.status||'Yet to Start', deliveredAt:(task==='Sample Delivery'?(oToISO(r.req)||null):null),
         remarks:r.remarks||'', createdBy:currentUser.id };
       await dbUpsertOrder(orderToRow(o)); ok++;
     }
@@ -2257,7 +2257,7 @@ function openOrderModal(id){
     document.getElementById('o-buyer').value=o.buyer||'';
     document.getElementById('o-fce').value=o.fce||'';
     document.getElementById('o-reqtime').value=o.reqTime||'';
-    document.getElementById('o-status').value=o.status||'Requested';
+    document.getElementById('o-status').value=normOrderStatus(o.status)||'Yet to Start';
     document.getElementById('o-delivered').value=o.deliveredAt||'';
     document.getElementById('o-remarks').value=o.remarks||'';
     { const zs=document.getElementById('o-zone'); if(zs){ if(o.to&&![...zs.options].some(op=>op.value===o.to)){ const op=document.createElement('option'); op.textContent=o.to; zs.insertBefore(op,zs.options[zs.options.length-1]); } zs.value=o.to||''; } }
@@ -2267,7 +2267,7 @@ function openOrderModal(id){
     document.getElementById('o-date').value=new Date().toISOString().split('T')[0];
     ['o-orderno','o-customer','o-buyer','o-reqtime','o-remarks','o-delivered'].forEach(i=>{const el=document.getElementById(i);if(el)el.value='';});
     document.getElementById('o-task').value=''; onTaskChange();
-    document.getElementById('o-status').value='Requested';
+    document.getElementById('o-status').value='Yet to Start';
     document.getElementById('o-fce').value='';
     { const zs=document.getElementById('o-zone'); if(zs)zs.value=''; }
     oBulkRows=[];
@@ -3162,7 +3162,7 @@ function pkRenderOrderView(){
   const rows=o.lines.map((l,i)=>`<tr><td style="text-align:center;"><input type="checkbox" ${sel.has(i)?'checked':''} onchange="pkToggleLine(${i})"/></td><td>${attEsc(l.line_no)}</td><td>${attEsc(l.coats_brand_tex)}</td><td>${attEsc(l.product_code)}</td><td>${attEsc(l.shade)}</td><td>${attEsc(l.qty)}</td><td>${attEsc(l.style_no)}</td><td style="font-size:12px;">${attEsc(l.remarks)}</td></tr>`).join('');
   const allChecked=o.lines.length&&sel.size===o.lines.length;
   const _cdFull=cdIsComplete(o.shipTo,o.soldToCode,o.shipToCode,o.soldToName); const _cdPosted=cdOpenPostFor(o.orderNo);
-  const _disp=s=>/despatch|dispatch/i.test(''+(s||''));
+  const _disp=s=>{ const t=''+(s||''); return (/despatch|dispatch/i.test(t)&&!/hub/i.test(t))||/acknowledg/i.test(t); };
   const _allDisp=o.lines.length>0&&o.lines.every(l=>_disp(l.line_status));
   const _ordStatus=_allDisp?'Delivery Completed':'Partially Completed';
   const _ordStColor=_allDisp?'background:rgba(70,230,160,.15);color:#46e6a0;':'background:rgba(255,159,90,.15);color:#ff9f5a;';
@@ -3968,7 +3968,7 @@ async function pkAutoCreateOrders(recs){
       const rows=list.map(b=>orderToRow({ id:'o_imp_'+b.ono.replace(/[^A-Za-z0-9]/g,'').slice(0,24)+'_'+Math.random().toString(36).slice(2,5),
         date:(b.cd&&/^\d{4}-\d{2}-\d{2}$/.test(b.cd))?b.cd:today, task:(b.anyShade?'Sample Delivery':'Swatch Collection'), orderNo:b.ono,
         customer:(b.cn||b.ship), buyer:b.buyer, fce:pkRespFor(b.ship,b.so)||'', service:'', reqTime:'',
-        to:pkRoadFor(b.ship,b.sc)||null, status:'Requested', deliveredAt:null, remarks:'Auto-created from import', createdBy:currentUser?currentUser.id:'' }));
+        to:pkRoadFor(b.ship,b.sc)||null, status:'Yet to Start', deliveredAt:null, remarks:'Auto-created from import', createdBy:currentUser?currentUser.id:'' }));
       for(let i=0;i<rows.length;i+=400){ const {error}=await sb.from('sample_orders').upsert(rows.slice(i,i+400)); if(error)throw error; }
       made=rows.length;
     }
@@ -3978,39 +3978,53 @@ async function pkAutoCreateOrders(recs){
   }catch(e){ console.error('auto-create orders',e); showToast('Order Tracker auto-population failed: '+(e.message||e),'err'); return 0; }
 }
 async function pkSyncOrderStatuses(recs){
-  // Order status derived from Trip List (Despatched line status) + Complete Delivery List (CD postings / acknowledgment):
-  //   • ANY line in the Trip List (some, not all)                 -> Partially Delivered
-  //   • ALL lines in the Trip List, but no CD postings yet        -> Delivery Completed
-  //   • ANY CD posting exists (line in Complete Delivery List)    -> Partially Completed  (until fully acknowledged)
-  //   • ALL lines in the Trip List AND every CD posting acknowledged (done) -> Delivery Completed
-  //   • no line dispatched / none in Trip List                    -> Requested
-  const dispRe=/despatch|dispatch/i;
-  const openRe=/open|requested|pending/i;
+  // ===== ORDER-STATUS MAPPING CONFIG =====
+  // Sources:  line_status (ERP import) · Trip List (CACHE.trips) · Complete Delivery List (cdPosts).
+  // Precedence (first match wins), per requirements a–f:
+  //   Delivery Completed  -> EVERY line is Dispatched AND the order is fully Acknowledged in the Complete Delivery List
+  //   Returned            -> order is in the Trip List as a return (Return-1, Return-2, …)
+  //   Partially Completed -> order is in the Complete Delivery List but not fully Dispatched+Acknowledged
+  //   Partially Delivered -> order is in the Trip List (normal, non-return)
+  //   In Development      -> a line is Processing in Warehouse / Sent for Hub Despatch / PICKING_IN_WAREHOUSE /
+  //                          PARTIALLY_DELIVERED / Processing in Lab (or otherwise started but not yet tripped/CD)
+  //   Yet to Start        -> lines are Open (nothing started)
+  // NOTE: "Sent for Hub Despatch" is deliberately NOT treated as Dispatched.
+  const norm=s=>(''+(s||'')).trim();
+  const isOpen=s=>/^\s*open\s*$/i.test(norm(s));
+  const isHub=s=>/hub/i.test(norm(s));                                             // "Sent for Hub Despatch" → in development, NOT dispatched
+  const isAck=s=>/acknowledg/i.test(norm(s));
+  const isDispatched=s=>{ const t=norm(s); return (/(despatch|dispatch)/i.test(t)&&!isHub(s))||isAck(s); };
+  const inDevRe=/processing in warehouse|processing in lab|picking_in_warehouse|partially_delivered/i;
+  const isInDev=s=>inDevRe.test(norm(s))||isHub(s);
   const byOrder={};
-  recs.forEach(r=>{ const ono=(r.order_no||'').trim(); if(!ono)return; const k=ono.toLowerCase(); if(!byOrder[k])byOrder[k]={sts:[]}; byOrder[k].sts.push((''+(r.line_status||'')).trim()); });
+  recs.forEach(r=>{ const ono=(r.order_no||'').trim(); if(!ono)return; const k=ono.toLowerCase(); if(!byOrder[k])byOrder[k]={sts:[]}; byOrder[k].sts.push(norm(r.line_status)); });
   try{ if(typeof pkLoadTrips==='function')await pkLoadTrips(); }catch(_){}
-  const tripByOrder={};
-  (CACHE.trips||[]).forEach(t=>{ if(t.kind==='return')return; const k=(t.order_no||'').trim().toLowerCase(); if(!k)return; const d=t.trip_date||''; if(!tripByOrder[k]||d>tripByOrder[k])tripByOrder[k]=d; });
-  const changed=[];
-  // CD postings = lines that appear in the Complete Delivery List; acknowledgment complete when every posting is 'done'.
+  // Trip List: normal trips → tripByOrder (latest date); return trips → returnByOrder (highest return no.)
+  const tripByOrder={}, returnByOrder={};
+  (CACHE.trips||[]).forEach(t=>{ const k=(t.order_no||'').trim().toLowerCase(); if(!k)return;
+    if(t.kind==='return'){ const rn=parseInt(t.return_no)||1; if(!returnByOrder[k]||rn>returnByOrder[k])returnByOrder[k]=rn; }
+    else { const d=t.trip_date||''; if(!tripByOrder[k]||d>tripByOrder[k])tripByOrder[k]=d; } });
+  // Complete Delivery List: any CD posting = order is in the list; fully acknowledged when every posting is 'done'.
   const cdByOrder={}; cdPosts().forEach(p=>{ const k=(p.orderNo||'').trim().toLowerCase(); if(!k)return; (cdByOrder[k]=cdByOrder[k]||[]).push(p); });
+  const changed=[];
   getOrders().forEach(o=>{
     const k=(o.orderNo||'').trim().toLowerCase(); if(!k||!byOrder[k])return;
-    if(o.status==='Returned'||o.status==='Returnted')return; // manual returns untouched
-    const sts=byOrder[k].sts; const withSt=sts.filter(x=>x);
-    if(!withSt.length)return;
-    const dispCount=withSt.filter(x=>dispRe.test(x)).length;
-    const allDisp=dispCount===sts.length;   // every line in the Trip List
-    const someDisp=dispCount>0;             // at least one line in the Trip List
+    // Preserve a manually-set Returned status only when there is no return record to derive from.
+    if((o.status==='Returned'||o.status==='Returnted')&&!returnByOrder[k])return;
+    const sts=byOrder[k].sts; const withSt=sts.filter(x=>x); const nLines=withSt.length;
+    const allDisp=nLines>0&&withSt.every(isDispatched);   // every line Dispatched (or Acknowledged)
+    const allOpen=nLines>0&&withSt.every(isOpen);         // nothing started
+    const anyDev=withSt.some(isInDev);                    // any in-development line
     const trip=tripByOrder[k]||'';
-    // Complete Delivery List membership + acknowledgment
-    const posts=cdByOrder[k]||[]; const hasCd=posts.length>0; const allAck=hasCd&&posts.every(p=>p.status==='done');
+    const posts=cdByOrder[k]||[]; const hasCd=posts.length>0; const cdAllDone=hasCd&&posts.every(p=>p.status==='done');
     let ns=null, nd=o.deliveredAt||null;
-    if(allDisp&&allAck){ ns='Delivery Completed'; nd=trip||o.deliveredAt||null; }   // all in Trip List + acknowledgment complete
-    else if(hasCd){ ns='Partially Completed'; }                                     // appears in Complete Delivery List, ack not yet complete
-    else if(allDisp){ ns='Delivery Completed'; nd=trip||o.deliveredAt||null; }       // all lines in Trip List, CD not started
-    else if(someDisp){ ns='Partially Delivered'; }                                   // some lines in Trip List only
-    else { ns='Requested'; }
+    if(allDisp&&cdAllDone){ ns='Delivery Completed'; nd=trip||o.deliveredAt||null; } // (a) all Dispatched + acknowledged
+    else if(returnByOrder[k]){ ns='Returned'; }                                       // (e) in Trip List as a return
+    else if(hasCd){ ns='Partially Completed'; }                                       // (b) in Complete Delivery List, not fully done
+    else if(trip){ ns='Partially Delivered'; }                                        // (c) in Trip List (non-return)
+    else if(anyDev){ ns='In Development'; }                                            // (d) in-development line statuses
+    else if(allOpen||!nLines){ ns='Yet to Start'; }                                   // (f) Open / nothing started
+    else { ns='In Development'; }                                                      // started (e.g. Dispatched) but not yet tripped/CD
     if(ns&&(o.status!==ns||(ns==='Delivery Completed'&&o.deliveredAt!==nd))){ o.status=ns; o.deliveredAt=nd; changed.push(orderToRow(o)); }
   });
   for(let i=0;i<changed.length;i+=400){ const {error}=await sb.from('sample_orders').upsert(changed.slice(i,i+400)); if(error)throw error; }
@@ -4323,9 +4337,9 @@ function askRun(q){
   if(/\b(deliver|pending|requested|development|order|status|how many|count)\b/.test(ql)){
     const st=s=>orders.filter(o=>(''+(o.status||'')).toLowerCase().includes(s));
     if(/deliver/.test(ql)){ let l=st('deliver'); if(wantToday)l=l.filter(o=>(''+(o.deliveredAt||'')).slice(0,10)===today); out.innerHTML='<div>'+aiStat(l.length,'Delivered'+(wantToday?' today':''),'#46e6a0')+'</div>'+aiOrderList(l); return; }
-    if(/pending|requested/.test(ql)){ const l=st('request'); out.innerHTML='<div>'+aiStat(l.length,'Requested','#ffc24d')+'</div>'+aiOrderList(l); return; }
+    if(/pending|requested|yet to start|not started/.test(ql)){ const l=st('yet to start'); out.innerHTML='<div>'+aiStat(l.length,'Yet to Start','#ffc24d')+'</div>'+aiOrderList(l); return; }
     if(/development/.test(ql)){ const l=st('develop'); out.innerHTML='<div>'+aiStat(l.length,'In development','#6ea0ff')+'</div>'+aiOrderList(l); return; }
-    out.innerHTML='<div>'+aiStat(orders.length,'Total orders','#6ea0ff')+aiStat(st('deliver').length,'Delivered','#46e6a0')+aiStat(st('request').length,'Requested','#ffc24d')+aiStat(st('return').length,'Returned','#ff9f5a')+'</div>'; return;
+    out.innerHTML='<div>'+aiStat(orders.length,'Total orders','#6ea0ff')+aiStat(st('deliver').length,'Delivered','#46e6a0')+aiStat(st('yet to start').length,'Yet to Start','#ffc24d')+aiStat(st('return').length,'Returned','#ff9f5a')+'</div>'; return;
   }
   // 5) fallback free-text search across orders
   const stop=new Set(['the','of','in','for','by','to','show','find','list','orders','order','all','me','a','an','with','on','at','give','tell']);
