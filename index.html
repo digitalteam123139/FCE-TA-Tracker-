@@ -545,7 +545,7 @@ input[type="date"]::-moz-clear{display:none!important;}
         <span style="display:inline-flex;align-items:center;gap:5px;"><span style="width:11px;height:11px;border-radius:3px;background:rgba(255,90,95,.98);"></span>3+ days due</span>
         <span style="display:inline-flex;align-items:center;gap:5px;"><span style="width:11px;height:11px;border-radius:3px;background:rgba(70,230,160,.95);"></span>DN uploaded</span>
       </div>
-      <div class="card tbl-scroll"><table><thead><tr><th style="width:26px;text-align:center;"><input type="checkbox" id="ord-tick-all" onclick="toggleAllTicks(this)" title="Select all" style="cursor:pointer;"></th><th style="width:30px;"></th><th>Entry Date</th><th>Order No</th><th>Task</th><th>Customer</th><th>Buyer</th><th>Responsibility To</th><th>Service / Delivery By</th><th>Delivery Zone</th><th>Req. Time / Delivered</th><th>Status</th><th>DN Download</th><th>Actions</th></tr></thead><tbody id="orders-table"></tbody></table><div id="orders-pager"></div></div>
+      <div class="card tbl-scroll"><table><thead><tr><th style="width:26px;text-align:center;"><input type="checkbox" id="ord-tick-all" onclick="toggleAllTicks(this)" title="Select all" style="cursor:pointer;"></th><th style="width:30px;"></th><th>Entry Date</th><th>Creation Date</th><th>Order No</th><th>Task</th><th>Customer</th><th>Buyer</th><th>Responsibility To</th><th>Service / Delivery By</th><th>Delivery Zone</th><th>Req. Time / Delivered</th><th>Status</th><th>DN Download</th><th>Actions</th></tr></thead><tbody id="orders-table"></tbody></table><div id="orders-pager"></div></div>
     </div>
 
     <!-- SAMPLE PACKING -->
@@ -1911,6 +1911,8 @@ let activeOrderStatus='all';
 function ordSoldCodeFor(o){ try{ if(PKM.soldByName){ const c=PKM.soldByName.get(pkmKey(o.customer||'')); if(c)return c; } if(PKM.soldByShipName){ const c2=PKM.soldByShipName.get(pkmKey(o.customer||''))||PKM.soldByShipName.get(pkmRoadLoose(o.customer||'')); if(c2)return c2; } }catch(e){} return ''; }
 function ordFceFor(o){ try{ const c=ordSoldCodeFor(o); if(c&&PKM.respBySoldCode&&PKM.respBySoldCode.get(c))return PKM.respBySoldCode.get(c); return pkRespFor(o.customer||'')||''; }catch(e){ return ''; } }
 function ordZoneFor(o){ try{ const c=ordSoldCodeFor(o); if(c&&PKM.soldRoad&&PKM.soldRoad.get(c))return PKM.soldRoad.get(c); return pkRoadFor(o.customer||'')||''; }catch(e){ return ''; } }
+// Customer-order creation date, resolved from sample_lines (earliest creation_date on any line of this order_no).
+function ordCreationDateFor(o){ try{ const on=(o.orderNo||'').trim(); if(!on)return ''; const m=(CACHE&&CACHE.orderCreationDate)||{}; return m[on]||''; }catch(e){ return ''; } }
 function scopedOrders(){ const mf=myFCE(); return mf?getOrders().filter(o=>o.fce===mf):getOrders(); }
 function buildOrderStatusBar(){
   const bar=document.getElementById('order-status-bar'); if(!bar)return;
@@ -1978,6 +1980,12 @@ function renderServiceReview(){
 }
 function renderOrders(){
   buildOrderStatusBar();
+  // Lazy-load creation-date + plant map from sample_lines the first time the Order Tracker renders,
+  // then re-render so the Creation Date column populates without needing a page refresh.
+  if(typeof pkLoadPlantMap==='function'&&!(CACHE&&CACHE._plantLoaded)&&!renderOrders._loadingCd){
+    renderOrders._loadingCd=true;
+    pkLoadPlantMap().then(()=>{ renderOrders._loadingCd=false; try{ renderOrders(); }catch(_){} }).catch(()=>{ renderOrders._loadingCd=false; });
+  }
   const taskF=document.getElementById('order-task-filter').value;
   const zoneF=(document.getElementById('order-zone-filter')||{}).value||'';
   const serviceF=(document.getElementById('order-service-filter')||{}).value||'';
@@ -2027,8 +2035,9 @@ function renderOrders(){
         <div style="display:flex;flex-wrap:wrap;gap:10px 36px;margin-bottom:4px;">${detailItems.length?detailItems.map(([k,v])=>`<div style="min-width:130px;"><div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-family:'DM Mono',monospace;">${k}</div><div style="font-size:13px;color:var(--text);margin-top:3px;">${v}</div></div>`).join(''):'<span style="font-size:12px;color:var(--muted);">No extra details.</span>'}</div>
         <div id="ordlines-${o.id}" data-ono="${attEsc(o.orderNo||'')}"></div>
       </div></td></tr>`;
-    return `<tr style="background:${orderRowTint(o)};"><td style="text-align:center;">${canSend?`<input type="checkbox" class="ord-tick" value="${o.id}" onclick="event.stopPropagation()" style="cursor:pointer;" title="Select for combined send">`:''}</td><td>${chevron}</td><td class="mono" style="color:var(--muted);white-space:nowrap;">${d}</td><td style="font-size:12px;">${o.orderNo||'—'}</td><td style="font-size:12px;">${o.task?attEsc(taskShort(o.task)):'—'}</td><td style="font-size:12px;">${o.customer||'—'}</td><td style="font-size:12px;">${o.buyer||'—'}</td><td style="font-size:12px;">${o.fce||ordFceFor(o)||'—'}</td><td style="font-size:12px;">${o.service||'—'}</td><td style="font-size:12px;">${o.to||ordZoneFor(o)||'—'}</td><td style="font-size:12px;color:var(--muted);">${extra}</td><td>${orderStatusBadge(o.status)}</td><td>${note}</td><td><div style="display:flex;gap:4px;align-items:center;">${sendBtn}${editBtn}</div></td></tr>${detail}`;
-  }).join('')||'<tr><td colspan="14" style="text-align:center;color:var(--muted);padding:24px;">No orders yet</td></tr>';
+    const _cd=ordCreationDateFor(o); const cdCell=_cd?fmtDate(_cd):'<span style="color:var(--muted);">—</span>';
+    return `<tr style="background:${orderRowTint(o)};"><td style="text-align:center;">${canSend?`<input type="checkbox" class="ord-tick" value="${o.id}" onclick="event.stopPropagation()" style="cursor:pointer;" title="Select for combined send">`:''}</td><td>${chevron}</td><td class="mono" style="color:var(--muted);white-space:nowrap;">${d}</td><td class="mono" style="color:var(--muted);white-space:nowrap;">${cdCell}</td><td style="font-size:12px;">${o.orderNo||'—'}</td><td style="font-size:12px;">${o.task?attEsc(taskShort(o.task)):'—'}</td><td style="font-size:12px;">${o.customer||'—'}</td><td style="font-size:12px;">${o.buyer||'—'}</td><td style="font-size:12px;">${o.fce||ordFceFor(o)||'—'}</td><td style="font-size:12px;">${o.service||'—'}</td><td style="font-size:12px;">${o.to||ordZoneFor(o)||'—'}</td><td style="font-size:12px;color:var(--muted);">${extra}</td><td>${orderStatusBadge(o.status)}</td><td>${note}</td><td><div style="display:flex;gap:4px;align-items:center;">${sendBtn}${editBtn}</div></td></tr>${detail}`;
+  }).join('')||'<tr><td colspan="15" style="text-align:center;color:var(--muted);padding:24px;">No orders yet</td></tr>';
   renderOrdersPager(ordTotal,totalPages,startIdx,rows.length);
   // Hide the New Order button for view-only users
   const newBtn=document.getElementById('order-new-btn'); if(newBtn) newBtn.style.display=canEdit?'':'none';
@@ -2339,8 +2348,8 @@ async function deleteOrder(){ if(!canDeleteOrders()){ showToast('Only Super Admi
 }
 function downloadOrders(){
   const rows=visibleOrders;
-  const header='Date,Order No,Task,Service By,Customer Name,Buyer Name,Responsibility To,Delivery Zone,Requested Time,Status,Delivery Date,Note,Remarks\n';
-  const csv=rows.map(o=>[fmtDate(o.date),o.orderNo||'',o.task||'',o.service||'',o.customer||'',o.buyer||'',o.fce||'',o.to||'',o.reqTime||'',o.status||'',o.deliveredAt?fmtDate(o.deliveredAt):'',(o.noteFiles&&o.noteFiles.length?o.noteFiles.map(f=>f.name).join(' | '):(o.noteName||'')),o.remarks||''].map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',')).join('\n');
+  const header='Entry Date,Creation Date,Order No,Task,Service By,Customer Name,Buyer Name,Responsibility To,Delivery Zone,Requested Time,Status,Delivery Date,Note,Remarks\n';
+  const csv=rows.map(o=>{ const _cd=ordCreationDateFor(o); return [fmtDate(o.date),_cd?fmtDate(_cd):'',o.orderNo||'',o.task||'',o.service||'',o.customer||'',o.buyer||'',o.fce||'',o.to||'',o.reqTime||'',o.status||'',o.deliveredAt?fmtDate(o.deliveredAt):'',(o.noteFiles&&o.noteFiles.length?o.noteFiles.map(f=>f.name).join(' | '):(o.noteName||'')),o.remarks||''].map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(','); }).join('\n');
   const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([header+csv],{type:'text/csv'})); a.download='Sample_Orders.csv'; a.click();
 }
 
@@ -3508,13 +3517,16 @@ async function dbPkAllLines(){
 async function pkLoadPlantMap(force){
   if(CACHE._plantLoaded&&!force)return;
   const map={}; const dp=new Set(), sp=new Set();
+  const cdMap={};                                    // order_no -> earliest creation_date (YYYY-MM-DD)
   try{
     let from=0; const size=1000;
-    while(true){ const {data,error}=await sb.from('sample_lines').select('order_no,delivery_plant,supply_plant').range(from,from+size-1); if(error)throw error;
-      (data||[]).forEach(r=>{ const on=(''+(r.order_no||'')).trim(); if(!on)return; const d=(''+(r.delivery_plant||'')).trim(), s=(''+(r.supply_plant||'')).trim(); if(!map[on])map[on]={dp:d,sp:s}; else { if(!map[on].dp&&d)map[on].dp=d; if(!map[on].sp&&s)map[on].sp=s; } if(d)dp.add(d); if(s)sp.add(s); });
+    while(true){ const {data,error}=await sb.from('sample_lines').select('order_no,delivery_plant,supply_plant,creation_date').range(from,from+size-1); if(error)throw error;
+      (data||[]).forEach(r=>{ const on=(''+(r.order_no||'')).trim(); if(!on)return; const d=(''+(r.delivery_plant||'')).trim(), s=(''+(r.supply_plant||'')).trim(); if(!map[on])map[on]={dp:d,sp:s}; else { if(!map[on].dp&&d)map[on].dp=d; if(!map[on].sp&&s)map[on].sp=s; } if(d)dp.add(d); if(s)sp.add(s);
+        const cd=(''+(r.creation_date||'')).slice(0,10); if(cd&&(!cdMap[on]||cd<cdMap[on]))cdMap[on]=cd;   // keep earliest line's creation date
+      });
       if(!data||data.length<size)break; from+=size; if(from>60000)break; }
-    CACHE.plantMap=map; CACHE.plantDel=[...dp].sort(); CACHE.plantSup=[...sp].sort(); CACHE._plantLoaded=true;
-  }catch(e){ CACHE.plantMap=CACHE.plantMap||{}; CACHE.plantDel=CACHE.plantDel||[]; CACHE.plantSup=CACHE.plantSup||[]; CACHE._plantLoaded=false; }
+    CACHE.plantMap=map; CACHE.plantDel=[...dp].sort(); CACHE.plantSup=[...sp].sort(); CACHE.orderCreationDate=cdMap; CACHE._plantLoaded=true;
+  }catch(e){ CACHE.plantMap=CACHE.plantMap||{}; CACHE.plantDel=CACHE.plantDel||[]; CACHE.plantSup=CACHE.plantSup||[]; CACHE.orderCreationDate=CACHE.orderCreationDate||{}; CACHE._plantLoaded=false; }
 }
 function pkDashChart(id,cfg){ if(pkDashCharts[id]){try{pkDashCharts[id].destroy();}catch(e){}} const cv=document.getElementById(id); if(cv&&typeof Chart!=='undefined')pkDashCharts[id]=new Chart(cv,cfg); }
 function pkMonthKey(cd){ const s=(''+(cd==null?'':cd)).trim(); if(!s)return ''; let m=s.match(/^(\d{4})-(\d{2})/); if(m)return m[1]+'-'+m[2]; m=s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/); if(m)return m[3]+'-'+(''+m[2]).padStart(2,'0'); m=s.match(/(\d{4})[\/\-](\d{1,2})/); if(m)return m[1]+'-'+(''+m[2]).padStart(2,'0'); return ''; }
