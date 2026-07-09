@@ -290,11 +290,11 @@ body{
 input[type="date"]{position:relative;}
 .date-hint-wrap{display:inline-flex;flex-direction:column;gap:2px;}
 .date-hint{font-size:9px;letter-spacing:.06em;color:var(--dim);text-transform:uppercase;font-family:'DM Mono',monospace;margin-top:1px;}
-/* Native date inputs: dark theme, no white background, no clear (X) button */
-input[type="date"]{background:var(--surface2)!important;color:var(--text)!important;border:1px solid var(--border);border-radius:8px;padding:8px 10px;color-scheme:dark;}
-input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(1) brightness(1.6);cursor:pointer;}
-input[type="date"]::-webkit-clear-button,input[type="date"]::-webkit-inner-spin-button{display:none;-webkit-appearance:none;}
-input[type="date"]::-moz-clear{display:none;}
+/* Native date inputs: dark theme, no white background, no clear (X) button — applies to all classes */
+input[type="date"],input.filter-sel[type="date"],input.form-input[type="date"]{background:var(--surface2)!important;background-color:var(--surface2)!important;color:var(--text)!important;border:1px solid var(--border)!important;border-radius:8px;padding:8px 10px;color-scheme:dark;-webkit-appearance:none;appearance:none;}
+input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(1) brightness(1.6);cursor:pointer;opacity:1;}
+input[type="date"]::-webkit-clear-button,input[type="date"]::-webkit-inner-spin-button{display:none!important;-webkit-appearance:none;}
+input[type="date"]::-moz-clear{display:none!important;}
 .search-pill:focus{border-color:var(--accent);background-color:rgba(14,26,56,.8);}
 .tbl-scroll{max-height:68vh;overflow:auto;}
 .tbl-scroll thead th{position:sticky;top:0;z-index:3;background:var(--surface2);}
@@ -451,7 +451,7 @@ input[type="date"]::-moz-clear{display:none;}
             <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:10px;">
               <div id="md-cmap-status" style="flex:1;min-width:260px;font-size:12px;line-height:1.7;color:var(--muted);">Loading mapping status…</div>
               <div style="display:flex;gap:8px;flex-wrap:wrap;" id="md-cmap-actions">
-                <input class="search-pill" id="md-map-search" type="text" placeholder="Search customer / code / CS / road…" style="min-width:230px;" oninput="mdRenderMapTable()"/>
+                <input class="search-pill" id="md-map-search" type="text" placeholder="Search customer / code / CS / road…" style="min-width:230px;" oninput="mdMapPage=1;mdRenderMapTable()"/>
                 <button class="btn btn-primary btn-sm" onclick="mdEditMapRow(-1)">＋ Add mapping</button>
                 <button class="btn btn-sm" style="background:rgba(255,107,107,.14);color:#ff6b6b;border:1px solid rgba(255,107,107,.4);" onclick="mdDeleteAllMap()">🗑 Delete All Data</button>
                 <button class="btn btn-ghost btn-sm" onclick="mdDownloadTemplate()">⬇ Template</button>
@@ -525,7 +525,7 @@ input[type="date"]::-moz-clear{display:none;}
         <div class="month-bar" id="order-status-bar"></div>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
           <input class="search-pill" type="text" id="order-no-filter" placeholder="Search order no / customer / buyer…" oninput="ordPage=1;renderOrders()" style="width:230px;"/>
-          <select class="filter-sel" id="order-task-filter" onchange="ordPage=1;renderOrders()"><option value="">All tasks</option><option value="Swatch Collection">Collection</option><option value="Sample Delivery">Delivery</option></select>
+          <select class="filter-sel" id="order-task-filter" onchange="ordPage=1;renderOrders()"><option value="">All tasks</option><option value="Swatch Collection">Sample Collection</option><option value="Sample Delivery">Sample Delivery</option></select>
           <select class="filter-sel" id="order-zone-filter" onchange="ordPage=1;renderOrders()"><option value="">All zones</option></select>
           <select class="filter-sel" id="order-service-filter" onchange="ordPage=1;renderOrders()"><option value="">All services</option></select>
           <input class="search-pill" type="text" id="order-resp-filter" list="order-resp-list" placeholder="Responsibility to…" oninput="ordPage=1;renderOrders()" style="width:185px;"/>
@@ -626,7 +626,7 @@ input[type="date"]::-moz-clear{display:none;}
    <div id="o-step1">
      <div class="form-grid">
        <div class="form-group"><label class="form-label">Date *</label><input class="form-input" type="date" id="o-date"/></div>
-       <div class="form-group"><label class="form-label">Task Type *</label><select class="form-input" id="o-task" onchange="onTaskChange()"><option value="">Select…</option><option value="Swatch Collection">Collection</option><option value="Sample Delivery">Delivery</option></select></div>
+       <div class="form-group"><label class="form-label">Task Type *</label><select class="form-input" id="o-task" onchange="onTaskChange()"><option value="">Select…</option><option value="Swatch Collection">Sample Collection</option><option value="Sample Delivery">Sample Delivery</option></select></div>
      </div>
      <div style="margin-top:14px;color:var(--muted);font-size:12.5px;">Pick the <b>date</b> and <b>task type</b>, then continue — you can add many orders at once by uploading a file.</div>
    </div>
@@ -746,7 +746,7 @@ const DEFAULT_FCE_LIST = ['Sabbir','Rasel','Torikul','Akram','Mehedi','Amirul 2'
 const DEFAULT_PURPOSES = ['Colour Matching','Swatch Collection','Urgent Sample Delivery','Complaint Cone Collection','Training of the ShopCoats System','Light box shade matching','Bulk order discussion','DTM handover to lab','Formal meet','Rejection sample delivery & review','No-order swatch collection','Other'];
 const DEFAULT_REASONS = ['Insufficient supporting documents','Amount exceeds daily limit','Visit not pre-approved','Duplicate entry','Customer not in approved list','Date mismatch','Other'];
 const DEFAULT_BUYERS = ["American Eagle Outfitters", "Aerie (AEO)", "AE77", "Old Navy", "Banana Republic", "Gap", "Athleta", "Levi Strauss", "Dockers", "Beyond Yoga", "Heritage Brands (IZOD, Van Heusen, Arrow, Olga, Warners)", "Tommy Hilfiger (USA)", "Tommy Hilfiger (EUR)", "Calvin Klein Europe BV", "Calvin Klein", "Peerless - PVH", "Tommy Jeans", "Columbia Sportswear", "Mountain Hardwear", "Prana", "VF Outdoor- The North Face (TNF)", "VF Workwear - Williamson Dickies, Walls", "VF Active - Napapijri", "VF Outdoor - Timberland (OLD)", "VF Outdoor - Timberland", "VF Outdoor - Icebreaker", "VF Active - Vans", "VF Active - Jansport", "VF Europe & Kipling", "VF Outdoor - Smartwool", "Timberland", "Wrangler Jeanswear", "Lee, Riders Jeanswear", "Rock & Republic", "Inditex-Zara", "Inditex-Stradivarius", "Inditex-Bershka", "Inditex Group", "Inditex - Pull & Bear", "Inditex - Lefties", "Inditex-Massimo Dutti", "Inditex-Oysho", "ZARA TRF", "Zara Basics", "Zara Kids", "Zara Woman", "Zara Man", "Zara AthleticZ", "Zara SPRLS & Estudio", "INDITEX- ZARA HOME", "H & M", "H&M Portfolio Brands-COS,Monki,Wkdy,ARKT", "H&M Move", "H&M - &Other Stores", "H&M - Arket", "H&M - COS", "H&M - Monki", "H&M - Weekday", "H&M - Home", "Decathlon", "Solognac", "UNIQLO", "GU", "Comptoir des Cotonniers", "JBRAND", "Helmut Lang", "Theory (FRG)", "NEXT", "NSL - Bangladesh", "Joules", "Fat Face", "Reiss", "Lipsy London", "BONPRIX", "Ralph Lauren (Polo)", "Chaps", "Club Monaco", "Jack & Jones", "Selected", "Only", "Only and Sons", "Name It", "Vero Moda", "Noisy May", "Pieces", "Jacqueline de Yong (JDY)", "Junarose", "BEST SELLER", "Danish Fashion Group by Bestseller", "Walmart Mexico", "Walmart Japan", "Walmart Canada", "Walmart", "Speedo", "Berghaus", "Canterbury", "Endura", "M&S", "Per Una", "Dewhirst", "G-III Apparel", "Wilsons Leather", "Express & Express Men", "Bonobos", "Gemo", "TBS", "INA, FGL Sport, Mark's Wk", "Musto", "First Tactical", "Noble Outfitters", "Innov8 Partner", "Bass Pro Shop", "Cabela's", "Perry Ellis", "Callaway", "J Crew", "Madewell", "Amazon", "Amazon UK", "Hanesbrands Inc.", "Maidenform", "DBA (Dim Branded Apparel)", "Champion", "Gear for Sports", "Knights Apparel Inc", "Abercrombie & Fitch", "Hollister/Gilly Hicks", "Nautica", "Forever 21", "Aeropostale", "Brooks Brothers", "JC Penney", "Liz Claiborne", "EDDIE BAUER", "Vertx", "Flying Cross", "Lucky Brand", "Juicy Couture", "Carhartt", "Carhartt WIP", "Carter's", "Carter's Canada Inc.", "OshKosh B'gosh", "Ella Moss", "Splendid", "7 For All Mankind", "Delta Galil", "Arc'Teryx Equipment", "Armada", "Bonfire / Amer Sports Portland Design Center", "Wilson Sporting Goods", "Evoshield", "Salomon - Amer Sports", "Atomic", "Peak Performance", "Asos", "TopShop", "Miss Selfridge", "Topman", "Bonobo (Beaumanoir Group)", "Cache Cache", "Morgan", "Patrice Bréal (Beaumanoir Group)", "Scottage (Beaumanoir Group)", "Varner Group", "CUBUS", "Dressmann", "Bik Bok", "Jones New York", "Nine West Apparel", "Authentic Brands", "Billabong", "Element", "Frederick's of Hollywood", "Reebok Apparel", "Spyder", "Tap Out", "Careismatic Brands", "Cherokee Uniform", "Casual Male", "Destination XL", "Rochester Clothing", "DEBENHAMS", "BooHoo", "Alo", "Bella + Canvas", "Michael Kors (Apparel)", "Versace", "Chico's", "Soma Intimates", "White House/Black Market", "Jules (Happychic Group)", "Bizzbee", "Etam", "123 Etam", "JORDACHE", "US Polo Asn", "Gildan", "American Apparel", "Anvil Knitwear", "Al-Style (AlStyle)", "Target USA", "Universal Thread", "Mudd Jeans", "Buffalo Jeans", "Ed Hardy", "London Fog", "Marc Ecko", "Mossimo", "Rocawear", "Zoo York", "Fila (USA)", "Fila", "Saks Fifth Avenue", "Lord & Taylor", "Hudson's Bay Company", "Fristads", "Fristads Kansas Sverige AB", "Leijona", "Snickers", "Jacadi", "Okaidi", "Ann Taylor / Loft / Lou & Grey", "Lane Bryant", "TALBOTS", "AIGLE", "Lacoste (FRA)", "Quiksilver", "Volcom", "Roxy (Apparel)", "CBR-Holding Strt One", "CBR-Holding OneTouch", "CBR-Holding Cecil", "CORTEFIEL GROUP-SPRINGFIELD", "CORTEFIEL GROUP-WOMEN´SECRET", "Cortefiel", "CORTEFIEL GROUP-FIFTY FACTORY", "Workwear Group/Pacific Brands", "Yakka", "Lanier Clothing / Oxford Golf", "Lilly Pulitzer", "Tommy Bahama", "Belk", "The Limited Stores", "Peek & Cloppenburg", "Mo+C579+C604", "McNeal KG", "Sears", "Kmart", "Otto Versand Hamburg", "GYMBOREE", "THE CHILDREN'S PLACE", "Coach", "Kate Spade (Apparel)", "Bonita", "Tom Tailor", "Victoria's Secret", "VS Pink", "Warehouse One", "Silver Jeans", "Jag Jeans", "Bugatti Holding Brinkmann GmbH & Co", "HELLY HANSEN", "Gymshark", "Lululemon Athletica", "Kohl's", "5.11 Tactical", "Lidl Stiftung & Co. Beteiligungs", "Academy Sports & Outdoors", "Burton Snowboards", "Aritzia", "Berne Apparel", "Ardene", "Ben Sherman", "BENETTON", "Camel Active", "ALDI Einkauf", "Alpha Broder Canada", "Beverly Hills Polo Club (BHPC)", "Ardisam", "Dick's Sporting Goods", "Chef Works", "Centric Brands", "Costco", "Duluth Trading Co", "Cotton On", "Country Road", "Disney Sourcing", "Auchan", "Betty Barclay", "Big Star", "C&A", "Canada Sportswear", "ADIDAS APPAREL", "CELIO", "Diesel", "El Corte Ingles", "Ginatricot", "Dillard's", "Shaynne", "Workwear Outfitters", "Under Armour Apparel", "Yamaki", "Tractor Supply", "Woolworth AUS", "YOC TNF", "WE Europe BV", "Tchibo", "TESCO", "The Buckle", "TK Maxx", "TRAWENA", "Umbro International Ltd", "YM Inc.", "Truewerk", "Suzyshier", "True Religion", "Merrell", "Tifossi", "TJ Maxx", "SAXX Underwear", "TARGET AUSTRALIA", "Orvis Company", "Pep & Co", "Primark", "Promod", "Puma (App.)", "QVC", "REITMANS", "River Island", "S OLIVER", "SAINSBURYS", "Sanctuary", "Nishimatsuya", "Avenue Stores", "Ariat International", "Al- Obaidani", "Arena", "Chicco", "Arvind Lifestyle Brands Limited", "Augusta Sportswear", "Austin Reed", "Aydinli", "Adler Modemarkte", "Ahead USA", "Alcott", "Alexon", "A&D Hope Ltd", "AJM INTERNATIONAL", "Grolls/Swedol/Univern", "Active Elite", "At Last Sportswear Inc", "Atlantic Sportswear", "Armed Angels", "AG GEAR", "Alpine Star", "Aeon", "America Today", "BONMAX", "Atlas", "Bootlegger", "Blair", "Bushman", "Basics Life", "Berkley Jensen", "Blackberry", "BMB", "Borch", "Boy Scouts of America", "BRAX", "Brook Tavener", "Browning", "Buck Wear", "BearBottom", "Bergans", "Bristol", "Bossini", "Brunn & Stengade (B&S)", "Bonds", "Burlington Coat Factory", "Brav Group", "Bernardo", "Best & Less", "bubbleroom", "Comark Inc. (Ricki's, CLEO)", "Celebrity Pink Jeans", "Capelli Sport", "Camelbak Products LLC", "Carrefour Tex", "Carreman Michel Thierry (CMT)", "MONOPRIX GROUP", "Cato", "CMT International", "Coalision, Lole", "Colins (Eroglu)", "CORONA", "Complices", "Crew Clothing Co", "Crown Crafts", "Christian Berg", "Crush Denim", "Coop (Denmark & Italy)", "Camicissima", "Castro", "CLINTON Grosshandels", "Charles Tyrwhitt", "Carrera Jeans", "C.M.T. COMPAGINIA MANIFATURE TESSIL", "Calzedonia Group", "Cellbes", "Chori", "Castore", "Goose", "Corsina", "Canpack", "CISALFA", "Crossline", "Connor", "Cape Union Mart", "DKNY (Donna Karen NY)", "Dress Barn", "Catherine's", "E Land Fashion", "Dri Duck", "Majestic", "Deroyal", "Damart-Despatures", "DAUN GROUP - NKD", "David Howard", "De Facto", "DESTINATION MATERNTY", "Devred", "Dimensions Alexandra", "DK Company Vejle", "DR DENIM", "Dunnes", "Edcon", "Ellen Tracy", "Encuentro", "Engbers GmbH & Co.KG", "ENGELBERT STRAUSS", "EQUIP Outdoor Technologies Ltd.", "Ernsting's family", "F. Engel", "Fab India", "Fashion Option", "Filson - Apparel", "Fishman & Tobin", "Freddy", "Fritz Hiltl", "Fruit of the Loom", "Fussl moden", "Detto Fatto", "Pimkie Orsay Xanaka", "Rab", "Edwards Garment", "EYDA", "FINKID", "Dassy Europe", "Exxel Outdoors", "Elis", "ED Walters", "Dobell", "ETERNA", "Finery London", "DUER", "ETOS S.A.", "FXD workwear", "Elegant Team", "Douglas & Grahame", "Frank and Oak", "Diverse", "Hanna Andersson", "HAGGAR", "Japana", "hap co.ltd", "Garan (Garanimals)", "GERBER CHILDRENSWEAR", "Justice", "Just Group", "Gazman", "Hurley", "Jackfield Canada", "JACHS", "Jessica Simpson", "GRAND NATIONAL APPAREL", "Galeries Lafayette", "GANDER MOUNTAIN", "Janie & Jack", "Gardeur", "Geoffrey Beene", "GEORGE/ASDA", "Gerry Weber", "Glassons", "Gloria Jeans", "Grafton - Fraser Inc", "Grey State", "Groupe Corwick", "Groupe Dynamite", "G-STAR", "Guess", "Guess Europe", "Güldenpfennig", "GYM AESTHETICS", "Hawes & Curtis", "HEMA B.V.", "Hope & Henry", "Horizon Global Industries", "House of Sunny", "HUGO BOSS", "Hummel Sport", "Hunkemoller", "Intersports", "ITC", "J Jill", "JACK WOLFSKIN", "JB Britches", "JD William", "Jeans Fritz", "Jockey", "Joe's Jeans", "John Lewis", "indigo rein", "Haddad Brands", "Great united", "Jcraft", "Jeaniologie", "Holy Fashion Group", "Armani Exchange", "Jack Wills", "Gustav Diver", "JRC (James Ross Collection)", "Gas Jeans", "John Richmond", "Habit Outdoors", "Indicode", "JOHNNY BIGG", "G&G Brands", "JD Sports", "Groupe GPE", "Investment Hardware Limited", "Jennyfer", "Kuhl", "Karl Lagerfeld International BV", "Muji", "Kurodaruma", "Mont Bell", "KURABO", "Kids Headquarters", "Loft", "Myer", "Kmart AUS", "LT Apparel Group", "Kenneth Cole", "Mr. Price", "Madura Garment Brands", "K&L RUPPERT", "Kaiser Bekleidung", "Kapp Ahl", "Kariban", "Karstadt Quelle", "Kaufhof", "Kegel (Classic Products Corp)", "American Recreation Products Inc.", "Kiabi", "KIK", "Komar Brands", "Koton", "Kroger", "L L Bean", "la Vie en Rose", "Landau Uniforms", "Landmark", "LANDS' END", "Laura Canada", "Lea Trade", "Lee Cooper France", "Lifestyle retail India", "Lindex", "Lisca", "Loblaws Company Ltd. (Joe Fresh)", "Lola Liza", "Louis Garneau Sports Inc.", "Louis Hebert Uniforms Inc.", "LPP S.A.", "Lyle & Scott", "MACY'S", "Mamiye Brothers Inc", "Mammut Sports Group (Apparel)", "MANGO", "MATALAN", "Maurices", "MAVI", "Mayoral", "MCS Italia", "Meijer", "Metro Germany - MGB", "mister-lady", "Monsoon", "Morrisons", "Moss Bros", "MOTHERCARE", "Mountain Warehouse", "MQ retail", "MS Mode Nederland BV", "Mufti", "Mustang Jeans", "Gant", "Kenvelo", "Metrolina Outdoor", "Lerros", "La Senza", "Mey & Edlich", "Killtec", "Kasper", "Mascot", "Leslunes", "LMA France", "Lazuli Level", "Kaporal", "Manifattura di Valduggia (Ragno)", "Klatter Musen", "Montane", "LION OF PORCHES", "Med Couture", "KEY Apparel", "Marc O' Polo", "Kathmandu", "Manscaped", "Modenik Lifestyles", "Millers", "Mosaic Brands Ltd", "Mulliez", "Sherpa Adventure Gear", "Right On", "Outdoor Research", "PSW", "Naked & famous", "NIKE APPAREL", "Salted Basics", "Rachel Roy", "Sunrise Brands", "Ring of Fire", "New Frontier", "NEW LOOK", "New wave", "New York & Co.", "New Yorker Grp", "Next Level", "Ninety Percent", "NORDSTROM", "Nybo Workwear A/S", "NYGARD", "OAKLEY", "OLYMP", "One Jeanswear Group", "O'Neill", "ORCHESTRA", "Original Marines", "Orsay", "OSPIG TEXTIL", "Ostin", "OTCF (4F)", "OVS", "Pacific Sunwear (PacSun)", "Pantaloons", "Paramount Apparel International Inc", "PATAGONIA", "Pepe Jeans", "Petrol Industries", "Piazza Italia", "Point Zero", "Poivre Blanc", "Polo Garage", "RALAWISE", "Raymond’s / Colour Plus", "Regatta Great Outdoors", "Reliance Trends", "Replay", "Richlu Manufacturing", "RnB", "Robe di Kappa", "Reef", "Roly", "Saintwears", "SanMar", "Samuel Windsor", "Union Bay", "Shinsegae", "Shoeby Fashion", "Slate & Stone", "Slaters", "Smith's Workwear", "SPAO", "Spykar Lifestyles Private Limited", "Stadium", "Stage Stores Inc.", "Stanley/Stella", "Steve Jeans", "Storm Tech Performance Apparel", "Stripe International", "Petit Bateau", "SWEDTEAM", "Peter Christian", "Sea Salt Clothing", "Rural King", "Sportailor", "Personal Shop", "Poncho Outdoors", "Pierre Cardin", "Paper Denim & Cloth", "Roman Originals", "Oh Polly", "Sports Direct", "Snugpak", "O'Neal", "RIP Curl Europe", "Stitch Fix", "Stooker Brands", "Salling Group", "Splash Clothing", "Namuk", "Navigare", "Simon Jersey", "Schiesser", "Swims", "Okamoto", "Suncity", "Seidensticker", "Nurdie", "Pure Cotton", "Rossini", "N.M.Williams (UK) Ltd.", "Padel", "Sprinter Sports", "Simms Fishing", "Sézane", "Scout Clothing", "Rewash", "Rev´it Sport International BV", "Parfois", "Oxford", "Siga International", "Scout Store", "Skopes", "Peloton", "Rare Rabbit", "Siksilk", "SWAZI", "Rockwear", "Stuncroft", "Port West", "Neiman Marcus", "Shirt & More GMBH", "School Knit", "Oak & Fort", "Sergent Major", "Promo Stars", "Reima", "Takaya", "Xebec", "Tamurakoma", "2XU", "Topson Downs of California", "Weenas", "Men's Wearhouse", "Vouri", "Trueworth", "LCWAIKIKI (TEMA)", "Littlewoods (Shop Direct)", "Tailor Vintage", "Takko Holding", "Tally Weijl", "TAO Sportswear", "TED BERNHARDTZ", "Teddy Spa", "Teenie Weenie", "Tillys", "TM Lewin", "Topper Tuotanto", "Trew Gear", "TRUTEX", "Vivarte La Halle", "VIKING RUBBER", "Westside", "White Stuff", "Woodland", "Woolrich", "Yamamay", "Zodiac", "Wolf Lingerie", "Truworths", "Weatherproof Garment Co.", "The Hut Group / My Protein", "Triumph International", "Zolla", "Wehkamp BV", "The Levy Group", "Women's Best", "zlabels / Zalando", "zpdc GMBH", "The Perfect Jean", "TKO Evolution", "Ted Baker", "Toast", "Top Ten", "Teddy Smith", "Tarocash", "6PM", "MONTEFUEGO", "TBH Global", "Voice Norge", "Tribal Design LLC", "Winter Bottom", "Zeco", "Zinntex PPE", "The Sting", "TravisMathew", "WALBUSCH", "TOPTEN", "American Tall", "Jack Archer", "Giant Tiger", "5.11 Tactical (FWA)", "ABC Mart (FWA)", "adidas (FWA)", "Amazon (FWA)", "Apex (FWA)", "Arc'Teryx Equipment (FWA)", "Black Diamond", "Caleres", "Calzaturificio Annabella Spa (FWA)", "Camel Active (FWA)", "Michael Kors (FWA)", "Carmens (FWA)", "Eddie Bauer (FWA)", "Ccc (FWA)", "Clarks (FWA)", "Decathlon (FWA)", "Deichmann (FWA)", "Anta Group", "Itochu (FWA)", "Uniqlo (FWA)", "Goldwin", "HUK Gear", "Inditex-Zara (FWA)", "LK International", "Lululemon Athletica (FWA)", "M&S (FWA)", "Macpac", "Marubeni (FWA)", "Mimco", "Next (FWA)", "OUTDOOR (FWA)", "Puma (FWA)", "Tommy Hilfiger (FWA)", "S Oliver (FWA)", "Salomon - Amer Sports (FWA)", "Talan (FWA)", "Kate Spade (FWA)", "Coach (FWA)", "VF Outdoor - Timberland (FWA)", "VF Active - Eastpak (FWA)", "VF Outdoor - North Face (TNF) (FWA)", "Williamson-Dickies Europe Ltd (FWA)", "VF Active - Jansport (FWA)", "VF Active - Napapijri (FWA)", "Wal-Mart (FWA)", "Merrell (FWA)", "Sorel", "Le Sport Sac", "Wolverine (FWA)", "Bugatti (Auto)", "Blaklader", "Alsico /MOLINEL", "FECSA", "Dierig Holding AG", "ITURRI GROUP", "Redcats", "Sun Garden", "L. Ten Cate", "Van Puijenbroek (Havep)", "Ziegler Textil GmbH", "Whitewear", "Vespo", "Eagle Creek", "Kjus", "Adolphe Lafont", "Casa Moda", "The Cherokee Group", "Falabella", "Deeluxe", "VF Outdoor - Altra, Smartwool", "ESPRIT", "Conbipel", "TSC", "Grupo VNC Cofemel - Sociedade de Vestuário, S.A.", "Confecciones Nalo", "Camaieu", "M & Co", "MG Boy's", "BHS (British Home Stores)", "Cotton Club", "Cotton Trend", "McGregor Sportswear BV", "Gruppo Coin", "Prominent Europe", "Izac", "Pegador", "Kaufland", "Zapa", "Ducks Unlimited", "Francesca's", "BMG (Brand Machine Group)", "Heyinz (Sportisimo)", "Petite Plume", "Lager 157", "AVX", "Zudio", "Active Brands", "Bliss Club", "Aditya Birla", "TATA Trent ltd", "HATTRIC", "A.M. LONDON", "Vanilla Underground", "BCN Import", "Voice Clothing", "Faded Glory", "INA Int'l (FGL Sports)", "Kontoor Outlets", "Van Heusen", "Sears Canada", "Bragard", "B&C", "CHARLES VOEGELE", "Peacocks", "Coleman", "Bon Marche", "ARCADIA", "Simons", "VF Jeanswear - 20x_Riders_Rock&Rep", "EDINBURGH WOOL MILL", "Lola", "Charlott", "SAXX", "Brandella Uniforms", "Canda", "IC Comp Peak Perform", "IKKS", "Prominent", "Time Out Clothing", "Alpine Pro", "Uvex", "BOOTS", "Trend For You", "Pretty Green", "Adanola", "Urban Outfitters", "Sam's Club", "We Fashion", "LPP - Reserved", "LPP - Cropp", "LPP - Mohito", "LPP - Sinsay", "LPP - House", "Amerex Group", "Molini", "future value retail ( Big Bazar)", "Indian Terrain", "Crimson Club", "Waltmann", "INBRANDS  S/A", "Handcraft", "Allen Solly", "LOUIS PHILLIPE - INLAND", "Peter England-Inland", "VAN HEUSEN - INLAND", "CENCOSUD", "Kingland", "EZEKIEL", "Max", "MS Mode", "The FAGEO", "Advance Manufacturing Group", "IKD Limited", "Next (Lilen)", "FAM Brands", "Enamor", "RED TAPE", "RED TAPE FOOTWEAR - INLAND", "Norwest", "STF Group", "Carlings", "Rookies", "Matrix", "Monte Carlo", "Feuchter", "Paterson", "Zivame", "Stooker", "Seyntex", "CCC", "Vertbaudet", "Marutomi", "NOVI Footwear", "Pointer Shoes", "String trading group", "Nutmeg", "PROMODORO", "VFO", "Hakro", "Texman", "Pioneer", "Voice Clothing", "Fynch Hatton", "Pure And Happy", "TNF Korea", "Splash", "Lovegen", "Scroll", "Port West Ltd", "VELTUFF", "DTO", "Thalhimer", "NYKAA", "SSTS (Shinsung Tongsang Co. Ltd.)", "Jockey - India", "Clinic& Job Dress (Germany)", "CFL Enterprise Limited", "Flying Machine", "STREET HQ LLC", "AWG", "H Best", "Les Lunes", "Tipo's", "Amante (India)", "Jaegook", "Diverses", "Sting", "MAAG", "BCN", "GMPC", "Being Human", "MGF Trading", "Zeel", "Turtle", "TRAVIS MATHEW", "Eternita", "Others"];
-const DEFAULT_SERVICE_BY = ['Internal FCE','Excelsior Courier','Internal Supply Chain Van','FCE (Urgent)'];
+const DEFAULT_SERVICE_BY = ['FCE (Urgent)','Excelsior Courier','Supply Chain Van'];
 const DEFAULT_RESPONSIBILITY = ['Excelsior Courier'];
 const FCE_COLORS = {'Sabbir':'#9b8cff','Rasel':'#46e6d6','Torikul':'#ffc24d','Akram':'#ff9fd0','Mehedi':'#6fc0ff','Amirul 2':'#5fe6a0','Shajib':'#ff7a90','Amirul 1':'#ff9f5a','Biplob':'#b9a3ff'};
 const PALETTE = ['#9b8cff','#46e6d6','#ffc24d','#ff9fd0','#6fc0ff','#5fe6a0','#ff7a90','#ff9f5a','#b9a3ff','#66e6b8'];
@@ -761,7 +761,7 @@ function fmtDate(d){ if(!d)return '—'; const dt=new Date((''+d).slice(0,10)+'T
 // ═══ IN-MEMORY CACHE (filled from cloud) ═══
 let CACHE = { entries:[], users:[], master:null, orders:[], employees:[], attendance:[], _attLoaded:false };
 let editingOrderId=null;
-const COLLECTION_SERVICES=['FCE','Excelsior Courier'];
+const COLLECTION_SERVICES=['FCE (Urgent)','Excelsior Courier'];
 const DELIVERY_SERVICES=['Excelsior Courier','Supply Chain Van','FCE (Urgent)'];
 const ORDER_STATUSES=['Requested','Returnted','In Development','Delivered'];
 let currentUser=null, editingId=null, approveId=null, activeFCE=null, activeMonthLog='all', activeChartsMonth='all';
@@ -1362,14 +1362,35 @@ document.addEventListener('click',function(e){
 function mdCancelUpload(){ const f=document.getElementById('md-cmap-file'); if(f)f.value=''; const ov=document.getElementById('md-map-overlay'); if(ov)ov.remove(); showToast('Cancelled — mapping unchanged.'); }
 // ── Editable mapping table (Master Data) ──
 function mdCmRows(){ return (window.PKM_CMFULL||[]).map((r,ix)=>({r,ix})).filter(x=>Array.isArray(x.r)&&x.r[0]==='#CMAP'); }
+let mdMapPage=1, mdMapPageSize=10;
+function mdMapSetPageSize(v){ mdMapPageSize=parseInt(v)||10; mdMapPage=1; mdRenderMapTable(); }
+function mdMapGoPage(p){ mdMapPage=Math.max(1,p); mdRenderMapTable(); }
 function mdRenderMapTable(){
   const box=document.getElementById('md-map-table'); if(!box)return;
   const q=((document.getElementById('md-map-search')||{}).value||'').trim().toLowerCase();
   const all=mdCmRows();
   const list=q?all.filter(({r})=>((r[1]||'')+' '+(r[3]||'')+' '+(r[4]||'')+' '+(r[7]||'')+' '+(r[2]||'')+' '+(r[8]||'')+' '+(r[10]||'')).toLowerCase().includes(q)):all;
   const adm=isAdmin();
-  const shown=list.slice(0,10);
   if(!all.length){ box.innerHTML='<div style="font-size:12px;color:var(--muted);padding:10px 0;">No mapping rows yet — add one with ＋ Add mapping, or bulk-upload the template once.</div>'; return; }
+  const total=list.length;
+  const totalPages=Math.max(1,Math.ceil(total/mdMapPageSize));
+  if(mdMapPage>totalPages)mdMapPage=totalPages;
+  const startIdx=(mdMapPage-1)*mdMapPageSize;
+  const shown=list.slice(startIdx,startIdx+mdMapPageSize);
+  const from=total?startIdx+1:0, to=startIdx+shown.length;
+  const sizes=[10,15,25,50,100];
+  const pager=`<div style="display:flex;align-items:center;justify-content:flex-end;gap:18px;padding:10px 2px;font-size:13px;color:var(--muted);flex-wrap:wrap;">
+    <label style="display:flex;align-items:center;gap:8px;">Rows per page
+      <select onchange="mdMapSetPageSize(this.value)" style="background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:4px 8px;font-size:13px;">
+        ${sizes.map(sz=>`<option value="${sz}" ${sz===mdMapPageSize?'selected':''}>${sz}</option>`).join('')}
+      </select>
+    </label>
+    <span style="font-variant-numeric:tabular-nums;">${from.toLocaleString()}–${to.toLocaleString()} of ${total.toLocaleString()}</span>
+    <span style="display:flex;gap:4px;">
+      <button class="btn-icon" ${mdMapPage<=1?'disabled style="opacity:.35;"':''} onclick="mdMapGoPage(${mdMapPage-1})" title="Previous"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="pointer-events:none;"><polyline points="15 18 9 12 15 6"/></svg></button>
+      <button class="btn-icon" ${mdMapPage>=totalPages?'disabled style="opacity:.35;"':''} onclick="mdMapGoPage(${mdMapPage+1})" title="Next"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="pointer-events:none;"><polyline points="9 18 15 12 9 6"/></svg></button>
+    </span>
+  </div>`;
   box.innerHTML=`<table style="min-width:900px;"><thead><tr>${adm?'<th style="width:60px;">Action</th>':''}<th>Customer Name<br><span style="font-size:9px;color:var(--dim);">Sold-to code</span></th><th>Ship to Party Name<br><span style="font-size:9px;color:var(--dim);">+ code</span></th><th>CS Name, Mail ID &amp; Mobile No.</th><th>FCE Name</th><th>Road Name</th><th style="text-align:center;">Complete Deliver</th></tr></thead><tbody>
   ${shown.map(({r,ix})=>{ const cd=(r[6]||'').trim(); const isCD=cd&&!/^(0|n|no|partial)$/i.test(cd);
     return `<tr>
@@ -1382,7 +1403,7 @@ function mdRenderMapTable(){
       <td style="text-align:center;">${isCD?'<span class="badge" style="background:rgba(255,159,90,.15);color:#ff9f5a;">Complete</span>':'<span style="color:var(--dim);font-size:11px;">Partial</span>'}</td>
     </tr>`; }).join('')}
   </tbody></table>
-  <div style="font-size:11px;color:var(--dim);margin-top:6px;">${list.length.toLocaleString()} row${list.length===1?'':'s'}${list.length>10?' — showing first 10, use search to narrow down':''}.</div>`;
+  ${pager}`;
 }
 function mdEditMapRow(ix){
   if(!isAdmin()){ showToast('Only Super Admin can edit the mapping.','err'); return; }
@@ -1451,52 +1472,21 @@ function getFceNames(){ const m=getMaster(); const base=Array.isArray(m.fce)?m.f
 function renderMasterData(){
   if(!isAuthorizer())return;
   const m=getMaster();
-  cdRenderMaster();
   mdPaintMapStatus();
   mdRenderMapTable();
   rrRender();
   const act=document.getElementById('md-cmap-actions'); if(act)act.style.display=isAdmin()?'':'none';
   document.querySelectorAll('#page-masterdata .add-item-row').forEach(r=>{ r.style.display=isAdmin()?'':'none'; });
   if(document.getElementById('master-fce-list')) renderMasterList('master-fce-list',m.fce,'fce');
-  const custList=document.getElementById('master-customer-list');
-  if(custList){
-    const search=(document.getElementById('master-cust-search')?.value||'').toLowerCase();
-    const custs=search?m.customers.filter(c=>c.toLowerCase().includes(search)):m.customers;
-    const cc=document.getElementById('cust-count'); if(cc)cc.textContent=m.customers.length;
-    const shown=custs.slice(0,60);
-    custList.innerHTML=shown.map(item=>masterItemHTML(item,'customer',m.customers.indexOf(item))).join('')+(custs.length>60?`<div class="combo-empty">+${custs.length-60} more — use search</div>`:'');
-  }
   renderMasterList('master-purpose-list',m.purposes,'purpose');
   renderMasterList('master-reason-list',m.reasons,'reason');
-  if(document.getElementById('master-buyer-list')) renderMasterList('master-buyer-list',m.buyers||[],'buyer');
   renderFcePhones(); renderCourierEmails();
 }
-function renderMasterList(id,items,type){ document.getElementById(id).innerHTML=items.map((item,i)=>masterItemHTML(item,type,i)).join(''); }
-function cdRenderMaster(){
-  const el=document.getElementById('master-cd-list'); if(!el)return;
-  const list=cdList(); const cnt=document.getElementById('cd-count'); if(cnt)cnt.textContent=list.length;
-  el.innerHTML=list.map((c,i)=>`<div class="master-item"><span>${attEsc(c)}</span><button class="btn-icon" title="Remove" onclick="cdRemoveCustomer(${i})"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>`).join('')||'<div class="combo-empty">No Complete Delivery customers yet — all customers are Partial Delivery.</div>';
-}
-async function cdAddCustomer(){
-  const inp=document.getElementById('new-cd-input'); const v=(inp.value||'').trim(); if(!v)return;
-  if(typeof CONTACTS==='undefined'||!CONTACTS)return; if(!Array.isArray(CONTACTS.cdCustomers))CONTACTS.cdCustomers=[];
-  if(CONTACTS.cdCustomers.some(c=>pkmKey(c)===pkmKey(v))){ showToast('Already in the list.','err'); return; }
-  CONTACTS.cdCustomers.push(v); inp.value='';
-  try{ if(typeof dbSaveContacts==='function')await dbSaveContacts(); showToast('"'+v+'" marked as Complete Delivery customer.'); }catch(e){ showToast('Cloud save failed: '+(e.message||e),'err'); }
-  cdRenderMaster();
-}
-async function cdRemoveCustomer(i){
-  if(typeof CONTACTS==='undefined'||!CONTACTS||!Array.isArray(CONTACTS.cdCustomers))return;
-  const c=CONTACTS.cdCustomers[i]; if(c==null)return;
-  if(!confirm('Remove "'+c+'" from Complete Delivery customers? Their orders will be treated as Partial Delivery.'))return;
-  CONTACTS.cdCustomers.splice(i,1);
-  try{ if(typeof dbSaveContacts==='function')await dbSaveContacts(); showToast('Removed.'); }catch(e){ showToast('Cloud save failed: '+(e.message||e),'err'); }
-  cdRenderMaster();
-}
+function renderMasterList(id,items,type){ const el=document.getElementById(id); if(!el)return; el.innerHTML=items.map((item,i)=>masterItemHTML(item,type,i)).join(''); }
 function masterItemHTML(item,type,i){ if(!isAdmin()){ return `<div class="master-item"><span class="mi-name">${attEsc(item)}</span></div>`; } return `<div class="master-item"><span class="mi-name">${attEsc(item)}</span><div style="display:flex;gap:6px;"><button type="button" class="btn-icon md-act" data-act="edit" data-type="${attEsc(type)}" data-idx="${i}" style="padding:3px 6px;" title="Edit"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="pointer-events:none;"><path d="M17 3a2.828 2.828 0 114 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg></button><button type="button" class="btn-icon md-act" data-act="del" data-type="${attEsc(type)}" data-idx="${i}" style="padding:3px 6px;color:var(--red);" title="Remove"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="pointer-events:none;"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div></div>`; }
 window.addEventListener('error',function(ev){ try{ console.error('APP ERROR:',ev.message,ev.filename,ev.lineno); if(typeof showToast==='function'&&!window._errToasted){ window._errToasted=true; showToast('A script error occurred: '+ev.message+' — some buttons may not work. Please screenshot this and report.','err'); } }catch(_){} });
 // Consistent date-format hint (DD/MM/YYYY) under every native date input — the picker's own display follows the browser locale, so this label removes ambiguity.
-function attachDateHints(){ try{ document.querySelectorAll('input[type="date"]:not([data-dh])').forEach(inp=>{ inp.setAttribute('data-dh','1'); inp.title='Date format: DD/MM/YYYY'; const h=document.createElement('div'); h.className='date-hint'; h.textContent='DD / MM / YYYY'; if(inp.nextSibling&&inp.nextSibling.className==='date-hint')return; inp.insertAdjacentElement('afterend',h); }); }catch(_){} }
+function attachDateHints(){ try{ document.querySelectorAll('input[type="date"]:not([data-dh])').forEach(inp=>{ inp.setAttribute('data-dh','1'); inp.title='Date format: DD/MM/YYYY'; }); document.querySelectorAll('.date-hint').forEach(h=>h.remove()); }catch(_){} }
 document.addEventListener('DOMContentLoaded',attachDateHints);
 setInterval(attachDateHints,1200);
 document.addEventListener('click',function(e){
@@ -1512,10 +1502,36 @@ function getContacts(){ return CONTACTS||{fce:{},courier:{}}; }
 async function dbSaveContacts(){ const cur=await dbGetMaster().catch(()=>null); const row={...(cur||{}),id:1,contacts:CONTACTS,updated_at:new Date().toISOString()}; const {error}=await sb.from('master_data').upsert(row); if(error)throw error; lsSet('sc_contacts',CONTACTS); }
 function renderFcePhones(){
   const box=document.getElementById('master-fce-phones'); if(!box)return; const m=getMaster(); const c=getContacts().fce||{}; const ed=isAdmin();
-  const fl=getFceNames(); box.innerHTML=(fl.length?fl.map((n,i)=>`<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border);"><span style="flex:1;font-size:13px;">${attEsc(n)}</span><input class="form-input" style="max-width:170px;" type="tel" id="fcph-${i}" value="${attEsc(c[n]||'')}" placeholder="01XXXXXXXXX" ${ed?'':'disabled'}/></div>`).join(''):'<div style="color:var(--muted);font-size:12px;">Add FCE names via the Customer Mapping above.</div>')+(ed&&fl.length?`<div style="margin-top:10px;"><button class="btn btn-primary btn-sm" onclick="saveFcePhones()">Save numbers</button></div>`:'');
+  const fl=getFceNames(); box.innerHTML=(fl.length?fl.map((n,i)=>`<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border);"><span style="flex:1;font-size:13px;" id="fcnm-${i}">${attEsc(n)}</span>${ed?`<button class="btn-icon fce-rename" data-name="${attEsc(n)}" title="Rename FCE (updates everywhere)" style="padding:3px 6px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="pointer-events:none;"><path d="M17 3a2.828 2.828 0 114 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg></button>`:''}<input class="form-input" style="max-width:170px;" type="tel" id="fcph-${i}" value="${attEsc(c[n]||'')}" placeholder="01XXXXXXXXX" ${ed?'':'disabled'}/></div>`).join(''):'<div style="color:var(--muted);font-size:12px;">Add FCE names via the Customer Mapping above.</div>')+(ed&&fl.length?`<div style="margin-top:10px;"><button class="btn btn-primary btn-sm" onclick="saveFcePhones()">Save numbers</button></div>`:'');
 }
+async function fceRename(oldName){
+  if(!isAdmin()){ showToast('Only Super Admin can rename FCEs.','err'); return; }
+  const nn=prompt('Rename FCE "'+oldName+'" to:\n\nThis updates the name everywhere it is used — orders, mapping FCE assignments, phone list, and dropdowns.',oldName);
+  if(nn===null)return; const newName=nn.trim(); if(!newName||newName===oldName)return;
+  try{
+    setSync&&setSync(true,'Renaming…');
+    const m=getMaster();
+    // 1) master fce list
+    if(Array.isArray(m.fce)){ const ix=m.fce.findIndex(x=>x===oldName); if(ix>=0)m.fce[ix]=newName; else if(!m.fce.includes(newName))m.fce.push(newName); }
+    await dbSaveMaster(m);
+    // 2) phone mapping key
+    if(CONTACTS.fce&&CONTACTS.fce[oldName]!=null){ CONTACTS.fce[newName]=CONTACTS.fce[oldName]; delete CONTACTS.fce[oldName]; }
+    // 3) mapping rows: FCE Name column (idx 7)
+    let mapChanged=false;
+    (window.PKM_CMFULL||[]).forEach(r=>{ if(Array.isArray(r)&&r[0]==='#CMAP'&&(r[7]||'').trim()===oldName){ r[7]=newName; mapChanged=true; } });
+    if(mapChanged){ try{ await dbPkmSaveCs(window.PKM_CMFULL); const cch=lsGet('pkm_cache',{})||{}; pkmBuild(cch.at||[],window.PKM_CMFULL); lsSet('pkm_cache',{at:(cch.at||[]),cm:window.PKM_CMFULL,au:PKM.texUpd,cu:new Date().toISOString()}); }catch(_){} }
+    // 4) existing orders with this FCE
+    const affected=getOrders().filter(o=>(o.fce||'').trim()===oldName);
+    if(affected.length){ const rows=affected.map(o=>{ o.fce=newName; return orderToRow(o); }); for(let i=0;i<rows.length;i+=400){ const {error}=await sb.from('sample_orders').upsert(rows.slice(i,i+400)); if(error)throw error; } }
+    await refreshAll();
+    showToast('FCE renamed to "'+newName+'"'+(affected.length?(' · '+affected.length+' order(s) updated'):'')+'.');
+    renderMasterData&&renderMasterData();
+  }catch(e){ showToast('Rename failed: '+(e.message||e),'err'); }
+  finally{ setSync&&setSync(false); }
+}
+document.addEventListener('click',function(e){ const b=e.target.closest&&e.target.closest('.fce-rename'); if(!b)return; e.preventDefault(); fceRename(b.getAttribute('data-name')); },true);
 async function saveFcePhones(){ if(!isAdmin()){ showToast('Only Super Admin can edit contacts.','err'); return; } const map={}; getFceNames().forEach((n,i)=>{ const el=document.getElementById('fcph-'+i); const v=el?el.value.trim():''; if(v)map[n]=v; }); CONTACTS.fce=map; try{ await dbSaveContacts(); showToast('FCE numbers saved (shared to all PCs).'); }catch(e){ showToast('Cloud save failed: '+e.message,'err'); } }
-const DEFAULT_COURIERS=['Excelsior Courier','Internal Supply Chain Van'];
+const DEFAULT_COURIERS=['Excelsior Courier','Supply Chain Van'];
 function courierNames(){ const c=getContacts().courier||{}; return [...new Set([...DEFAULT_COURIERS,...DELIVERY_SERVICES,...Object.keys(c)])]; }
 function renderCourierEmails(){
   const box=document.getElementById('master-courier-emails'); if(!box)return; const c=getContacts().courier||{}; const ed=isAdmin(); const names=courierNames();
@@ -1524,7 +1540,7 @@ function renderCourierEmails(){
 function addCourier(){ if(!isAdmin()){ showToast('Only Super Admin can edit contacts.','err'); return; } const inp=document.getElementById('new-courier-input'); const v=(inp.value||'').trim(); if(!v)return; CONTACTS.courier=CONTACTS.courier||{}; if(!(v in CONTACTS.courier))CONTACTS.courier[v]=''; inp.value=''; renderCourierEmails(); }
 async function saveCourierEmails(){ if(!isAdmin()){ showToast('Only Super Admin can edit contacts.','err'); return; } const map={}; document.querySelectorAll('[id^=cremail-]').forEach(el=>{ const n=el.getAttribute('data-name'); const v=el.value.trim(); if(v)map[n]=v; }); CONTACTS.courier=map; try{ await dbSaveContacts(); showToast('Courier emails saved (shared to all PCs).'); }catch(e){ showToast('Cloud save failed: '+e.message,'err'); } }
 // ---- Send requirement (tap-to-send) ----
-function taskShort(t){ return t==='Swatch Collection'?'Collection':t==='Sample Delivery'?'Delivery':(t||''); }
+function taskShort(t){ return t==='Swatch Collection'?'Sample Collection':t==='Sample Delivery'?'Sample Delivery':(t||''); }
 function orderResponsible(o){ return o.task==='Sample Delivery' ? (o.service||o.fce||'') : (o.fce||o.service||''); }
 function intlPhone(p){ let d=(''+p).replace(/[^0-9]/g,''); if(d.startsWith('880'))return d; if(d.startsWith('0'))return '88'+d; if(d.length===10)return '880'+d; return d; }
 function orderMsg(o){ const L=['Sample requirement ('+(o.task||'')+')']; if(o.orderNo)L.push('Order No: '+o.orderNo); if(o.customer)L.push('Customer: '+o.customer); if(o.buyer)L.push('Buyer: '+o.buyer); if(o.to)L.push('Zone/Road: '+o.to); if(o.status)L.push('Status: '+o.status); if(o.date)L.push('Date: '+fmtDate(o.date)); if(o.reqTime)L.push('Requested time: '+o.reqTime); if(o.deliveredAt)L.push('Delivery date: '+fmtDate(o.deliveredAt)); L.push('Remarks: '+(o.remarks||'-')); return L.join('\n'); }
@@ -1943,21 +1959,20 @@ function renderServiceReview(){
   const chips=['all',...months].map(m=>`<button class="month-chip ${__svcMonth===m?'active':''}" onclick="setSvcMonth('${m}')">${m==='all'?'All months':monthLabel(m)}</button>`).join('');
   const orders=scopedOrders().filter(o=>__svcMonth==='all'||((o.date||'').slice(0,7)===__svcMonth));
   const svcMap={};
-  orders.forEach(o=>{ const s=o.service||'(unassigned)'; const t=o.task||''; if(!svcMap[s])svcMap[s]={swatch:0,delivery:0,total:0,delivered:0}; if(t==='Sample Delivery')svcMap[s].delivery++; else if(t==='Swatch Collection')svcMap[s].swatch++; svcMap[s].total++; if(o.status==='Delivered')svcMap[s].delivered++; });
+  orders.forEach(o=>{ let s=(o.service||'(unassigned)').trim(); if(/^fce$/i.test(s))s='FCE (Urgent)'; if(!s)s='(unassigned)'; const t=o.task||''; if(!svcMap[s])svcMap[s]={swatch:0,delivery:0,total:0,delivered:0}; if(t==='Sample Delivery')svcMap[s].delivery++; else if(t==='Swatch Collection')svcMap[s].swatch++; svcMap[s].total++; if(o.status==='Delivered')svcMap[s].delivered++; });
   const svcs=Object.keys(svcMap).sort((a,b)=>svcMap[b].total-svcMap[a].total);
   let tS=0,tD=0,tT=0,tDel=0;
-  const rows=svcs.map((s,i)=>{ const r=svcMap[s]; tS+=r.swatch;tD+=r.delivery;tT+=r.total;tDel+=r.delivered; const c=distinctColor(i,svcs.length); return `<tr><td><span class="fw6" style="color:${c};">${attEsc(s)}</span></td><td class="mono">${r.swatch}</td><td class="mono">${r.delivery}</td><td class="mono fw6">${r.total}</td><td class="mono">${r.delivered}</td></tr>`; }).join('')||'<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:18px;">No orders for this period.</td></tr>';
-  const foot=svcs.length?`<tr style="font-weight:700;background:var(--surface2);"><td>Total</td><td class="mono">${tS}</td><td class="mono">${tD}</td><td class="mono">${tT}</td><td class="mono">${tDel}</td></tr>`:'';
+  const rows=svcs.map((s,i)=>{ const r=svcMap[s]; tS+=r.swatch;tD+=r.delivery;tT+=r.total;tDel+=r.delivered; const c=distinctColor(i,svcs.length); return `<tr><td><span class="fw6" style="color:${c};">${attEsc(s)}</span></td><td class="mono">${r.swatch}</td><td class="mono">${r.delivery}</td><td class="mono fw6">${r.total}</td></tr>`; }).join('')||'<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:18px;">No orders for this period.</td></tr>';
+  const foot=svcs.length?`<tr style="font-weight:700;background:var(--surface2);"><td>Total</td><td class="mono">${tS}</td><td class="mono">${tD}</td><td class="mono">${tT}</td></tr>`:'';
   document.getElementById('service-review-body').innerHTML=`
     <div class="month-bar" style="margin-bottom:12px;flex-wrap:wrap;">${chips}</div>
     <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;">
-      <div class="metric-card mc-purple" style="flex:1;min-width:120px;"><div class="mc-label">Consignments</div><div class="mc-value">${tT}</div><div class="mc-sub">${__svcMonth==='all'?'all months':monthLabel(__svcMonth)}</div></div>
-      <div class="metric-card mc-teal" style="flex:1;min-width:120px;"><div class="mc-label">Swatch Collection</div><div class="mc-value">${tS}</div></div>
+      <div class="metric-card mc-purple" style="flex:1;min-width:120px;"><div class="mc-label">Total Consignments</div><div class="mc-value">${tT}</div><div class="mc-sub">${__svcMonth==='all'?'all months':monthLabel(__svcMonth)}</div></div>
+      <div class="metric-card mc-teal" style="flex:1;min-width:120px;"><div class="mc-label">Sample Collection</div><div class="mc-value">${tS}</div></div>
       <div class="metric-card mc-amber" style="flex:1;min-width:120px;"><div class="mc-label">Sample Delivery</div><div class="mc-value">${tD}</div></div>
-      <div class="metric-card mc-green" style="flex:1;min-width:120px;"><div class="mc-label">Delivered</div><div class="mc-value">${tDel}</div></div>
     </div>
-    <div style="font-size:12px;color:var(--muted);margin-bottom:8px;">How many consignments each service (Courier / FCE / Supply-Chain Van) handled — split by task.</div>
-    <div style="overflow:auto;"><table><thead><tr><th>Service By</th><th>Swatch Collection</th><th>Sample Delivery</th><th>Total Consignments</th><th>Delivered</th></tr></thead><tbody>${rows}</tbody><tfoot>${foot}</tfoot></table></div>`;
+    <div style="font-size:12px;color:var(--muted);margin-bottom:8px;">How many consignments each service (Excelsior Courier / FCE (Urgent) / Supply Chain Van) handled — split by task.</div>
+    <div style="overflow:auto;"><table><thead><tr><th>Service By</th><th>Sample Collection</th><th>Sample Delivery</th><th>Total Consignments</th></tr></thead><tbody>${rows}</tbody><tfoot>${foot}</tfoot></table></div>`;
 }
 function renderOrders(){
   buildOrderStatusBar();
@@ -1968,12 +1983,12 @@ function renderOrders(){
   const noF=(document.getElementById('order-no-filter').value||'').toLowerCase().trim();
   const srch=document.getElementById('global-search').value.toLowerCase();
   { const dl=document.getElementById('order-resp-list'); if(dl){ const names=[...new Set(scopedOrders().map(o=>o.fce).filter(Boolean))].sort((a,b)=>(''+a).localeCompare(''+b)); dl.innerHTML=names.map(n=>`<option value="${attEsc(n)}"></option>`).join(''); } }
-  { const sf=document.getElementById('order-service-filter'); if(sf){ const cur=sf.value; const svcs=[...new Set([...DEFAULT_SERVICE_BY,...DELIVERY_SERVICES,...scopedOrders().map(o=>o.service).filter(Boolean)])].sort((a,b)=>(''+a).localeCompare(''+b)); sf.innerHTML='<option value="">All services</option>'+svcs.map(s=>`<option ${cur===s?'selected':''}>${attEsc(s)}</option>`).join(''); } }
+  { const sf=document.getElementById('order-service-filter'); if(sf){ const cur=sf.value; const RETIRED=['internal fce','internal supply chain van']; const normSvc=v=>{ const t=(''+v).trim(); if(/^fce$/i.test(t))return 'FCE (Urgent)'; if(/^supply chain van$/i.test(t))return 'Supply Chain Van'; return t; }; const svcs=[...new Set([...DEFAULT_SERVICE_BY,...DELIVERY_SERVICES,...scopedOrders().map(o=>o.service).filter(Boolean)].map(normSvc))].filter(s=>!RETIRED.includes((''+s).trim().toLowerCase())).sort((a,b)=>(''+a).localeCompare(''+b)); sf.innerHTML='<option value="">All services</option>'+svcs.map(s=>`<option ${cur===s?'selected':''}>${attEsc(s)}</option>`).join(''); } }
   let rows=scopedOrders().filter(o=>{
     if(activeOrderStatus!=='all'&&o.status!==activeOrderStatus)return false;
     if(taskF&&o.task!==taskF)return false;
     if(zoneF&&(o.to||'')!==zoneF)return false;
-    if(serviceF&&(o.service||'')!==serviceF)return false;
+    if(serviceF){ let os=(o.service||'').trim(); if(/^fce$/i.test(os))os='FCE (Urgent)'; if(os!==serviceF)return false; }
     if(respF&&!((o.fce||'').toLowerCase().includes(respF)))return false;
     if(noF&&!((o.orderNo||'').toLowerCase().includes(noF)||(o.customer||'').toLowerCase().includes(noF)||(o.buyer||'').toLowerCase().includes(noF)))return false;
     if(srch&&!(o.customer||'').toLowerCase().includes(srch)&&!(o.buyer||'').toLowerCase().includes(srch)&&!(o.orderNo||'').toLowerCase().includes(srch)&&!(o.fce||'').toLowerCase().includes(srch))return false;
@@ -2071,16 +2086,15 @@ async function ordLoadLines(id){
           <td style="padding:6px 18px;text-align:center;font-weight:800;color:var(--accent2);">${Math.round(totQ*100)/100}</td></tr>
         </tbody></table></div>`;
   };
-  if(_ordLinesCache[ono]){ paint(_ordLinesCache[ono]); return; }
   box.innerHTML='<span style="font-size:11px;color:var(--dim);">Loading lines…</span>';
   try{
     try{ if(typeof pkLoadTrips==='function')await pkLoadTrips(); }catch(_){}
     let tripDate=''; (CACHE.trips||[]).forEach(t=>{ if(t.kind==='return')return; if((t.order_no||'').trim().toLowerCase()!==ono.toLowerCase())return; const d=t.trip_date||''; if(d>tripDate)tripDate=d; });
-    const {data,error}=await sb.from('sample_lines').select('line_no,line_status,qty').eq('order_no',ono);
-    if(error)throw error;
-    (data||[]).sort((a,b)=>(parseFloat(a.line_no)||0)-(parseFloat(b.line_no)||0));
-    (data||[]).forEach(l=>{ if(tripDate&&/despatch|dispatch/i.test(''+(l.line_status||'')))l.line_status='Delivered on '+fmtDate(tripDate); });
-    _ordLinesCache[ono]=data||[]; paint(_ordLinesCache[ono]);
+    let data=_ordLinesCache[ono];
+    if(!data){ const res=await sb.from('sample_lines').select('line_no,line_status,qty').eq('order_no',ono); if(res.error)throw res.error; data=res.data||[]; data.sort((a,b)=>(parseFloat(a.line_no)||0)-(parseFloat(b.line_no)||0)); _ordLinesCache[ono]=data.map(l=>({...l})); }
+    // Re-derive display each open so Trip List changes reflect immediately (don't mutate cache).
+    const view=(_ordLinesCache[ono]||[]).map(l=>{ const o2={...l}; if(tripDate&&/despatch|dispatch/i.test(''+(o2.line_status||'')))o2.line_status='Delivered on '+fmtDate(tripDate); return o2; });
+    paint(view);
   }catch(e){ box.innerHTML='<span style="font-size:11px;color:var(--dim);">Could not load line data.</span>'; }
 }
 function canDeleteOrders(){
@@ -2591,19 +2605,41 @@ function attDrawCal(){
 }
 
 /* ── EMPLOYEES ── */
+let attEmpPage=1, attEmpPageSize=15;
 function attRenderEmps(){
   const body=document.getElementById('att-body');
   const lock=tlLockedLoc();
   const emps=CACHE.employees.slice().filter(e=>!lock||locEq(e.location,lock)).sort((a,b)=>(a.location+a.name).localeCompare(b.location+b.name));
+  const total=emps.length;
+  const totalPages=Math.max(1,Math.ceil(total/attEmpPageSize));
+  if(attEmpPage>totalPages)attEmpPage=totalPages;
+  const startIdx=(attEmpPage-1)*attEmpPageSize;
+  const pageEmps=emps.slice(startIdx,startIdx+attEmpPageSize);
+  const from=total?startIdx+1:0, to=startIdx+pageEmps.length;
+  const sizes=[15,25,50,100];
+  const pager=total>0?`<div style="display:flex;align-items:center;justify-content:flex-end;gap:18px;padding:10px 14px;border-top:1px solid var(--border);font-size:13px;color:var(--muted);flex-wrap:wrap;">
+    <label style="display:flex;align-items:center;gap:8px;">Rows per page
+      <select onchange="attEmpSetPageSize(this.value)" style="background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:4px 8px;font-size:13px;">
+        ${sizes.map(s=>`<option value="${s}" ${s===attEmpPageSize?'selected':''}>${s}</option>`).join('')}
+      </select>
+    </label>
+    <span style="font-variant-numeric:tabular-nums;">${from.toLocaleString()}–${to.toLocaleString()} of ${total.toLocaleString()}</span>
+    <span style="display:flex;gap:4px;">
+      <button class="btn-icon" ${attEmpPage<=1?'disabled style="opacity:.35;"':''} onclick="attEmpGoPage(${attEmpPage-1})" title="Previous"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="pointer-events:none;"><polyline points="15 18 9 12 15 6"/></svg></button>
+      <button class="btn-icon" ${attEmpPage>=totalPages?'disabled style="opacity:.35;"':''} onclick="attEmpGoPage(${attEmpPage+1})" title="Next"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="pointer-events:none;"><polyline points="9 18 15 12 9 6"/></svg></button>
+    </span>
+  </div>`:'';
   body.innerHTML=`
     <div class="detail-meta"><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-      <span class="count-badge">${emps.length} employees</span>
+      <span class="count-badge">${total} employees</span>
       <button class="btn btn-primary btn-sm" onclick="attEmpModal()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>Add Employee</button>
     </div></div>
     <div class="card" style="overflow:auto;"><table><thead><tr><th>ID</th><th>Name</th><th>Title</th><th>Location</th><th>Bonus</th><th>Active</th><th></th></tr></thead><tbody>${
-      emps.map(e=>`<tr><td>${attEsc(e.id)}</td><td>${attEsc(e.name)}</td><td>${attEsc(e.title)}</td><td>${attEsc(e.location)}</td><td>${e.bonus_eligible?'<span class="att-pill" style="background:'+ATTCOL.accent2+';color:#06210f">Packer</span>':'—'}</td><td>${e.active===false?'<span style="color:var(--muted)">No</span>':'Yes'}</td><td><button class="btn btn-ghost btn-sm" onclick="attEmpModal('${attEsc(e.id)}')">Edit</button></td></tr>`).join('')||'<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:18px;">No employees yet — add one or run the setup SQL.</td></tr>'
-    }</tbody></table></div>`;
+      pageEmps.map(e=>`<tr><td>${attEsc(e.id)}</td><td>${attEsc(e.name)}</td><td>${attEsc(e.title)}</td><td>${attEsc(e.location)}</td><td>${e.bonus_eligible?'<span class="att-pill" style="background:'+ATTCOL.accent2+';color:#06210f">Packer</span>':'—'}</td><td>${e.active===false?'<span style="color:var(--muted)">No</span>':'Yes'}</td><td><button class="btn btn-ghost btn-sm" onclick="attEmpModal('${attEsc(e.id)}')">Edit</button></td></tr>`).join('')||'<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:18px;">No employees yet — add one or run the setup SQL.</td></tr>'
+    }</tbody></table>${pager}</div>`;
 }
+function attEmpSetPageSize(v){ attEmpPageSize=parseInt(v)||15; attEmpPage=1; attRenderEmps(); }
+function attEmpGoPage(p){ attEmpPage=Math.max(1,p); attRenderEmps(); }
 function attEmpModal(id){
   attEditingEmp=id||null;
   document.getElementById('att-emp-loc').innerHTML=ATT_LOCS.map(l=>`<option>${l}</option>`).join('');
@@ -2724,9 +2760,7 @@ async function deleteAnnouncement(id){
 /* ── Delivery zones (for Order Tracker) ── */
 const ZONE_KEY='sc_delivery_zones';
 function getZones(){ const v=lsGet(ZONE_KEY,[]); const base=Array.isArray(v)?v:[]; let mapped=[]; try{ if(PKM&&PKM.shipRoad&&PKM.shipRoad.size)mapped=[...new Set([...PKM.shipRoad.values()])]; }catch(e){} const seen={}; const out=[]; base.concat(mapped).forEach(z=>{ const k=(''+z).trim(); if(!k)return; const lk=k.toLowerCase(); if(seen[lk])return; seen[lk]=1; out.push(k); }); return out.sort((a,b)=>a.localeCompare(b)); }
-async function addZone(){ const inp=document.getElementById('new-zone-input'); const v=(inp.value||'').trim(); if(!v)return; const z=getZones(); if(!z.some(x=>x.toLowerCase()===v.toLowerCase())){ z.push(v); z.sort((a,b)=>a.localeCompare(b)); lsSet(ZONE_KEY,z); try{ await dbSaveZones(z); }catch(e){ showToast('Saved locally but cloud sync failed: '+e.message,'err'); } } inp.value=''; renderZoneMaster(); populateZoneSelects(); showToast('Delivery zone added (shared to all PCs).'); }
-async function deleteZoneAt(i){ if(!isAdmin()){ showToast('Only Super Admin can delete zones.','err'); return; } const z=getZones(); z.splice(i,1); lsSet(ZONE_KEY,z); try{ await dbSaveZones(z); }catch(e){ showToast('Cloud sync failed: '+e.message,'err'); } renderZoneMaster(); populateZoneSelects(); }
-function renderZoneMaster(){ const box=document.getElementById('master-zone-list'); if(!box)return; const z=getZones(); box.innerHTML = z.length ? z.map((n,i)=>`<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border);"><span style="flex:1;font-size:13px;">${attEsc(n)}</span>${isAdmin()?`<button class="btn-icon btn-sm" title="Delete" onclick="deleteZoneAt(${i})"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg></button>`:''}</div>`).join('') : '<div style="color:var(--muted);font-size:12px;padding:4px 0;">No zones yet. Add one below.</div>'; }
+function renderZoneMaster(){ /* Delivery Zones card removed — zones now derive from Customer Mapping road names. */ }
 function populateZoneSelects(){
   const z=getZones();
   const filt=document.getElementById('order-zone-filter');
@@ -3127,7 +3161,7 @@ async function pkDoAddTrip(road,carton,date){
   const totalQty=used.reduce((s,l)=>s+(parseFloat(l.qty)||0),0);
   const serial=(CACHE.trips||[]).filter(t=>t.kind!=='return'&&t.trip_date===day&&(t.road||'')===road).length+1;
   const rec={id:'trip_'+Date.now()+'_'+Math.random().toString(36).slice(2,5),kind:'trip',trip_date:day,road,serial,ship_to:o.shipTo,order_no:o.orderNo,line_nos:lineNos,total_qty:totalQty,carton_qty:carton,created_by:currentUser.id,created_at:new Date().toISOString()};
-  try{ await dbInsertTrip([rec]); await pkLoadTrips(true); pkTripDate=day; pkTripRoad=road; pkTab='trip'; pkRender(); showToast('Added to trip — '+road+' · '+o.orderNo+' (lines '+(lineNos||'—')+') on '+fmtDate(day)+'.'); }
+  try{ await dbInsertTrip([rec]); await pkLoadTrips(true); pkTripDate=day; pkTripRoad=road; pkTab='trip'; pkRender(); await pkResyncAfterTripChange(); showToast('Added to trip — '+road+' · '+o.orderNo+' (lines '+(lineNos||'—')+') on '+fmtDate(day)+'.'); }
   catch(e){ showToast('Failed: '+e.message,'err'); }
 }
 async function pkDoAddReturn(road,carton,date,reason){
@@ -3269,12 +3303,16 @@ async function pkListEdit(id){
   const c=prompt('Carton Qty for order '+t.order_no+':', t.carton_qty); if(c===null)return;
   const carton=parseInt(c,10); if(isNaN(carton)){ showToast('Enter a number.','err'); return; }
   const ln=prompt('Line Nos (comma separated):', t.line_nos||''); if(ln===null)return;
-  try{ await dbUpdateTrip(id,{carton_qty:carton,line_nos:ln.trim()}); await pkLoadTrips(true); pkRenderListRows(); showToast('Trip entry updated.'); }
+  try{ await dbUpdateTrip(id,{carton_qty:carton,line_nos:ln.trim()}); await pkLoadTrips(true); pkRenderListRows(); await pkResyncAfterTripChange(); showToast('Trip entry updated.'); }
   catch(e){ showToast('Update failed: '+e.message,'err'); }
+}
+async function pkResyncAfterTripChange(){
+  try{ for(const k in _ordLinesCache)delete _ordLinesCache[k]; }catch(_){}
+  try{ const {data,error}=await sb.from('sample_lines').select('order_no,line_status'); if(!error&&data){ await pkSyncOrderStatuses(data); } }catch(e){ console.error('resync',e); }
 }
 async function pkListDelete(id){ if(isPacker()||isFCE()){ showToast('You don\'t have delete access in Sample Packing.','err'); return; }
   if(!confirm('Delete this trip entry permanently?'))return;
-  try{ await dbDeleteTrip(id); await pkLoadTrips(true); pkRenderListRows(); showToast('Trip entry deleted.'); }
+  try{ await dbDeleteTrip(id); await pkLoadTrips(true); pkRenderListRows(); await pkResyncAfterTripChange(); showToast('Trip entry deleted.'); }
   catch(e){ showToast('Delete failed: '+e.message,'err'); }
 }
 function pkExportList(){
@@ -3342,7 +3380,9 @@ function pkRenderReturns(){
      <div class="card"><div style="font-size:14px;font-weight:700;color:var(--text);margin:0 0 8px;">Returns by ${pkRetGran==='day'?'Day':'Month'}</div><div style="height:230px;"><canvas id="pk-ret-month"></canvas></div></div>
      <div class="card"><div style="font-size:14px;font-weight:700;color:var(--text);margin:0 0 8px;">Top Customers by Returns</div><div id="pk-ret-cust" style="max-height:230px;overflow:auto;"></div></div>
    </div>
-   <div class="card" style="margin-bottom:14px;"><div style="font-size:14px;font-weight:700;color:var(--text);margin:0 0 8px;">Return Trends — Category Comparison</div><div style="height:240px;"><canvas id="pk-ret-cat"></canvas></div></div>
+   <div class="att-charts" style="margin-bottom:14px;grid-template-columns:1fr;">
+     <div class="card"><div style="font-size:14px;font-weight:700;color:var(--text);margin:0 0 8px;">Return Trends — Category Comparison</div><div style="height:240px;"><canvas id="pk-ret-cat"></canvas></div></div>
+   </div>
    <div class="card" style="margin-bottom:14px;"><div class="card-header"><div><div class="card-title">Returns by road</div><div class="card-sub">Road-wise returns grouped by ${pkRetGran==='day'?'day':'month'} — follows the filters above.</div></div></div>
      <div style="overflow:auto;"><table><thead><tr><th>${pkRetGran==='day'?'Day':'Month'}</th><th>Road</th><th style="text-align:center;">Returns</th><th style="text-align:center;">Qty</th></tr></thead><tbody>${roadRows}</tbody></table></div></div>
    <div class="card" style="margin-bottom:14px;"><div class="card-header"><div><div class="card-title">Repeat-return frequency</div><div class="card-sub">The same order returned more than once — grouped by how many times it came back (Return-2, Return-3 …), regardless of date. Long lists scroll inside the cell.</div></div></div>
