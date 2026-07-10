@@ -96,7 +96,12 @@ table{width:100%;border-collapse:collapse;}
 th{padding:9px 14px;text-align:left;font-size:11px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;font-family:'DM Mono',monospace;background:var(--surface2);border-bottom:1px solid var(--border);white-space:nowrap;}
 td{padding:10px 14px;border-bottom:1px solid rgba(255,255,255,.04);font-size:13px;vertical-align:middle;}
 tr:last-child td{border-bottom:none;}
-tr:hover td{background:rgba(255,255,255,.025);}
+/* ── Row-level hover: highlight + lift (no geometric scaling → columns stay aligned) ── */
+tbody tr{transition:transform .14s ease,box-shadow .14s ease;}
+tbody tr:not([id*="detail"]):hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(0,0,0,.34);position:relative;z-index:2;}
+tbody tr:not([id*="detail"]):hover td{background:rgba(110,160,255,.13)!important;}
+tbody tr:not([id*="detail"]):hover td:first-child{box-shadow:inset 3px 0 0 var(--accent);}
+@media(prefers-reduced-motion:reduce){tbody tr:not([id*="detail"]):hover{transform:none;box-shadow:none;}}
 tfoot td{font-weight:600;background:var(--surface2);border-top:1px solid var(--border);}
 .bar-wrap{display:flex;align-items:center;gap:8px;}
 .bar-track{flex:1;height:5px;background:var(--dim);border-radius:3px;overflow:hidden;min-width:40px;}
@@ -177,6 +182,19 @@ select.form-input option{background:var(--surface2);}
 .month-chip{padding:5px 14px;border-radius:20px;font-size:12px;font-family:'DM Mono',monospace;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--muted);transition:all .15s;}
 .month-chip:hover{border-color:var(--accent);color:var(--accent);}
 .month-chip.active{background:rgba(124,106,245,.15);border-color:var(--accent);color:var(--accent);}
+/* ── Global hover / active "zoom + highlight" — applied across the whole app ── */
+.btn,.btn-approve,.btn-reject,.month-chip,.att-tab,.nav-btn,select.filter-sel{transition:transform .14s ease,background .15s ease,color .15s ease,border-color .15s ease,box-shadow .15s ease,opacity .15s ease;}
+.btn:hover,.btn-approve:hover,.btn-reject:hover,.month-chip:hover,.att-tab:hover{transform:scale(1.05);position:relative;z-index:3;box-shadow:0 4px 14px rgba(0,0,0,.28);}
+.btn:active,.btn-approve:active,.btn-reject:active,.month-chip:active,.att-tab:active{transform:scale(.97);}
+.month-chip.active,.att-tab.active{transform:scale(1.05);position:relative;z-index:2;box-shadow:0 3px 12px rgba(124,106,245,.30);}
+select.filter-sel:hover{transform:scale(1.03);border-color:var(--accent);box-shadow:0 0 0 2px rgba(124,106,245,.20);}
+.nav-btn{transform-origin:left center;}
+.nav-btn:hover,.nav-btn.active{transform:scale(1.03);}
+/* Clickable cards (e.g. Complete Delivery bin cards) */
+.tap-card{transition:transform .14s ease,box-shadow .14s ease,border-color .14s ease;position:relative;}
+.tap-card:hover{transform:scale(1.03);box-shadow:0 8px 24px rgba(0,0,0,.36);border-color:var(--accent)!important;z-index:2;}
+.tap-card.active{transform:scale(1.02);box-shadow:0 4px 16px rgba(124,106,245,.30);}
+@media(prefers-reduced-motion:reduce){.btn,.btn-approve,.btn-reject,.month-chip,.att-tab,.nav-btn,select.filter-sel{transition:background .15s ease,color .15s ease,border-color .15s ease;}.btn:hover,.btn-approve:hover,.btn-reject:hover,.month-chip:hover,.att-tab:hover,.month-chip.active,.att-tab.active,.nav-btn:hover,.nav-btn.active,select.filter-sel:hover,.tap-card:hover,.tap-card.active{transform:none;}}
 .master-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
 .master-list{display:flex;flex-direction:column;gap:6px;max-height:300px;overflow-y:auto;padding:2px;}
 .master-item{display:flex;align-items:center;justify-content:space-between;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 12px;font-size:13px;gap:8px;}
@@ -201,6 +219,7 @@ select.form-input option{background:var(--surface2);}
 /* Attendance Tracker */
 .att-tabs{display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;}
 .att-tab{background:var(--surface);border:1px solid var(--border);color:var(--muted);padding:8px 16px;border-radius:8px;cursor:pointer;font-weight:600;font-size:13px;}
+.att-tab:hover{border-color:var(--accent);color:var(--text);}
 .att-tab.active{background:var(--accent);border-color:var(--accent);color:#fff;}
 .att-stat-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:14px;}
 .att-stat{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 16px;}
@@ -792,6 +811,42 @@ async function dbDeleteOrder(id){ const {error}=await sb.from('sample_orders').d
 async function dbUploadNote(file, path){ const {error}=await sb.storage.from('delivery-notes').upload(path,file,{upsert:true}); if(error)throw error; return path; }
 async function dbNoteUrlSigned(path){ const {data,error}=await sb.storage.from('delivery-notes').createSignedUrl(path,120); if(error)throw error; return data.signedUrl; }
 async function openNote(path){ const w=window.open('','_blank'); try{ const url=await dbNoteUrlSigned(path); if(w){ w.location=url; } else { window.location=url; } }catch(e){ if(w)w.close(); if(typeof showToast==='function')showToast('Could not open file: '+((e&&e.message)||e),'err'); } }
+// ── Hover image preview (zoom-on-hover for DN / note image files) ──
+const _imgPrevCache={};
+function isImageFile(name){ return /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(''+(name||'')); }
+function imgPreviewEl(){
+  let el=document.getElementById('img-hover-preview');
+  if(!el){
+    el=document.createElement('div'); el.id='img-hover-preview';
+    el.style.cssText='position:fixed;z-index:100000;pointer-events:none;display:none;border:2px solid var(--accent,#6ea0ff);border-radius:12px;overflow:hidden;box-shadow:0 16px 48px rgba(0,0,0,.6);background:#0b1428;padding:5px;';
+    el.innerHTML='<img alt="preview" style="display:none;max-width:min(60vw,640px);max-height:min(70vh,640px);border-radius:8px;"/><div class="_ldg" style="padding:16px 20px;font-size:12px;color:#8aa2c4;font-family:\'DM Mono\',monospace;">Loading preview…</div>';
+    document.body.appendChild(el);
+    document.addEventListener('mousemove',e=>{ if(el.style.display!=='none')imgPreviewPos(el,e); });
+    document.addEventListener('scroll',()=>imgPreviewHide(),true);
+  }
+  return el;
+}
+function imgPreviewPos(el,ev){
+  const pad=18, vw=innerWidth, vh=innerHeight, r=el.getBoundingClientRect();
+  const w=r.width||320, h=r.height||220; let x=(ev.clientX||0)+pad, y=(ev.clientY||0)+pad;
+  if(x+w>vw-8)x=(ev.clientX||0)-w-pad; if(x<8)x=8;
+  if(y+h>vh-8)y=vh-h-8; if(y<8)y=8;
+  el.style.left=x+'px'; el.style.top=y+'px';
+}
+async function imgPreviewShow(ev,path,name){
+  if(!isImageFile(name||path))return;                 // only images preview; PDFs open on click as before
+  const el=imgPreviewEl(); const img=el.querySelector('img'); const ldg=el.querySelector('._ldg');
+  el._path=path; el.style.display='block'; imgPreviewPos(el,ev);
+  try{
+    let url=_imgPrevCache[path];
+    if(!url){ img.style.display='none'; ldg.style.display='block'; ldg.textContent='Loading preview…'; url=await dbNoteUrlSigned(path); _imgPrevCache[path]=url; }
+    if(el._path!==path)return;                          // cursor already moved to another file
+    img.onload=()=>{ if(el._path!==path)return; ldg.style.display='none'; img.style.display='block'; imgPreviewPos(el,ev); };
+    img.onerror=()=>{ ldg.style.display='block'; ldg.textContent='Preview unavailable'; img.style.display='none'; };
+    img.src=url; if(img.complete&&img.naturalWidth){ ldg.style.display='none'; img.style.display='block'; imgPreviewPos(el,ev); }
+  }catch(e){ ldg.style.display='block'; ldg.textContent='Preview unavailable'; }
+}
+function imgPreviewHide(){ const el=document.getElementById('img-hover-preview'); if(el){ el.style.display='none'; el._path=null; } }
 async function dbDeleteNote(path){ if(!path)return; await sb.storage.from('delivery-notes').remove([path]); }
 // ── Announcements DB (shared across all users) ──
 async function dbGetAnnouncements(){ const {data,error}=await sb.from('announcements').select('*').order('created_at',{ascending:true}); if(error)throw error; return data; }
@@ -2078,7 +2133,7 @@ function renderOrders(){
     const extra = o.task==='Sample Delivery'
       ? (o.deliveredAt?('Delivered '+fmtDate(o.deliveredAt)):'—')
       : (o.reqTime?('Req. '+o.reqTime):'—');
-    const _nfs=o.noteFiles||[]; const _esc=s=>String(s||'').replace(/'/g,"\\'"); const note=_nfs.length?_nfs.map((f,ix)=>`<a href="javascript:void(0)" onclick="openNote('${_esc(f.path)}');return false;" class="btn-approve" title="${attEsc(f.name||('file '+(ix+1)))}" style="text-decoration:none;display:block;max-width:170px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin:2px 0;">${attEsc(f.name||('file '+(ix+1)))}</a>`).join(''):'<span style="color:var(--muted);">—</span>';
+    const _nfs=o.noteFiles||[]; const _esc=s=>String(s||'').replace(/'/g,"\\'"); const note=_nfs.length?_nfs.map((f,ix)=>{ const _img=isImageFile(f.name||f.path); return `<a href="javascript:void(0)" onclick="openNote('${_esc(f.path)}');return false;"${_img?` onmouseenter="imgPreviewShow(event,'${_esc(f.path)}','${_esc(f.name||'')}')" onmouseleave="imgPreviewHide()"`:''} class="btn-approve" title="${attEsc(f.name||('file '+(ix+1)))}${_img?' — hover to preview':''}" style="text-decoration:none;display:block;max-width:170px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin:2px 0;">${_img?'🖼 ':''}${attEsc(f.name||('file '+(ix+1)))}</a>`; }).join(''):'<span style="color:var(--muted);">—</span>';
     const editBtn=canEdit?`<button class="btn-icon btn-sm" onclick="openOrderModal('${o.id}')" title="Edit"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.828 2.828 0 114 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg></button>`:'<span style="color:var(--muted);">—</span>';
     const sendBtn=canSendOrders()?`<button class="btn-icon btn-sm" onclick="openSendModal('${o.id}')" title="Send requirement (SMS / WhatsApp / Email)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg></button>`:'';
     const chevron=`<button class="btn-icon btn-sm" onclick="toggleOrderRow('${o.id}')" title="Show details" id="chev-${o.id}" style="transition:transform .15s;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></button>`;
@@ -2384,7 +2439,7 @@ function oRenamePending(i,v){ if(oPendingFiles[i]) oPendingFiles[i].name=(v||'')
 function oRenameExisting(path,v){ const f=oEditNoteFiles.find(x=>x.path===path); if(f) f.name=(v||'').trim()||f.name; }
 function oRemoveExisting(path){ if(!isAdmin()){ showToast('Only Super Admin can delete attachments.','err'); return; } const i=oEditNoteFiles.findIndex(f=>f.path===path); if(i>=0){ oRemovedNotePaths.push(oEditNoteFiles[i].path); oEditNoteFiles.splice(i,1); oRenderNoteFiles(); } }
 function oRenderNoteFiles(){ const el=document.getElementById('o-file-list'); if(!el)return; const inp='flex:1;min-width:140px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:11px;padding:3px 6px;'; let h='';
-  oEditNoteFiles.forEach(f=>{ const p=String(f.path||'').replace(/'/g,"\\'"); h+=`<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;"><span>📎</span><input type="text" value="${attEsc(f.name||'note')}" onchange="oRenameExisting('${p}',this.value)" title="Rename this attachment" style="${inp}"/><a href="javascript:void(0)" onclick="openNote('${p}');return false;" style="color:var(--accent2);font-size:11px;">open</a>${isAdmin()?`<button type="button" title="Delete attachment (Super Admin)" onclick="oRemoveExisting('${p}')" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:14px;line-height:1;">✕</button>`:''}</div>`; });
+  oEditNoteFiles.forEach(f=>{ const p=String(f.path||'').replace(/'/g,"\\'"); const nm=String(f.name||'').replace(/'/g,"\\'"); const _img=isImageFile(f.name||f.path); h+=`<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;"><span>📎</span><input type="text" value="${attEsc(f.name||'note')}" onchange="oRenameExisting('${p}',this.value)" title="Rename this attachment" style="${inp}"/><a href="javascript:void(0)" onclick="openNote('${p}');return false;"${_img?` onmouseenter="imgPreviewShow(event,'${p}','${nm}')" onmouseleave="imgPreviewHide()"`:''} style="color:var(--accent2);font-size:11px;">${_img?'🖼 ':''}open</a>${isAdmin()?`<button type="button" title="Delete attachment (Super Admin)" onclick="oRemoveExisting('${p}')" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:14px;line-height:1;">✕</button>`:''}</div>`; });
   oPendingFiles.forEach((f,i)=>{ h+=`<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;"><span style="color:var(--green);">＋</span><input type="text" value="${attEsc(f.name)}" onchange="oRenamePending(${i},this.value)" title="Name this file before saving" style="${inp}"/><span style="color:var(--dim);font-size:11px;">new</span><button type="button" title="Remove" onclick="oRemovePending(${i})" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:14px;line-height:1;">✕</button></div>`; });
   el.innerHTML=h||'<span style="color:var(--dim);">No attachments yet.</span>';
 }
@@ -3147,7 +3202,7 @@ function renderCDM(){
   const open=posts.filter(p=>p.status==='open');
   const use=cdBinUsage(); const adm=isAdmin(); const canBin=cdCanEditBin();
   const binCards=CD_BINS.map(b=>{ const n=open.filter(p=>p.bin===b).length; const u=use[b]||0; const full=u>=CD_BIN_CAP; const pct=Math.min(100,Math.round(u/CD_BIN_CAP*100)); const col=full?'#ff6b6b':u>=CD_BIN_CAP-3?'#ff9f5a':'#46e6a0';
-    return `<div style="background:linear-gradient(160deg,rgba(110,160,255,.06),rgba(12,22,48,.4));border:1px solid ${cdBinFilter===b?'var(--accent)':'var(--border)'};border-radius:12px;padding:12px 14px;cursor:pointer;display:flex;flex-direction:column;gap:6px;min-height:92px;" onclick="cdBinFilter=cdBinFilter==='${attEsc(b)}'?'':'${attEsc(b)}';renderCDM()">
+    return `<div class="tap-card${cdBinFilter===b?' active':''}" style="background:linear-gradient(160deg,rgba(110,160,255,.06),rgba(12,22,48,.4));border:1px solid ${cdBinFilter===b?'var(--accent)':'var(--border)'};border-radius:12px;padding:12px 14px;cursor:pointer;display:flex;flex-direction:column;gap:6px;min-height:92px;" onclick="cdBinFilter=cdBinFilter==='${attEsc(b)}'?'':'${attEsc(b)}';renderCDM()">
       <div style="display:flex;justify-content:space-between;align-items:center;"><span style="font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-family:'DM Mono',monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${attEsc(b)}">${attEsc(b)}</span>${full?'<span style="font-size:9px;font-weight:800;color:#ff6b6b;border:1px solid rgba(255,107,107,.5);border-radius:999px;padding:1px 7px;">FULL</span>':''}</div>
       <div style="font-size:22px;font-weight:800;color:${col};line-height:1;">${u}<span style="font-size:12px;color:var(--muted);font-weight:600;"> / ${CD_BIN_CAP} ctn</span></div>
       <div style="height:5px;border-radius:999px;background:rgba(255,255,255,.08);overflow:hidden;"><div style="height:100%;width:${pct}%;background:${col};border-radius:999px;"></div></div>
