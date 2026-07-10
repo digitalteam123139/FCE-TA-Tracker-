@@ -1912,6 +1912,18 @@ let activeOrderStatus='all';
 function ordSoldCodeFor(o){ try{ if(PKM.soldByName){ const c=PKM.soldByName.get(pkmKey(o.customer||'')); if(c)return c; } if(PKM.soldByShipName){ const c2=PKM.soldByShipName.get(pkmKey(o.customer||''))||PKM.soldByShipName.get(pkmRoadLoose(o.customer||'')); if(c2)return c2; } }catch(e){} return ''; }
 function ordFceFor(o){ try{ const c=ordSoldCodeFor(o); if(c&&PKM.respBySoldCode&&PKM.respBySoldCode.get(c))return PKM.respBySoldCode.get(c); return pkRespFor(o.customer||'')||''; }catch(e){ return ''; } }
 function ordZoneFor(o){ try{ const c=ordSoldCodeFor(o); if(c&&PKM.soldRoad&&PKM.soldRoad.get(c))return PKM.soldRoad.get(c); return pkRoadFor(o.customer||'')||''; }catch(e){ return ''; } }
+// Road Name from the Trip List (latest non-return trip for the order). Cached against the CACHE.trips array
+// reference, which is replaced whenever pkLoadTrips reloads — so edits/adds/removes invalidate it automatically.
+let _tripRoadMap=null, _tripRoadRef=null;
+function tripRoadForOrder(orderNo){
+  const trips=(typeof CACHE!=='undefined'&&CACHE.trips)||[];
+  if(_tripRoadRef!==trips){ _tripRoadRef=trips; _tripRoadMap={};
+    trips.forEach(t=>{ if(t.kind==='return')return; const k=(t.order_no||'').trim().toLowerCase(); if(!k)return; const d=t.trip_date||''; const cur=_tripRoadMap[k]; if(t.road&&(!cur||d>=cur.d))_tripRoadMap[k]={road:t.road,d:d}; });
+  }
+  const on=(''+(orderNo||'')).trim().toLowerCase(); const e=_tripRoadMap[on]; return e?e.road:'';
+}
+// Delivery Zone / Road Name: once an order is on the Trip List use the trip's Road Name; otherwise the Master Data mapping.
+function ordDeliveryZoneFor(o){ const tr=tripRoadForOrder(o.orderNo); if(tr)return tr; return ordZoneFor(o)||o.to||''; }
 // Console helper — paste `debugCreationDate('RS40408128')` into DevTools to see why a row shows "—".
 if(typeof window!=='undefined'){
   window.debugCreationDate=async function(orderNo){
@@ -2027,6 +2039,11 @@ function renderOrders(){
     renderOrders._loadingCd=true;
     pkLoadPlantMap().then(()=>{ renderOrders._loadingCd=false; try{ renderOrders(); }catch(_){} }).catch(()=>{ renderOrders._loadingCd=false; });
   }
+  // Lazy-load the Trip List so the Delivery Zone can use each order's trip Road Name, then re-render once.
+  if(typeof pkLoadTrips==='function'&&!(CACHE&&CACHE._tripsLoaded)&&!renderOrders._loadingTrips){
+    renderOrders._loadingTrips=true;
+    pkLoadTrips().then(()=>{ renderOrders._loadingTrips=false; try{ renderOrders(); }catch(_){} }).catch(()=>{ renderOrders._loadingTrips=false; });
+  }
   const taskF=document.getElementById('order-task-filter').value;
   const zoneF=(document.getElementById('order-zone-filter')||{}).value||'';
   const serviceF=(document.getElementById('order-service-filter')||{}).value||'';
@@ -2077,7 +2094,7 @@ function renderOrders(){
         <div id="ordlines-${o.id}" data-ono="${attEsc(o.orderNo||'')}"></div>
       </div></td></tr>`;
     const _cd=ordCreationDateFor(o); const cdCell=_cd?fmtDate(_cd):'<span style="color:var(--muted);" title="No creation_date on any sample_lines row for this order. Run debugCreationDate(\''+attEsc(o.orderNo||'')+'\') in the console for details.">—</span>';
-    return `<tr style="background:${orderRowTint(o)};"><td style="text-align:center;">${canSend?`<input type="checkbox" class="ord-tick" value="${o.id}" onclick="event.stopPropagation()" style="cursor:pointer;" title="Select for combined send">`:''}</td><td>${chevron}</td><td class="mono" style="color:var(--muted);white-space:nowrap;">${d}</td><td class="mono" style="color:var(--muted);white-space:nowrap;">${cdCell}</td><td style="font-size:12px;">${o.orderNo||'—'}</td><td style="font-size:12px;">${o.task?attEsc(taskShort(o.task)):'—'}</td><td style="font-size:12px;">${o.customer||'—'}</td><td style="font-size:12px;">${o.buyer||'—'}</td><td style="font-size:12px;">${o.fce||ordFceFor(o)||'—'}</td><td style="font-size:12px;">${o.service||'—'}</td><td style="font-size:12px;">${o.to||ordZoneFor(o)||'—'}</td><td style="font-size:12px;color:var(--muted);">${extra}</td><td>${orderStatusBadge(o.status)}</td><td>${note}</td><td><div style="display:flex;gap:4px;align-items:center;">${sendBtn}${editBtn}</div></td></tr>${detail}`;
+    return `<tr style="background:${orderRowTint(o)};"><td style="text-align:center;">${canSend?`<input type="checkbox" class="ord-tick" value="${o.id}" onclick="event.stopPropagation()" style="cursor:pointer;" title="Select for combined send">`:''}</td><td>${chevron}</td><td class="mono" style="color:var(--muted);white-space:nowrap;">${d}</td><td class="mono" style="color:var(--muted);white-space:nowrap;">${cdCell}</td><td style="font-size:12px;">${o.orderNo||'—'}</td><td style="font-size:12px;">${o.task?attEsc(taskShort(o.task)):'—'}</td><td style="font-size:12px;">${o.customer||'—'}</td><td style="font-size:12px;">${o.buyer||'—'}</td><td style="font-size:12px;">${o.fce||ordFceFor(o)||'—'}</td><td style="font-size:12px;">${o.service||'—'}</td><td style="font-size:12px;">${ordDeliveryZoneFor(o)||'—'}</td><td style="font-size:12px;color:var(--muted);">${extra}</td><td>${orderStatusBadge(o.status)}</td><td>${note}</td><td><div style="display:flex;gap:4px;align-items:center;">${sendBtn}${editBtn}</div></td></tr>${detail}`;
   }).join('')||'<tr><td colspan="15" style="text-align:center;color:var(--muted);padding:24px;">No orders yet</td></tr>';
   renderOrdersPager(ordTotal,totalPages,startIdx,rows.length);
   // Hide the New Order button for view-only users
@@ -2419,7 +2436,7 @@ async function deleteOrder(){ if(!canDeleteOrders()){ showToast('Only Super Admi
 function downloadOrders(){
   const rows=visibleOrders;
   const header='Entry Date,Creation Date,Order No,Task,Service By,Customer Name,Buyer Name,Responsibility To,Delivery Zone,Requested Time,Status,Delivery Date,Note,Remarks\n';
-  const csv=rows.map(o=>{ const _cd=ordCreationDateFor(o); return [fmtDate(o.date),_cd?fmtDate(_cd):'',o.orderNo||'',o.task||'',o.service||'',o.customer||'',o.buyer||'',o.fce||'',o.to||'',o.reqTime||'',o.status||'',o.deliveredAt?fmtDate(o.deliveredAt):'',(o.noteFiles&&o.noteFiles.length?o.noteFiles.map(f=>f.name).join(' | '):(o.noteName||'')),o.remarks||''].map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(','); }).join('\n');
+  const csv=rows.map(o=>{ const _cd=ordCreationDateFor(o); return [fmtDate(o.date),_cd?fmtDate(_cd):'',o.orderNo||'',o.task||'',o.service||'',o.customer||'',o.buyer||'',o.fce||'',ordDeliveryZoneFor(o)||'',o.reqTime||'',o.status||'',o.deliveredAt?fmtDate(o.deliveredAt):'',(o.noteFiles&&o.noteFiles.length?o.noteFiles.map(f=>f.name).join(' | '):(o.noteName||'')),o.remarks||''].map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(','); }).join('\n');
   const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([header+csv],{type:'text/csv'})); a.download='Sample_Orders.csv'; a.click();
 }
 
@@ -4440,7 +4457,7 @@ function aiOrderCard(o){
   else if(o.status==='Partially Completed'){ comp='Partially Completed'; compCol='#ff9f5a'; }
   else if(o.status==='Partially Delivered'){ comp='Partially Delivered'; compCol='#ffc24d'; }
   const compBadge=comp?(' <span style="background:'+(compCol==='#46e6a0'?'rgba(70,230,160,.15)':'rgba(255,159,90,.15)')+';color:'+compCol+';border-radius:999px;padding:1px 9px;font-size:11px;font-weight:700;">'+comp+'</span>'):'';
-  return '<div style="background:var(--surface,rgba(255,255,255,.06));border:1px solid var(--border,#244372);border-radius:10px;padding:9px 12px;margin-bottom:7px;font-size:12.5px;color:var(--text,#fff);"><b>'+attEsc(o.orderNo||'—')+'</b> · '+attEsc(o.status||'')+'<br><span style="color:var(--muted,#8aa2c4);">'+attEsc(o.customer||'')+(o.buyer?(' → '+attEsc(o.buyer)):'')+'</span><br><span style="color:var(--muted,#8aa2c4);">'+attEsc(o.task||'')+(o.fce?(' · '+attEsc(o.fce)):'')+(o.to?(' · '+attEsc(o.to)):'')+(o.deliveredAt?(' · delivered '+fmtDate(o.deliveredAt)):'')+'</span><div style="margin-top:5px;display:flex;gap:6px;flex-wrap:wrap;">'+dnBadge+compBadge+'</div></div>';
+  return '<div style="background:var(--surface,rgba(255,255,255,.06));border:1px solid var(--border,#244372);border-radius:10px;padding:9px 12px;margin-bottom:7px;font-size:12.5px;color:var(--text,#fff);"><b>'+attEsc(o.orderNo||'—')+'</b> · '+attEsc(o.status||'')+'<br><span style="color:var(--muted,#8aa2c4);">'+attEsc(o.customer||'')+(o.buyer?(' → '+attEsc(o.buyer)):'')+'</span><br><span style="color:var(--muted,#8aa2c4);">'+attEsc(o.task||'')+(o.service?(' · '+attEsc(o.service)):'')+(ordDeliveryZoneFor(o)?(' · '+attEsc(ordDeliveryZoneFor(o))):'')+(o.deliveredAt?(' · delivered '+fmtDate(o.deliveredAt)):'')+'</span><div style="margin-top:5px;display:flex;gap:6px;flex-wrap:wrap;">'+dnBadge+compBadge+'</div></div>';
 }
 function aiOrderList(list){ if(!list.length)return '<div style="color:var(--muted,#8aa2c4);">None.</div>'; return list.slice(0,8).map(aiOrderCard).join('')+(list.length>8?('<div style="color:var(--muted,#8aa2c4);font-size:11.5px;">+'+(list.length-8)+' more…</div>'):''); }
 function askToggle(show){ const o=document.getElementById('ask-overlay'); if(!o)return; if(show){ o.style.display='flex'; const i=document.getElementById('ask-in'); if(i){ i.value=''; setTimeout(()=>i.focus(),30); } const out=document.getElementById('ask-out'); if(out)out.innerHTML=aiHelp(); } else { o.style.display='none'; } }
