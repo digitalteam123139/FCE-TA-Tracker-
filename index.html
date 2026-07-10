@@ -4152,12 +4152,23 @@ async function pkSyncOrderStatuses(recs){
     const linesInTrip=[...lineSet].filter(x=>tripLines.has(String(x))).length;
     const allInTrip=lineSet.size>0&&linesInTrip===lineSet.size;                 // every order line is on a trip
     const someInTrip=(lineSet.size?linesInTrip>0:!!trip);                       // ≥1 line on a trip (fallback: any trip when line_nos unknown)
-    const posts=cdByOrder[k]||[]; const hasCd=posts.length>0; const cdAllDone=hasCd&&posts.every(p=>p.status==='done');
+    // Complete Delivery List — actual acknowledgment (DN received), per line.
+    // A line counts as acknowledged if it's in a posting's delivered set, or its posting is marked done ('Acknowledged').
+    const posts=cdByOrder[k]||[]; const hasCd=posts.length>0;
+    const ackSet=new Set();
+    posts.forEach(p=>{ cdDeliveredLines(p).forEach(x=>ackSet.add(String(x))); if(p.status==='done')cdParseLines(p.lineNos).forEach(x=>ackSet.add(String(x))); });
+    const ackInOrder=lineSet.size?[...lineSet].filter(x=>ackSet.has(String(x))).length:ackSet.size;
+    const someAck=ackInOrder>0;                                                        // ≥1 line acknowledged (DN received)
+    const allAck=lineSet.size?(ackInOrder===lineSet.size&&lineSet.size>0):(hasCd&&posts.every(p=>p.status==='done')); // every line acknowledged
     let ns=null, nd=o.deliveredAt||null;
-    if(allInTrip||(allDisp&&cdAllDone)){ ns='Delivery Completed'; nd=trip||o.deliveredAt||null; } // all lines in Trip List (or all Dispatched + acknowledged)
+    // Precedence — the Trip List is the authoritative delivery-progress signal:
+    //   • all order lines on a trip, OR every line acknowledged  -> Delivery Completed
+    //   • some (not all) order lines on a trip                   -> Partially Delivered  (Trip List wins, even for Complete-Delivery customers)
+    //   • acknowledged in the Complete Delivery List, but nothing tripped -> Partially Completed
+    if(allInTrip||allAck){ ns='Delivery Completed'; nd=trip||o.deliveredAt||null; }    // all lines tripped or all acknowledged
     else if(returnByOrder[k]){ ns='Returned'; }                                       // in Trip List as a return
-    else if(hasCd){ ns='Partially Completed'; }                                       // in Complete Delivery List, not fully complete
-    else if(someInTrip){ ns='Partially Delivered'; nd=trip||o.deliveredAt||null; }     // some lines in the Trip List
+    else if(someInTrip){ ns='Partially Delivered'; nd=trip||o.deliveredAt||null; }     // some lines on a trip → Partially Delivered
+    else if(someAck){ ns='Partially Completed'; }                                     // acknowledged in the Complete Delivery List, nothing on a trip yet
     else if(anyDev){ ns='In Development'; }                                            // in-development line statuses
     else if(allOpen||!nLines){ ns='Yet to Start'; }                                   // Open / nothing started
     else { ns='In Development'; }                                                      // started (e.g. Dispatched) but not yet tripped/CD
