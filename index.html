@@ -837,13 +837,29 @@ async function imgPreviewShow(ev,path,name){
   if(!isImageFile(name||path))return;                 // only images preview; PDFs open on click as before
   const el=imgPreviewEl(); const img=el.querySelector('img'); const ldg=el.querySelector('._ldg');
   el._path=path; el.style.display='block'; imgPreviewPos(el,ev);
+  img.decoding='async'; img.loading='eager';
+  const freshUrl=async(force)=>{                       // expiry-aware cache: signed for 1h, refreshed 5 min early
+    const c=_imgPrevCache[path];
+    if(!force&&c&&c.exp>Date.now())return c.url;
+    const {data,error}=await sb.storage.from('delivery-notes').createSignedUrl(path,3600);
+    if(error)throw error;
+    _imgPrevCache[path]={url:data.signedUrl,exp:Date.now()+3300*1000};
+    return data.signedUrl;
+  };
   try{
-    let url=_imgPrevCache[path];
-    if(!url){ img.style.display='none'; ldg.style.display='block'; ldg.textContent='Loading preview…'; url=await dbNoteUrlSigned(path); _imgPrevCache[path]=url; }
+    const cached=_imgPrevCache[path]&&_imgPrevCache[path].exp>Date.now();
+    if(!cached){ img.style.display='none'; ldg.style.display='block'; ldg.textContent='Loading preview…'; }
+    let url=await freshUrl(false);
     if(el._path!==path)return;                          // cursor already moved to another file
     img.onload=()=>{ if(el._path!==path)return; ldg.style.display='none'; img.style.display='block'; imgPreviewPos(el,ev); };
-    img.onerror=()=>{ ldg.style.display='block'; ldg.textContent='Preview unavailable'; img.style.display='none'; };
-    img.src=url; if(img.complete&&img.naturalWidth){ ldg.style.display='none'; img.style.display='block'; imgPreviewPos(el,ev); }
+    img.onerror=async()=>{                              // stale/expired URL → force one refresh and retry
+      if(img._retried===path){ ldg.style.display='block'; ldg.textContent='Preview unavailable'; img.style.display='none'; return; }
+      img._retried=path;
+      try{ const u2=await freshUrl(true); if(el._path===path)img.src=u2; }
+      catch(_){ ldg.style.display='block'; ldg.textContent='Preview unavailable'; img.style.display='none'; }
+    };
+    if(img.src!==url){ img._retried=null; img.src=url; }
+    if(img.complete&&img.naturalWidth){ ldg.style.display='none'; img.style.display='block'; imgPreviewPos(el,ev); }
   }catch(e){ ldg.style.display='block'; ldg.textContent='Preview unavailable'; }
 }
 function imgPreviewHide(){ const el=document.getElementById('img-hover-preview'); if(el){ el.style.display='none'; el._path=null; } }
@@ -896,7 +912,7 @@ function parseNoteFiles(r){
   const raw=r.note_file;
   if(!raw) return [];
   if(typeof raw==='string'){ const s=raw.trim();
-    if(s.charAt(0)==='['){ try{ const arr=JSON.parse(s); if(Array.isArray(arr)) return arr.map(x=> typeof x==='string'?{path:x,name:(x||'').split('/').pop()}:{path:x.path,name:x.name||(x.path||'').split('/').pop()}).filter(f=>f.path); }catch(e){} }
+    if(s.charAt(0)==='['){ try{ const arr=JSON.parse(s); if(Array.isArray(arr)) return arr.map(x=> typeof x==='string'?{path:x,name:(x||'').split('/').pop(),lines:[]}:{path:x.path,name:x.name||(x.path||'').split('/').pop(),lines:Array.isArray(x.lines)?x.lines.map(String):[]}).filter(f=>f.path); }catch(e){} }
   }
   return [{path:raw,name:r.note_name||'note'}];
 }
@@ -2394,7 +2410,7 @@ function openOrderModal(id){
   editingOrderId=id||null;
   document.getElementById('order-modal-title').textContent=id?'Edit Order Entry':'New Order Entry';
   document.getElementById('o-delete-btn').style.display=(id&&canDeleteOrders())?'inline-flex':'none';
-  oEditNoteFiles=[]; oPendingFiles=[]; oRemovedNotePaths=[]; oRenderNoteFiles();
+  oEditNoteFiles=[]; oPendingFiles=[]; oRemovedNotePaths=[]; oOrderLineNos=[]; oRenderNoteFiles();
   document.getElementById('o-file').value='';
   populateOrderFce();
   populateZoneSelects();
@@ -2412,7 +2428,7 @@ function openOrderModal(id){
     document.getElementById('o-delivered').value=o.deliveredAt||'';
     document.getElementById('o-remarks').value=o.remarks||'';
     { const zs=document.getElementById('o-zone'); if(zs){ if(o.to&&![...zs.options].some(op=>op.value===o.to)){ const op=document.createElement('option'); op.textContent=o.to; zs.insertBefore(op,zs.options[zs.options.length-1]); } zs.value=o.to||''; } }
-    oEditNoteFiles=(o.noteFiles||[]).slice(); oPendingFiles=[]; oRemovedNotePaths=[]; oRenderNoteFiles();
+    oEditNoteFiles=(o.noteFiles||[]).slice(); oPendingFiles=[]; oRemovedNotePaths=[]; oRenderNoteFiles(); oLoadOrderLines(o.orderNo);
     oStep(2); oStep2Summary(); oResetMode('manual'); document.getElementById('o-back-btn').style.display='none';
   } else {
     document.getElementById('o-date').value=new Date().toISOString().split('T')[0];
@@ -2432,15 +2448,36 @@ function populateOrderFce(){
   const opts=[...m.fce, ...DEFAULT_RESPONSIBILITY.filter(r=>!m.fce.includes(r))];
   document.getElementById('o-fce').innerHTML='<option value="">Select…</option>'+opts.map(f=>`<option>${f}</option>`).join('');
 }
-let oEditNoteFiles=[], oPendingFiles=[], oRemovedNotePaths=[];
+let oEditNoteFiles=[], oPendingFiles=[], oRemovedNotePaths=[], oOrderLineNos=[];
+// Load the order's line numbers (from sample_lines) so DN attachments can be tagged per line.
+async function oLoadOrderLines(orderNo){
+  oOrderLineNos=[];
+  const on=(''+(orderNo||'')).trim(); if(!on){ oRenderNoteFiles(); return; }
+  try{ const {data,error}=await sb.from('sample_lines').select('line_no').eq('order_no',on); if(!error&&data){ oOrderLineNos=[...new Set(data.map(r=>String(r.line_no==null?'':r.line_no).trim()).filter(Boolean))].sort((a,b)=>(parseFloat(a)||0)-(parseFloat(b)||0)); } }catch(_){}
+  oRenderNoteFiles();
+}
+function oToggleFileLine(kind,idx,line){
+  const f=kind==='e'?oEditNoteFiles[idx]:oPendingFiles[idx]; if(!f)return;
+  f.lines=Array.isArray(f.lines)?f.lines.map(String):[];
+  const i=f.lines.indexOf(String(line)); if(i>=0)f.lines.splice(i,1); else f.lines.push(String(line));
+  oRenderNoteFiles();
+}
 function oAddFiles(input){ if(input&&input.files){ for(const f of input.files) oPendingFiles.push({file:f,name:f.name}); input.value=''; } oRenderNoteFiles(); }
 function oRemovePending(i){ oPendingFiles.splice(i,1); oRenderNoteFiles(); }
 function oRenamePending(i,v){ if(oPendingFiles[i]) oPendingFiles[i].name=(v||'').trim()||oPendingFiles[i].name; }
 function oRenameExisting(path,v){ const f=oEditNoteFiles.find(x=>x.path===path); if(f) f.name=(v||'').trim()||f.name; }
 function oRemoveExisting(path){ if(!isAdmin()){ showToast('Only Super Admin can delete attachments.','err'); return; } const i=oEditNoteFiles.findIndex(f=>f.path===path); if(i>=0){ oRemovedNotePaths.push(oEditNoteFiles[i].path); oEditNoteFiles.splice(i,1); oRenderNoteFiles(); } }
 function oRenderNoteFiles(){ const el=document.getElementById('o-file-list'); if(!el)return; const inp='flex:1;min-width:140px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:11px;padding:3px 6px;'; let h='';
-  oEditNoteFiles.forEach(f=>{ const p=String(f.path||'').replace(/'/g,"\\'"); const nm=String(f.name||'').replace(/'/g,"\\'"); const _img=isImageFile(f.name||f.path); h+=`<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;"><span>📎</span><input type="text" value="${attEsc(f.name||'note')}" onchange="oRenameExisting('${p}',this.value)" title="Rename this attachment" style="${inp}"/><a href="javascript:void(0)" onclick="openNote('${p}');return false;"${_img?` onmouseenter="imgPreviewShow(event,'${p}','${nm}')" onmouseleave="imgPreviewHide()"`:''} style="color:var(--accent2);font-size:11px;">${_img?'🖼 ':''}open</a>${isAdmin()?`<button type="button" title="Delete attachment (Super Admin)" onclick="oRemoveExisting('${p}')" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:14px;line-height:1;">✕</button>`:''}</div>`; });
-  oPendingFiles.forEach((f,i)=>{ h+=`<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;"><span style="color:var(--green);">＋</span><input type="text" value="${attEsc(f.name)}" onchange="oRenamePending(${i},this.value)" title="Name this file before saving" style="${inp}"/><span style="color:var(--dim);font-size:11px;">new</span><button type="button" title="Remove" onclick="oRemovePending(${i})" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:14px;line-height:1;">✕</button></div>`; });
+  const chips=(kind,idx,f)=>{ if(!oOrderLineNos.length)return ''; const sel=new Set((f.lines||[]).map(String));
+    return '<div style="display:flex;gap:4px;flex-wrap:wrap;margin:2px 0 4px 22px;align-items:center;"><span style="font-size:10px;color:var(--dim);font-family:\'DM Mono\',monospace;">covers:</span>'+oOrderLineNos.map(ln=>`<span onclick="oToggleFileLine('${kind}',${idx},'${ln}')" style="cursor:pointer;font-size:10px;font-family:'DM Mono',monospace;padding:1px 8px;border-radius:10px;border:1px solid ${sel.has(ln)?'var(--accent)':'var(--border)'};background:${sel.has(ln)?'rgba(124,106,245,.22)':'transparent'};color:${sel.has(ln)?'var(--accent)':'var(--muted)'};" title="Toggle: this DN covers line ${ln}">${ln}</span>`).join('')+'</div>'; };
+  oEditNoteFiles.forEach((f,ei)=>{ const p=String(f.path||'').replace(/'/g,"\\'"); const nm=String(f.name||'').replace(/'/g,"\\'"); const _img=isImageFile(f.name||f.path); h+=`<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;"><span>📎</span><input type="text" value="${attEsc(f.name||'note')}" onchange="oRenameExisting('${p}',this.value)" title="Rename this attachment" style="${inp}"/><a href="javascript:void(0)" onclick="openNote('${p}');return false;"${_img?` onmouseenter="imgPreviewShow(event,'${p}','${nm}')" onmouseleave="imgPreviewHide()"`:''} style="color:var(--accent2);font-size:11px;">${_img?'🖼 ':''}open</a>${isAdmin()?`<button type="button" title="Delete attachment (Super Admin)" onclick="oRemoveExisting('${p}')" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:14px;line-height:1;">✕</button>`:''}</div>`+chips('e',ei,f); });
+  oPendingFiles.forEach((f,i)=>{ h+=`<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;"><span style="color:var(--green);">＋</span><input type="text" value="${attEsc(f.name)}" onchange="oRenamePending(${i},this.value)" title="Name this file before saving" style="${inp}"/><span style="color:var(--dim);font-size:11px;">new</span><button type="button" title="Remove" onclick="oRemovePending(${i})" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:14px;line-height:1;">✕</button></div>`+chips('p',i,f); });
+  // Coverage summary: which order lines already have a DN and which are still pending
+  if(oOrderLineNos.length&&(oEditNoteFiles.length||oPendingFiles.length)){
+    const cov=new Set(); [...oEditNoteFiles,...oPendingFiles].forEach(f=>(f.lines||[]).forEach(x=>cov.add(String(x))));
+    const covered=oOrderLineNos.filter(x=>cov.has(x)), pending=oOrderLineNos.filter(x=>!cov.has(x));
+    h+=`<div style="margin-top:6px;padding:6px 10px;border-radius:8px;background:var(--surface2);font-size:11px;font-family:'DM Mono',monospace;display:flex;gap:14px;flex-wrap:wrap;"><span style="color:#46e6a0;">✔ DN attached: ${covered.length?covered.join(', '):'—'}</span><span style="color:${pending.length?'#ff9f5a':'var(--dim)'};">⏳ Pending: ${pending.length?pending.join(', '):'none'}</span></div>`;
+  }
   el.innerHTML=h||'<span style="color:var(--dim);">No attachments yet.</span>';
 }
 async function saveOrder(){
@@ -2465,7 +2502,7 @@ async function saveOrder(){
   try{
     btn.disabled=true; btn.innerHTML='<span class="loader"></span> Saving…';
     let files=(oEditNoteFiles||[]).slice();
-    for(let k=0;k<oPendingFiles.length;k++){ const pf=oPendingFiles[k]; const file=pf.file; const ext=(file.name.split('.').pop()||'dat'); const path=o.id+'_'+Date.now()+'_'+k+'.'+ext; await dbUploadNote(file,path); files.push({path:path,name:(pf.name&&pf.name.trim())||file.name}); }
+    for(let k=0;k<oPendingFiles.length;k++){ const pf=oPendingFiles[k]; const file=pf.file; const ext=(file.name.split('.').pop()||'dat'); const path=o.id+'_'+Date.now()+'_'+k+'.'+ext; await dbUploadNote(file,path); files.push({path:path,name:(pf.name&&pf.name.trim())||file.name,lines:(pf.lines||[]).map(String)}); }
     for(const rp of oRemovedNotePaths){ try{ await dbDeleteNote(rp); }catch(e){} }
     o.noteFiles=files; o.noteFile=(files[0]&&files[0].path)||null; o.noteName=(files[0]&&files[0].name)||null;
     await dbUpsertOrder(orderToRow(o));
@@ -3152,7 +3189,9 @@ async function cdAddNote(id){
   }
   try{ if(typeof dbSaveContacts==='function')await dbSaveContacts(); showToast(noteLines.length?('Note added · lines '+noteLines.join(',')+' marked delivered.'):'Note added.'); }
   catch(e){ showToast('Cloud save failed: '+(e.message||e),'err'); }
-  renderCDM(); pkRenderOrderView&&pkRenderOrderView();
+  // Auto-update the order status (and Delivered date) whenever line-level delivery changes.
+  if(noteLines.length){ try{ const {data,error}=await sb.from('sample_lines').select('order_no,line_no,line_status').eq('order_no',p.orderNo); if(!error&&data)await pkSyncOrderStatuses(data); }catch(e){ console.error('note resync',e); } }
+  renderCDM(); pkRenderOrderView&&pkRenderOrderView(); try{ renderOrders(); }catch(_){}
 }
 // 2a — When an order that is already in the Complete Delivery List is (re)added to a Trip List,
 // record the tripped lines + trip date as a note on the CD posting(s) so both lists stay in sync.
@@ -3547,7 +3586,27 @@ function pkRenderListRows(){
   const rows=pkListFiltered();
   // Order Tracker lookup: DN uploaded? + completion status
   const ordMap={}; try{ getOrders().forEach(o=>{ const k=(o.orderNo||'').trim().toLowerCase(); if(k&&!ordMap[k])ordMap[k]=o; }); }catch(e){}
-  const dnCell=t=>{ const o=ordMap[(t.order_no||'').trim().toLowerCase()]; const has=!!(o&&((o.noteFiles&&o.noteFiles.length)||o.noteFile)); return has?'<span class="badge" style="background:rgba(70,230,160,.15);color:#46e6a0;">Available</span>':'<span class="badge" style="background:rgba(255,107,107,.12);color:#ff8a8a;">Not Available</span>'; };
+  const dnCell=t=>{
+    const on=(t.order_no||'').trim().toLowerCase();
+    const o=ordMap[on];
+    const lines=cdParseLines(t.line_nos).map(String);
+    // 1) Preferred: explicit per-line DN attachment tags on the order's DN copies.
+    const tagSet=new Set(); (o&&o.noteFiles||[]).forEach(f=>(f.lines||[]).forEach(x=>tagSet.add(String(x))));
+    // 2) Fallback signal: Complete Delivery List acknowledgment per line.
+    const posts=cdPosts().filter(p=>(p.orderNo||'').trim().toLowerCase()===on);
+    const ackSet=new Set(); posts.forEach(p=>{ cdDeliveredLines(p).forEach(x=>ackSet.add(String(x))); if(p.status==='done')cdParseLines(p.lineNos).forEach(x=>ackSet.add(String(x))); });
+    const covSet=tagSet.size?tagSet:ackSet;
+    if(lines.length&&(tagSet.size||posts.length)){
+      const done=lines.filter(x=>covSet.has(x)); const pend=lines.filter(x=>!covSet.has(x));
+      const src=tagSet.size?'DN attachments':'Complete Delivery List';
+      if(pend.length===0)return '<span class="badge" style="background:rgba(70,230,160,.15);color:#46e6a0;" title="DN for all lines ('+src+'): '+attEsc(lines.join(', '))+'">Available</span>';
+      if(done.length===0)return '<span class="badge" style="background:rgba(255,107,107,.12);color:#ff8a8a;" title="No DN yet · pending lines: '+attEsc(pend.join(', '))+'">Not Available</span>';
+      return '<span class="badge" style="background:rgba(255,159,90,.15);color:#ff9f5a;" title="DN ('+src+'): '+attEsc(done.join(', '))+' · Pending: '+attEsc(pend.join(', '))+'">Partial '+done.length+'/'+lines.length+'</span>';
+    }
+    // 3) Last resort: order-level DN copy presence.
+    const has=!!(o&&((o.noteFiles&&o.noteFiles.length)||o.noteFile));
+    return has?'<span class="badge" style="background:rgba(70,230,160,.15);color:#46e6a0;">Available</span>':'<span class="badge" style="background:rgba(255,107,107,.12);color:#ff8a8a;">Not Available</span>';
+  };
   const cmCell=t=>{ const o=ordMap[(t.order_no||'').trim().toLowerCase()]; if(!o)return '<span style="color:var(--dim);font-size:11px;">—</span>'; if(o.status==='Delivery Completed')return '<span class="badge" style="background:rgba(70,230,160,.15);color:#46e6a0;">Fully Completed</span>'; if(o.status==='Partially Completed')return '<span class="badge" style="background:rgba(255,159,90,.15);color:#ff9f5a;">Partially Completed</span>'; if(o.status==='Partially Delivered')return '<span class="badge" style="background:rgba(255,194,77,.16);color:#ffc24d;">Partially Delivered</span>'; return '<span style="color:var(--dim);font-size:11px;">'+attEsc(o.status||'—')+'</span>'; };
   tb.innerHTML=rows.map((t,i)=>{ const isRet=t.kind==='return'; const typeBadge=`<span style="font-size:11px;font-weight:600;color:${isRet?'#e0913a':'#4ecdc4'};">${pkListType(t)}</span>`; return `<tr><td style="text-align:center;"><input type="checkbox" ${pkListSel.has(t.id)?'checked':''} onchange="pkListTick('${t.id}')"/></td><td>${i+1}</td><td>${typeBadge}</td><td style="white-space:nowrap;">${fmtDate(t.trip_date)}</td><td>${attEsc(t.ship_to)}</td><td>${attEsc(t.order_no)}</td><td><div style="max-width:380px;min-width:160px;white-space:normal;word-break:break-word;font-size:11px;line-height:1.6;color:var(--muted);">${attEsc(t.line_nos)}</div></td><td>${attEsc(t.total_qty)}</td><td>${attEsc(t.carton_qty)}</td><td>${attEsc(t.road)||(isRet?'—':'')}</td><td>${dnCell(t)}</td><td>${cmCell(t)}</td><td style="white-space:nowrap;"><button class="btn btn-ghost btn-sm" onclick="pkListEdit('${t.id}')">Edit</button> ${(isPacker()||isFCE())?'':`<button class="btn btn-reject btn-sm" onclick="pkListDelete('${t.id}')">Delete</button>`}</td></tr>`;}).join('')||`<tr><td colspan="13" style="text-align:center;color:var(--muted);padding:16px;">No entries yet.</td></tr>`;
 }
@@ -4232,19 +4291,23 @@ async function pkSyncOrderStatuses(recs){
     const ackInOrder=lineSet.size?[...lineSet].filter(x=>ackSet.has(String(x))).length:ackSet.size;
     const someAck=ackInOrder>0;                                                        // ≥1 line acknowledged (DN received)
     const allAck=lineSet.size?(ackInOrder===lineSet.size&&lineSet.size>0):(hasCd&&posts.every(p=>p.status==='done')); // every line acknowledged
+    // Last Delivered On = the most recent delivery date from either the Trip List or CD line-delivery records.
+    let lastDeliv=trip||'';
+    posts.forEach(p=>{ const meta=(p.deliveredMeta&&typeof p.deliveredMeta==='object')?p.deliveredMeta:{}; Object.keys(meta).forEach(kk=>{ const d=(meta[kk]&&meta[kk].delivDate)||''; if(d&&d>lastDeliv)lastDeliv=d; }); });
     let ns=null, nd=o.deliveredAt||null;
     // Precedence — the Trip List is the authoritative delivery-progress signal:
     //   • all order lines on a trip, OR every line acknowledged  -> Delivery Completed
     //   • some (not all) order lines on a trip                   -> Partially Delivered  (Trip List wins, even for Complete-Delivery customers)
     //   • acknowledged in the Complete Delivery List, but nothing tripped -> Partially Completed
-    if(allInTrip||allAck){ ns='Delivery Completed'; nd=trip||o.deliveredAt||null; }    // all lines tripped or all acknowledged
+    if(allInTrip||allAck){ ns='Delivery Completed'; nd=lastDeliv||o.deliveredAt||null; }    // all lines tripped or all acknowledged
     else if(returnByOrder[k]){ ns='Returned'; }                                       // in Trip List as a return
-    else if(someInTrip){ ns='Partially Delivered'; nd=trip||o.deliveredAt||null; }     // some lines on a trip → Partially Delivered
-    else if(someAck){ ns='Partially Completed'; }                                     // acknowledged in the Complete Delivery List, nothing on a trip yet
+    else if(someInTrip){ ns='Partially Delivered'; nd=lastDeliv||o.deliveredAt||null; }     // some lines on a trip → Partially Delivered
+    else if(someAck){ ns='Partially Completed'; nd=lastDeliv||o.deliveredAt||null; }         // acknowledged in the Complete Delivery List, nothing on a trip yet
     else if(anyDev){ ns='In Development'; }                                            // in-development line statuses
     else if(allOpen||!nLines){ ns='Yet to Start'; }                                   // Open / nothing started
     else { ns='In Development'; }                                                      // started (e.g. Dispatched) but not yet tripped/CD
-    if(ns&&(o.status!==ns||((ns==='Delivery Completed'||ns==='Partially Delivered')&&o.deliveredAt!==nd))){ o.status=ns; o.deliveredAt=nd; changed.push(orderToRow(o)); }
+    const _ndMatters=(ns==='Delivery Completed'||ns==='Partially Delivered'||ns==='Partially Completed');
+    if(ns&&(o.status!==ns||(_ndMatters&&o.deliveredAt!==nd))){ o.status=ns; o.deliveredAt=nd; changed.push(orderToRow(o)); }
   });
   for(let i=0;i<changed.length;i+=400){ const {error}=await sb.from('sample_orders').upsert(changed.slice(i,i+400)); if(error)throw error; }
   if(changed.length){ try{ await refreshAll(); }catch(_){} showToast(changed.length+' order status(es) auto-updated from Trip List &amp; Complete Delivery List.'); }
