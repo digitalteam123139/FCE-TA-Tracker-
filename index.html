@@ -362,6 +362,7 @@ input[type="date"]::-moz-clear{display:none!important;}
       <select class="filter-sel" id="fce-filter" onchange="onFCEFilter(this.value)"><option value="">All FCEs</option></select>
       <select class="filter-sel" id="month-filter-top" onchange="onMonthFilter(this.value)"></select>
       <button class="btn btn-ghost btn-sm" onclick="refreshAll()" title="Refresh from cloud"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg></button>
+      <button class="btn btn-ghost btn-sm" id="app-refresh-btn" onclick="refreshEverything()" title="Refresh ALL app data — orders, trips, packing, delivery lists & dashboards"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.13-9.36L23 10"/></svg> Refresh</button>
     </div>
   </div>
   <div class="content">
@@ -713,7 +714,7 @@ input[type="date"]::-moz-clear{display:none!important;}
   <div class="modal-header"><h3 id="pk-road-title">Add to Trip</h3><button class="btn-icon" onclick="closeModal('pk-road-modal')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
   <div class="modal-body">
     <div class="form-group"><label class="form-label">Date</label><input class="form-input" id="pk-road-date" type="date"/></div>
-    <div class="form-group"><label class="form-label">Road / Delivery Zone *</label><select class="form-input" id="pk-road-sel"></select></div>
+    <div class="form-group" style="position:relative;"><label class="form-label">Road / Delivery Zone *</label><input class="form-input" id="pk-road-search" type="text" placeholder="🔍 Type 2–3 letters to search road…" oninput="pkRoadFilter(this.value)" onfocus="pkRoadFilter(this.value)" autocomplete="off" style="margin-bottom:6px;"/><div id="pk-road-sugg" style="display:none;position:absolute;left:0;right:0;top:100%;margin-top:-4px;z-index:50;background:var(--surface);border:1px solid var(--accent);border-radius:8px;max-height:180px;overflow:auto;box-shadow:0 10px 28px rgba(0,0,0,.45);"></div><select class="form-input" id="pk-road-sel"></select></div>
     <div class="form-group"><label class="form-label">Carton Qty</label><input class="form-input" id="pk-road-carton" type="number" min="0" value="1"/></div>
     <div class="form-group" id="pk-road-reason-wrap" style="display:none;"><label class="form-label">Return Reason *</label><select class="form-input" id="pk-road-reason"></select></div>
     <div id="pk-road-note" style="font-size:12px;color:var(--muted);"></div>
@@ -873,6 +874,27 @@ async function dbDeleteAnnouncementRow(id){ const {error}=await sb.from('announc
 function rowToEntry(r){ return {id:r.id,date:r.date,month:r.month||r.date.slice(0,7),fce:r.fce,customer:r.customer,merch:r.merch,purpose:r.purpose,duration:r.duration,claimed:Number(r.claimed)||0,approved:r.approved!=null?Number(r.approved):null,status:r.status,notes:r.notes,order:r.ordernum,rejectionReason:r.reject_reason,authNote:r.auth_note,createdBy:r.created_by,approvedBy:r.approved_by}; }
 function entryToRow(e){ return {id:e.id,date:e.date,month:e.month||e.date.slice(0,7),fce:e.fce,customer:e.customer,merch:e.merch||null,purpose:e.purpose||null,duration:e.duration||null,claimed:e.claimed||0,approved:e.approved,status:e.status,notes:e.notes||null,ordernum:e.order||null,reject_reason:e.rejectionReason||null,auth_note:e.authNote||null,created_by:e.createdBy||null,approved_by:e.approvedBy||null,updated_at:new Date().toISOString()}; }
 
+// Global app refresh — reloads every cloud data source, re-derives order statuses, re-renders whatever is on screen.
+async function refreshEverything(){
+  const b=document.getElementById('app-refresh-btn');
+  if(b){ b.disabled=true; b.style.opacity='.6'; }
+  try{
+    showToast('Refreshing all data…');
+    await refreshAll();                                                    // users, entries, master (incl. contacts), orders
+    try{ if(typeof pkLoadTrips==='function')await pkLoadTrips(true); }catch(_){}
+    try{ if(typeof pkLoadPlantMap==='function')await pkLoadPlantMap(true); }catch(_){}
+    // Re-derive all order statuses from the fresh data
+    try{
+      let all=[], from=0; const size=1000;
+      while(true){ const {data,error}=await sb.from('sample_lines').select('order_no,line_no,line_status').range(from,from+size-1); if(error)throw error; all=all.concat(data||[]); if(!data||data.length<size)break; from+=size; if(from>200000)break; }
+      if(all.length)await pkSyncOrderStatuses(all);
+    }catch(e){ console.error('refresh sync',e); }
+    // Re-render every view that might be on screen (each guarded — inactive views just no-op or are hidden)
+    ['renderOrders','pkRender','renderCDM','renderAttendance','renderMyEntries','renderDashboard','pkRenderOrders'].forEach(fn=>{ try{ if(typeof window[fn]==='function')window[fn](); }catch(_){} });
+    showToast('All data refreshed ✓');
+  }catch(e){ showToast('Refresh failed: '+(e.message||e),'err'); }
+  finally{ if(b){ b.disabled=false; b.style.opacity=''; } }
+}
 async function refreshAll(){
   if(!CONFIGURED) return;
   try{
@@ -2115,6 +2137,16 @@ function renderOrders(){
     renderOrders._loadingTrips=true;
     pkLoadTrips().then(()=>{ renderOrders._loadingTrips=false; try{ renderOrders(); }catch(_){} }).catch(()=>{ renderOrders._loadingTrips=false; });
   }
+  // Auto status sync — once per session, re-derive every order's status from the Trip List + Complete
+  // Delivery List in the background (same as the Renormalise button, minus the legacy rename & confirm).
+  if(!window._ordAutoSynced&&typeof pkSyncOrderStatuses==='function'){
+    window._ordAutoSynced=true;
+    (async()=>{ try{
+      let all=[], from=0; const size=1000;
+      while(true){ const {data,error}=await sb.from('sample_lines').select('order_no,line_no,line_status').range(from,from+size-1); if(error)throw error; all=all.concat(data||[]); if(!data||data.length<size)break; from+=size; if(from>200000)break; }
+      if(all.length)await pkSyncOrderStatuses(all);
+    }catch(e){ console.error('auto status sync',e); window._ordAutoSynced=false; } })();
+  }
   const taskF=document.getElementById('order-task-filter').value;
   const zoneF=(document.getElementById('order-zone-filter')||{}).value||'';
   const serviceF=(document.getElementById('order-service-filter')||{}).value||'';
@@ -2146,8 +2178,12 @@ function renderOrders(){
   const canSend=canSendOrders();
   document.getElementById('orders-table').innerHTML=ordCapNote+rows.map(o=>{
     const d=fmtDate(o.date);
+    // Delivered date = latest line-level Trip List date; fall back to the stored delivered_at;
+    // if the order has no date at all → "Yet to List in Trip List".
+    let _lastTrip=''; try{ (CACHE.trips||[]).forEach(t=>{ if(t.kind==='return')return; if((t.order_no||'').trim().toLowerCase()!==(o.orderNo||'').trim().toLowerCase())return; const td=t.trip_date||''; if(td>_lastTrip)_lastTrip=td; }); }catch(_){}
+    const _dd=_lastTrip||o.deliveredAt||'';
     const extra = o.task==='Sample Delivery'
-      ? (o.deliveredAt?('Delivered '+fmtDate(o.deliveredAt)):'—')
+      ? (_dd?('Delivered '+fmtDate(_dd)):'<span style="color:var(--dim);">Yet to List in Trip List</span>')
       : (o.reqTime?('Req. '+o.reqTime):'—');
     const _nfs=o.noteFiles||[]; const _esc=s=>String(s||'').replace(/'/g,"\\'"); const note=_nfs.length?_nfs.map((f,ix)=>{ const _img=isImageFile(f.name||f.path); return `<a href="javascript:void(0)" onclick="openNote('${_esc(f.path)}');return false;"${_img?` onmouseenter="imgPreviewShow(event,'${_esc(f.path)}','${_esc(f.name||'')}')" onmouseleave="imgPreviewHide()"`:''} class="btn-approve" title="${attEsc(f.name||('file '+(ix+1)))}${_img?' — hover to preview':''}" style="text-decoration:none;display:block;max-width:170px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin:2px 0;">${_img?'🖼 ':''}${attEsc(f.name||('file '+(ix+1)))}</a>`; }).join(''):'<span style="color:var(--muted);">—</span>';
     const editBtn=canEdit?`<button class="btn-icon btn-sm" onclick="openOrderModal('${o.id}')" title="Edit"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.828 2.828 0 114 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg></button>`:'<span style="color:var(--muted);">—</span>';
@@ -3138,7 +3174,8 @@ async function cdSaveSel(){
       existing.notes=existing.notes||[]; existing.notes.push({at:new Date().toISOString(),by:(currentUser&&currentUser.name)||'',text:'Added lines '+genuinelyNew.join(', ')+' to '+existing.bin+' (Ctn '+(existing.cartonNos||[]).join(', ')+')'});
       try{ if(typeof dbSaveContacts==='function')await dbSaveContacts(); showToast('Lines '+genuinelyNew.join(', ')+' added to existing posting for '+o.orderNo+'.'); }
       catch(e){ showToast('Cloud save failed: '+(e.message||e),'err'); }
-      if(pkTab==='orders')pkRenderOrders(); pkRenderOrderView&&pkRenderOrderView(); return;
+      try{ const {data,error}=await sb.from('sample_lines').select('order_no,line_no,line_status').eq('order_no',o.orderNo); if(!error&&data)await pkSyncOrderStatuses(data); }catch(e){ console.error('cd post resync',e); }
+      if(pkTab==='orders')pkRenderOrders(); pkRenderOrderView&&pkRenderOrderView(); try{ renderOrders(); }catch(_){} return;
     }
     const rec={ id:'cd_'+Date.now()+'_'+Math.random().toString(36).slice(2,6), orderNo:o.orderNo, shipTo:o.shipTo, soldToName:(o.soldToName||''), buyer:o.buyer||'',
       bin:cdSel.bin, cartons:nos.length, cartonNos:nos, lineNos:newLineNos.join(','), totalQty:usedLines.reduce((s,l)=>s+(parseFloat(l.qty)||0),0),
@@ -3146,7 +3183,8 @@ async function cdSaveSel(){
     cdPosts().unshift(rec);
     try{ if(typeof dbSaveContacts==='function')await dbSaveContacts(); showToast('Order '+o.orderNo+' posted to "'+cdSel.bin+'" · Carton '+nos.join(', ')+'.'); }
     catch(e){ showToast('Cloud save failed: '+(e.message||e),'err'); }
-    if(pkTab==='orders')pkRenderOrders(); pkRenderOrderView&&pkRenderOrderView();
+    try{ const {data,error}=await sb.from('sample_lines').select('order_no,line_no,line_status').eq('order_no',o.orderNo); if(!error&&data)await pkSyncOrderStatuses(data); }catch(e){ console.error('cd post resync',e); }
+    if(pkTab==='orders')pkRenderOrders(); pkRenderOrderView&&pkRenderOrderView(); try{ renderOrders(); }catch(_){}
   } else {
     if(!cdCanEditBin())return;
     const p=cdPosts().find(x=>x.id===cdSel.postId); if(!p)return;
@@ -3430,6 +3468,22 @@ function pkToggleLine(i){ if(!pkOrder)return; const s=pkOrder._sel; if(s.has(i))
 function pkToggleAllLines(on){ if(!pkOrder)return; pkOrder._sel=new Set(on?pkOrder.lines.map((_,i)=>i):[]); pkRenderOrderView(); }
 function pkSelectedLines(){ if(!pkOrder)return []; const s=pkOrder._sel; return pkOrder.lines.filter((_,i)=>s.has(i)); }
 let __pkRoadMode='trip';
+// Live search for the Road / Delivery Zone in the Add to Trip / Add to Return dialog.
+// Typing shows matching road names in a dropdown list; clicking one selects it.
+function pkRoadFilter(q){
+  const sug=document.getElementById('pk-road-sugg'); if(!sug)return;
+  const zones=(window._pkRoadZones||[]);
+  const t=(''+(q||'')).trim().toLowerCase();
+  if(t.length<2){ sug.style.display='none'; sug.innerHTML=''; return; }   // suggest from 2 characters
+  const list=zones.filter(z=>(''+z).toLowerCase().includes(t)).slice(0,30);
+  if(!list.length){ sug.style.display='block'; sug.innerHTML='<div style="padding:8px 12px;font-size:12px;color:var(--dim);">No matching road</div>'; return; }
+  sug.innerHTML=list.map(z=>`<div onclick="pkRoadPick('${attEsc(z).replace(/'/g,"\\'")}')" onmouseenter="this.style.background='rgba(124,106,245,.18)'" onmouseleave="this.style.background=''" style="padding:8px 12px;font-size:12.5px;color:var(--text);cursor:pointer;border-bottom:1px solid rgba(255,255,255,.05);">${attEsc(z)}</div>`).join('');
+  sug.style.display='block';
+}
+function pkRoadPick(z){
+  const sel=document.getElementById('pk-road-sel'); const inp=document.getElementById('pk-road-search'); const sug=document.getElementById('pk-road-sugg');
+  if(sel)sel.value=z; if(inp)inp.value=z; if(sug){ sug.style.display='none'; sug.innerHTML=''; }
+}
 function pkOpenRoadModal(mode){
   if(!pkOrder){ showToast('Open an order first.','err'); return; }
   __pkRoadMode=mode;
@@ -3437,6 +3491,8 @@ function pkOpenRoadModal(mode){
   if(!zones.length){ showToast('No delivery roads yet — add them in Master Data → Delivery Zones.','err'); return; }
   document.getElementById('pk-road-title').textContent=mode==='return'?'Add to Return':'Add to Trip';
   document.getElementById('pk-road-confirm').textContent=mode==='return'?'Add Return':'Add to Trip';
+  window._pkRoadZones=zones.slice();
+  const _rs=document.getElementById('pk-road-search'); if(_rs)_rs.value='';
   document.getElementById('pk-road-sel').innerHTML='<option value="">— select road —</option>'+zones.map(z=>`<option>${attEsc(z)}</option>`).join('');
   const rw=document.getElementById('pk-road-reason-wrap'); if(rw){ rw.style.display=mode==='return'?'':'none'; if(mode==='return'){ document.getElementById('pk-road-reason').innerHTML='<option value="">— select reason —</option>'+rrList().map(r=>`<option>${attEsc(r)}</option>`).join(''); } }
   document.getElementById('pk-road-carton').value='1';
@@ -3589,23 +3645,20 @@ function pkRenderListRows(){
   const dnCell=t=>{
     const on=(t.order_no||'').trim().toLowerCase();
     const o=ordMap[on];
+    const files=(o&&o.noteFiles)||[];
+    const hasFiles=!!(files.length||(o&&o.noteFile));
+    if(!hasFiles)return '<span class="badge" style="background:rgba(255,107,107,.12);color:#ff8a8a;" title="No DN copy uploaded for this order.">Not Available</span>';
+    // DN status is based ONLY on actual DN copies. When copies are line-tagged, show per-line coverage of this trip's lines.
     const lines=cdParseLines(t.line_nos).map(String);
-    // 1) Preferred: explicit per-line DN attachment tags on the order's DN copies.
-    const tagSet=new Set(); (o&&o.noteFiles||[]).forEach(f=>(f.lines||[]).forEach(x=>tagSet.add(String(x))));
-    // 2) Fallback signal: Complete Delivery List acknowledgment per line.
-    const posts=cdPosts().filter(p=>(p.orderNo||'').trim().toLowerCase()===on);
-    const ackSet=new Set(); posts.forEach(p=>{ cdDeliveredLines(p).forEach(x=>ackSet.add(String(x))); if(p.status==='done')cdParseLines(p.lineNos).forEach(x=>ackSet.add(String(x))); });
-    const covSet=tagSet.size?tagSet:ackSet;
-    if(lines.length&&(tagSet.size||posts.length)){
-      const done=lines.filter(x=>covSet.has(x)); const pend=lines.filter(x=>!covSet.has(x));
-      const src=tagSet.size?'DN attachments':'Complete Delivery List';
-      if(pend.length===0)return '<span class="badge" style="background:rgba(70,230,160,.15);color:#46e6a0;" title="DN for all lines ('+src+'): '+attEsc(lines.join(', '))+'">Available</span>';
-      if(done.length===0)return '<span class="badge" style="background:rgba(255,107,107,.12);color:#ff8a8a;" title="No DN yet · pending lines: '+attEsc(pend.join(', '))+'">Not Available</span>';
-      return '<span class="badge" style="background:rgba(255,159,90,.15);color:#ff9f5a;" title="DN ('+src+'): '+attEsc(done.join(', '))+' · Pending: '+attEsc(pend.join(', '))+'">Partial '+done.length+'/'+lines.length+'</span>';
+    const tagSet=new Set(); files.forEach(f=>(f.lines||[]).forEach(x=>tagSet.add(String(x))));
+    if(tagSet.size&&lines.length){
+      const done=lines.filter(x=>tagSet.has(x)); const pend=lines.filter(x=>!tagSet.has(x));
+      if(pend.length===0)return '<span class="badge" style="background:rgba(70,230,160,.15);color:#46e6a0;" title="DN Copy Available line- '+attEsc(lines.join(', '))+'">Available</span>';
+      if(done.length===0)return '<span class="badge" style="background:rgba(255,107,107,.12);color:#ff8a8a;" title="Uploaded DN copies do not cover these lines · pending: '+attEsc(pend.join(', '))+'">Not Available</span>';
+      return '<span class="badge" style="background:rgba(255,159,90,.15);color:#ff9f5a;" title="DN Copy Available line- '+attEsc(done.join(', '))+' · Pending: '+attEsc(pend.join(', '))+'">Partial '+done.length+'/'+lines.length+'</span>';
     }
-    // 3) Last resort: order-level DN copy presence.
-    const has=!!(o&&((o.noteFiles&&o.noteFiles.length)||o.noteFile));
-    return has?'<span class="badge" style="background:rgba(70,230,160,.15);color:#46e6a0;">Available</span>':'<span class="badge" style="background:rgba(255,107,107,.12);color:#ff8a8a;">Not Available</span>';
+    // DN copies exist but aren't line-tagged (legacy) → order-level Available.
+    return '<span class="badge" style="background:rgba(70,230,160,.15);color:#46e6a0;" title="DN copy uploaded (not line-tagged).">Available</span>';
   };
   const cmCell=t=>{ const o=ordMap[(t.order_no||'').trim().toLowerCase()]; if(!o)return '<span style="color:var(--dim);font-size:11px;">—</span>'; if(o.status==='Delivery Completed')return '<span class="badge" style="background:rgba(70,230,160,.15);color:#46e6a0;">Fully Completed</span>'; if(o.status==='Partially Completed')return '<span class="badge" style="background:rgba(255,159,90,.15);color:#ff9f5a;">Partially Completed</span>'; if(o.status==='Partially Delivered')return '<span class="badge" style="background:rgba(255,194,77,.16);color:#ffc24d;">Partially Delivered</span>'; return '<span style="color:var(--dim);font-size:11px;">'+attEsc(o.status||'—')+'</span>'; };
   tb.innerHTML=rows.map((t,i)=>{ const isRet=t.kind==='return'; const typeBadge=`<span style="font-size:11px;font-weight:600;color:${isRet?'#e0913a':'#4ecdc4'};">${pkListType(t)}</span>`; return `<tr><td style="text-align:center;"><input type="checkbox" ${pkListSel.has(t.id)?'checked':''} onchange="pkListTick('${t.id}')"/></td><td>${i+1}</td><td>${typeBadge}</td><td style="white-space:nowrap;">${fmtDate(t.trip_date)}</td><td>${attEsc(t.ship_to)}</td><td>${attEsc(t.order_no)}</td><td><div style="max-width:380px;min-width:160px;white-space:normal;word-break:break-word;font-size:11px;line-height:1.6;color:var(--muted);">${attEsc(t.line_nos)}</div></td><td>${attEsc(t.total_qty)}</td><td>${attEsc(t.carton_qty)}</td><td>${attEsc(t.road)||(isRet?'—':'')}</td><td>${dnCell(t)}</td><td>${cmCell(t)}</td><td style="white-space:nowrap;"><button class="btn btn-ghost btn-sm" onclick="pkListEdit('${t.id}')">Edit</button> ${(isPacker()||isFCE())?'':`<button class="btn btn-reject btn-sm" onclick="pkListDelete('${t.id}')">Delete</button>`}</td></tr>`;}).join('')||`<tr><td colspan="13" style="text-align:center;color:var(--muted);padding:16px;">No entries yet.</td></tr>`;
@@ -3664,7 +3717,7 @@ function pkRenderReturns(){
   const qty=rets.reduce((s,r)=>s+(parseFloat(r.total_qty)||0),0);
   // group by month + by customer
   const byMonth={}; rets.forEach(r=>{ const m=(pkRetGran==='day'?((r.trip_date||'').slice(0,10)):((r.trip_date||'').slice(0,7)))||'—'; byMonth[m]=(byMonth[m]||0)+1; });
-  const retCustName=r=>{ try{ const c=cdResolveSoldCode(r.ship_to||'','',''); if(c&&PKM.cmByCode&&PKM.cmByCode.get(c))return PKM.cmByCode.get(c); }catch(e){} return r.ship_to||'—'; };
+  const retCustName=r=>{ const st=(r.ship_to||'').trim(); return st||'—'; };   // show the customer recorded on the return itself (mapping caused wrong-name mismatches)
   const byCust={}; rets.forEach(r=>{ const c=retCustName(r); byCust[c]=(byCust[c]||0)+1; });
   const custTop=Object.entries(byCust).sort((a,b)=>b[1]-a[1]).slice(0,8);
   const tblData=rets.slice().sort((a,b)=>(''+b.trip_date).localeCompare(''+a.trip_date));
@@ -3811,7 +3864,7 @@ function pkDashOps(){
   const received=delivOrders.filter(o=>o.noteFiles&&o.noteFiles.length);
   const pending=delivOrders.filter(o=>!(o.noteFiles&&o.noteFiles.length));
   const gdisp=k=>(k==='—'?'—':(gran==='month'?monthLabel(k):fmtDate(k)));
-  const dnG={}; delivOrders.forEach(o=>{ const k=pkDashGranKey((''+(o.deliveredAt||o.date||'')).slice(0,10),gran)||'—'; const rd=o.to||'—'; const key=k+'||'+rd; if(!dnG[key])dnG[key]={d:k,rd,recv:0,pend:0}; if(o.noteFiles&&o.noteFiles.length)dnG[key].recv++; else dnG[key].pend++; });
+  const dnG={}; delivOrders.forEach(o=>{ const k=pkDashGranKey((''+(o.deliveredAt||o.date||'')).slice(0,10),gran)||'—'; const rd=(typeof ordDeliveryZoneFor==='function'?ordDeliveryZoneFor(o):'')||o.to||'—'; const key=k+'||'+rd; if(!dnG[key])dnG[key]={d:k,rd,recv:0,pend:0}; if(o.noteFiles&&o.noteFiles.length)dnG[key].recv++; else dnG[key].pend++; });
   const dnList=Object.values(dnG).filter(x=>x.recv||x.pend).sort((a,b)=>String(b.d).localeCompare(String(a.d)));
   let tRecv=0,tPend=0; dnList.forEach(x=>{ tRecv+=x.recv; tPend+=x.pend; });
   const pendRows=dnList.map(x=>`<tr><td style="white-space:nowrap;">${gdisp(x.d)}</td><td>${attEsc(x.rd)}</td><td style="text-align:center;color:#46e6a0;font-weight:700;">${x.recv||0}</td><td style="text-align:center;color:#ff9f5a;font-weight:700;">${x.pend||0}</td></tr>`).join('')||`<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:14px;">No DN records.</td></tr>`;
@@ -4302,7 +4355,7 @@ async function pkSyncOrderStatuses(recs){
     if(allInTrip||allAck){ ns='Delivery Completed'; nd=lastDeliv||o.deliveredAt||null; }    // all lines tripped or all acknowledged
     else if(returnByOrder[k]){ ns='Returned'; }                                       // in Trip List as a return
     else if(someInTrip){ ns='Partially Delivered'; nd=lastDeliv||o.deliveredAt||null; }     // some lines on a trip → Partially Delivered
-    else if(someAck){ ns='Partially Completed'; nd=lastDeliv||o.deliveredAt||null; }         // acknowledged in the Complete Delivery List, nothing on a trip yet
+    else if(hasCd){ ns='Partially Completed'; nd=lastDeliv||o.deliveredAt||null; }         // posted to the Complete Delivery List (membership), nothing on a trip yet
     else if(anyDev){ ns='In Development'; }                                            // in-development line statuses
     else if(allOpen||!nLines){ ns='Yet to Start'; }                                   // Open / nothing started
     else { ns='In Development'; }                                                      // started (e.g. Dispatched) but not yet tripped/CD
