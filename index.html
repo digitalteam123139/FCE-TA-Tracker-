@@ -534,6 +534,7 @@ input[type="date"]::-moz-clear{display:none!important;}
           <button class="btn btn-ghost btn-sm" onclick="openServiceReview()" title="Service performance review — by month, service & task"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Service Review</button>
           <button class="btn btn-ghost btn-sm" id="order-csend-btn" onclick="openCombinedSendModal()" title="Send one combined message per assigned person"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>Send combined</button>
           <button class="btn btn-ghost btn-sm" onclick="downloadOrders()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Download CSV</button>
+          <button class="btn btn-ghost btn-sm" id="order-renorm-btn" style="display:none;" onclick="ordRenormaliseStatuses()" title="Super Admin only — re-evaluate every order's status from the Trip List &amp; Complete Delivery List, and rename any legacy status values"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>Renormalise statuses</button>
           <button class="btn btn-primary btn-sm" id="order-new-btn" onclick="openOrderModal()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>New Order Entry</button>
           <button class="btn btn-sm" id="order-delall-btn" style="display:none;background:rgba(255,107,107,.14);color:#ff6b6b;border:1px solid rgba(255,107,107,.4);" onclick="ordDeleteAll()" title="Super Admin only — permanently deletes every order in the tracker"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>Delete ALL</button>
         </div>
@@ -2082,6 +2083,7 @@ function renderOrders(){
   // Hide the New Order button for view-only users
   const newBtn=document.getElementById('order-new-btn'); if(newBtn) newBtn.style.display=canEdit?'':'none';
   const delAllBtn=document.getElementById('order-delall-btn'); if(delAllBtn) delAllBtn.style.display=isAdmin()?'':'none';
+  const renormBtn=document.getElementById('order-renorm-btn'); if(renormBtn) renormBtn.style.display=isAdmin()?'':'none';
   const csBtn=document.getElementById('order-csend-btn'); if(csBtn) csBtn.style.display=canSend?'':'none';
   const tickAll=document.getElementById('ord-tick-all'); if(tickAll) tickAll.style.display=canSend?'':'none';
 }
@@ -2091,6 +2093,31 @@ function canEditOrders(){
   return isAdmin()||isAuthorizer()||isTeamLeader();
 }
 const _ordLinesCache={};
+// One-click admin action: re-evaluate every order's status.
+//  (1) rename any legacy status values to the current set (covers orders with no line data);
+//  (2) re-derive statuses from the Trip List + Complete Delivery List across all sample_lines.
+async function ordRenormaliseStatuses(){
+  if(!isAdmin()){ showToast('Only Super Admin can renormalise statuses.','err'); return; }
+  if(!confirm('Re-evaluate the status of EVERY order now?\n\n• Renames legacy status values (e.g. Requested → Yet to Start, Delivered → Partially Delivered, Completed → Delivery Completed).\n• Re-derives each status from the Trip List and Complete Delivery List.\n\nManually-set "Returned" orders without a return record are preserved. Nothing is deleted.'))return;
+  const btn=document.getElementById('order-renorm-btn');
+  if(btn){ btn._label=btn.innerHTML; btn.disabled=true; btn.style.opacity='.6'; btn.textContent='Working…'; }
+  try{
+    // (1) Rename legacy status values across ALL orders (also catches orders that have no imported lines).
+    const legacyChanged=[];
+    getOrders().forEach(o=>{ const ns=normOrderStatus(o.status); if(ns&&ns!==o.status){ o.status=ns; legacyChanged.push(orderToRow(o)); } });
+    for(let i=0;i<legacyChanged.length;i+=400){ const {error}=await sb.from('sample_orders').upsert(legacyChanged.slice(i,i+400)); if(error)throw error; }
+    // (2) Full re-derivation from Trip List + Complete Delivery List using every sample_lines row.
+    try{ if(typeof pkLoadTrips==='function')await pkLoadTrips(true); }catch(_){}
+    let all=[], from=0; const size=1000;
+    while(true){ const {data,error}=await sb.from('sample_lines').select('order_no,line_no,line_status').range(from,from+size-1); if(error)throw error; all=all.concat(data||[]); if(!data||data.length<size)break; from+=size; if(from>200000)break; }
+    for(const kk in _ordLinesCache)delete _ordLinesCache[kk];   // drop cached line displays so 1b re-derives
+    const derived=await pkSyncOrderStatuses(all);               // upserts changed orders + refreshes
+    try{ await refreshAll(); }catch(_){}
+    renderOrders();
+    showToast('Renormalise complete — '+legacyChanged.length+' renamed, '+(derived||0)+' re-derived from Trip / Complete Delivery lists.');
+  }catch(e){ showToast('Renormalise failed: '+(e.message||e),'err'); }
+  finally{ const b=document.getElementById('order-renorm-btn'); if(b){ b.disabled=false; b.style.opacity=''; if(b._label)b.innerHTML=b._label; } }
+}
 async function ordDeleteAll(){
   if(!isAdmin()){ showToast('Only Super Admin can delete all orders.','err'); return; }
   const n=getOrders().length;
@@ -2140,11 +2167,14 @@ async function ordLoadLines(id){
   box.innerHTML='<span style="font-size:11px;color:var(--dim);">Loading lines…</span>';
   try{
     try{ if(typeof pkLoadTrips==='function')await pkLoadTrips(); }catch(_){}
-    let tripDate=''; (CACHE.trips||[]).forEach(t=>{ if(t.kind==='return')return; if((t.order_no||'').trim().toLowerCase()!==ono.toLowerCase())return; const d=t.trip_date||''; if(d>tripDate)tripDate=d; });
+    // Per-line Trip List coverage: line_no -> latest trip date (only non-return trips for this order).
+    const tripLineDate={}; let tripDate='';
+    (CACHE.trips||[]).forEach(t=>{ if(t.kind==='return')return; if((t.order_no||'').trim().toLowerCase()!==ono.toLowerCase())return; const d=t.trip_date||''; if(d>tripDate)tripDate=d; cdParseLines(t.line_nos).forEach(x=>{ const key=String(x); if(!tripLineDate[key]||d>tripLineDate[key])tripLineDate[key]=d; }); });
     let data=_ordLinesCache[ono];
     if(!data){ const res=await sb.from('sample_lines').select('line_no,line_status,qty').eq('order_no',ono); if(res.error)throw res.error; data=res.data||[]; data.sort((a,b)=>(parseFloat(a.line_no)||0)-(parseFloat(b.line_no)||0)); _ordLinesCache[ono]=data.map(l=>({...l})); }
     // Re-derive display each open so Trip List changes reflect immediately (don't mutate cache).
-    const view=(_ordLinesCache[ono]||[]).map(l=>{ const o2={...l}; if(tripDate&&/despatch|dispatch/i.test(''+(o2.line_status||'')))o2.line_status='Dispatched on '+fmtDate(tripDate); return o2; });
+    // A line that is on the Trip List shows "Dispatched on <trip date>"; every other line keeps its own status.
+    const view=(_ordLinesCache[ono]||[]).map(l=>{ const o2={...l}; const key=String(l.line_no==null?'':l.line_no).trim(); const td=tripLineDate[key]; if(td)o2.line_status='Dispatched on '+fmtDate(td); return o2; });
     paint(view);
   }catch(e){ box.innerHTML='<span style="font-size:11px;color:var(--dim);">Could not load line data.</span>'; }
 }
@@ -3031,7 +3061,7 @@ async function cdAck(id){
   try{ if(typeof dbSaveContacts==='function')await dbSaveContacts(); showToast('Order '+p.orderNo+' acknowledged — removed from bin.'); }
   catch(e){ showToast('Cloud save failed: '+(e.message||e),'err'); }
   renderCDM(); pkRenderOrderView&&pkRenderOrderView();
-  try{ const {data,error}=await sb.from('sample_lines').select('order_no,line_status').eq('order_no',p.orderNo); if(!error&&data)await pkSyncOrderStatuses(data); }catch(e){ console.error('ack resync',e); }
+  try{ const {data,error}=await sb.from('sample_lines').select('order_no,line_no,line_status').eq('order_no',p.orderNo); if(!error&&data)await pkSyncOrderStatuses(data); }catch(e){ console.error('ack resync',e); }
 }
 async function cdAddNote(id){
   const p=cdPosts().find(x=>x.id===id); if(!p)return;
@@ -3051,6 +3081,33 @@ async function cdAddNote(id){
   try{ if(typeof dbSaveContacts==='function')await dbSaveContacts(); showToast(noteLines.length?('Note added · lines '+noteLines.join(',')+' marked delivered.'):'Note added.'); }
   catch(e){ showToast('Cloud save failed: '+(e.message||e),'err'); }
   renderCDM(); pkRenderOrderView&&pkRenderOrderView();
+}
+// 2a — When an order that is already in the Complete Delivery List is (re)added to a Trip List,
+// record the tripped lines + trip date as a note on the CD posting(s) so both lists stay in sync.
+async function cdSyncTripNote(orderNo, lineNos, tripDate){
+  try{
+    const on=(''+(orderNo||'')).trim(); if(!on)return;
+    const posts=cdPosts().filter(p=>(p.orderNo||'').trim().toLowerCase()===on.toLowerCase());
+    if(!posts.length)return;                        // not in the Complete Delivery List → nothing to annotate
+    const lines=cdParseLines(lineNos); const lineStr=lines.join(',');
+    const dstr=fmtDate(tripDate||new Date().toISOString().slice(0,10));
+    const who=(currentUser&&currentUser.name)||'';
+    const text='Added to Trip List — lines '+(lineStr||'(all)')+' dispatched on '+dstr+'.';
+    let touched=false;
+    posts.forEach(p=>{
+      p.notes=p.notes||[];
+      if(p.notes.some(n=>n.text===text))return;     // don't duplicate
+      p.notes.push({at:new Date().toISOString(),by:who,text:text});
+      // Reflect the tripped lines as delivered on this posting (parsed from the note wording).
+      const parsed=cdNoteLines(text);
+      if(parsed.length){ p.deliveredLines=p.deliveredLines||[]; p.deliveredMeta=p.deliveredMeta||{}; const when=new Date().toISOString();
+        parsed.forEach(x=>{ const key=String(x); if(!p.deliveredLines.map(String).includes(key))p.deliveredLines.push(x); if(!p.deliveredMeta[key])p.deliveredMeta[key]={by:who,at:when,delivDate:(tripDate||new Date().toISOString().slice(0,10))}; });
+        const posted=cdParseLines(p.lineNos); if(posted.length&&posted.every(x=>p.deliveredLines.map(String).includes(String(x)))){ p.status='done'; p.ackAt=when; p.ackBy=who; }
+      }
+      touched=true;
+    });
+    if(touched){ try{ if(typeof dbSaveContacts==='function')await dbSaveContacts(); }catch(_){} try{ if(typeof renderCDM==='function')renderCDM(); }catch(_){} }
+  }catch(e){ console.error('cdSyncTripNote',e); }
 }
 async function cdDeletePost(id){
   if(!isAdmin()){ showToast('Only Super Admin can delete posted orders.','err'); return; }
@@ -3295,7 +3352,7 @@ async function pkDoAddTrip(road,carton,date){
   const totalQty=used.reduce((s,l)=>s+(parseFloat(l.qty)||0),0);
   const serial=(CACHE.trips||[]).filter(t=>t.kind!=='return'&&t.trip_date===day&&(t.road||'')===road).length+1;
   const rec={id:'trip_'+Date.now()+'_'+Math.random().toString(36).slice(2,5),kind:'trip',trip_date:day,road,serial,ship_to:o.shipTo,order_no:o.orderNo,line_nos:lineNos,total_qty:totalQty,carton_qty:carton,created_by:currentUser.id,created_at:new Date().toISOString()};
-  try{ await dbInsertTrip([rec]); await pkLoadTrips(true); pkTripDate=day; pkTripRoad=road; pkTab='trip'; pkRender(); await pkResyncAfterTripChange(); showToast('Added to trip — '+road+' · '+o.orderNo+' (lines '+(lineNos||'—')+') on '+fmtDate(day)+'.'); }
+  try{ await dbInsertTrip([rec]); await pkLoadTrips(true); pkTripDate=day; pkTripRoad=road; pkTab='trip'; pkRender(); await pkResyncAfterTripChange(); try{ await cdSyncTripNote(o.orderNo,lineNos,day); }catch(_){} showToast('Added to trip — '+road+' · '+o.orderNo+' (lines '+(lineNos||'—')+') on '+fmtDate(day)+'.'); }
   catch(e){ showToast('Failed: '+e.message,'err'); }
 }
 async function pkDoAddReturn(road,carton,date,reason){
@@ -3378,7 +3435,7 @@ async function pkTripAddSelected(){
   const h=pkTripPick.header;
   const serial=(CACHE.trips||[]).filter(t=>t.kind!=='return'&&t.trip_date===pkTripDate&&(t.road||'')===pkTripRoad).length+1;
   const rec={id:'trip_'+Date.now()+'_'+Math.random().toString(36).slice(2,5),kind:'trip',trip_date:pkTripDate,road:pkTripRoad,serial,ship_to:h.shipTo,order_no:h.orderNo,line_nos:lineNos,total_qty:totalQty,carton_qty:pkTripPickCarton,created_by:currentUser.id,created_at:new Date().toISOString()};
-  try{ await dbInsertTrip([rec]); await pkLoadTrips(true); pkTripPick=null; const oi=document.getElementById('pk-trip-order'); if(oi)oi.value=''; pkRenderTripPick(); pkRenderTripRows(); showToast('Added '+used.length+' line(s) to trip.'); }
+  try{ await dbInsertTrip([rec]); await pkLoadTrips(true); pkTripPick=null; const oi=document.getElementById('pk-trip-order'); if(oi)oi.value=''; pkRenderTripPick(); pkRenderTripRows(); await pkResyncAfterTripChange(); try{ await cdSyncTripNote(h.orderNo,lineNos,pkTripDate); }catch(_){} showToast('Added '+used.length+' line(s) to trip.'); }
   catch(e){ showToast('Failed: '+e.message,'err'); }
 }
 async function pkTripDelete(id){ if(isPacker()||isFCE()){ showToast('You don\'t have delete access in Sample Packing.','err'); return; } if(!confirm('Remove this order from the trip?'))return; try{ await dbDeleteTrip(id); await pkLoadTrips(true); pkRenderTripRows(); }catch(e){ showToast('Failed: '+e.message,'err'); } }
@@ -3442,7 +3499,7 @@ async function pkListEdit(id){
 }
 async function pkResyncAfterTripChange(){
   try{ for(const k in _ordLinesCache)delete _ordLinesCache[k]; }catch(_){}
-  try{ const {data,error}=await sb.from('sample_lines').select('order_no,line_status'); if(!error&&data){ await pkSyncOrderStatuses(data); } }catch(e){ console.error('resync',e); }
+  try{ const {data,error}=await sb.from('sample_lines').select('order_no,line_no,line_status'); if(!error&&data){ await pkSyncOrderStatuses(data); } }catch(e){ console.error('resync',e); }
 }
 async function pkListDelete(id){ if(isPacker()||isFCE()){ showToast('You don\'t have delete access in Sample Packing.','err'); return; }
   if(!confirm('Delete this trip entry permanently?'))return;
@@ -4053,12 +4110,12 @@ async function pkAutoCreateOrders(recs){
 }
 async function pkSyncOrderStatuses(recs){
   // ===== ORDER-STATUS MAPPING CONFIG =====
-  // Sources:  line_status (ERP import) · Trip List (CACHE.trips) · Complete Delivery List (cdPosts).
-  // Precedence (first match wins), per requirements a–f:
-  //   Delivery Completed  -> EVERY line is Dispatched AND the order is fully Acknowledged in the Complete Delivery List
+  // Sources:  line_status (ERP import) · Trip List (CACHE.trips, per-line via line_nos) · Complete Delivery List (cdPosts).
+  // Precedence (first match wins):
+  //   Delivery Completed  -> EVERY order line is in the Trip List  (OR every line Dispatched AND fully Acknowledged in the CD List)
   //   Returned            -> order is in the Trip List as a return (Return-1, Return-2, …)
-  //   Partially Completed -> order is in the Complete Delivery List but not fully Dispatched+Acknowledged
-  //   Partially Delivered -> order is in the Trip List (normal, non-return)
+  //   Partially Completed -> order is in the Complete Delivery List but not fully complete
+  //   Partially Delivered -> SOME (not all) order lines are in the Trip List
   //   In Development      -> a line is Processing in Warehouse / Sent for Hub Despatch / PICKING_IN_WAREHOUSE /
   //                          PARTIALLY_DELIVERED / Processing in Lab (or otherwise started but not yet tripped/CD)
   //   Yet to Start        -> lines are Open (nothing started)
@@ -4071,13 +4128,13 @@ async function pkSyncOrderStatuses(recs){
   const inDevRe=/processing in warehouse|processing in lab|picking_in_warehouse|partially_delivered/i;
   const isInDev=s=>inDevRe.test(norm(s))||isHub(s);
   const byOrder={};
-  recs.forEach(r=>{ const ono=(r.order_no||'').trim(); if(!ono)return; const k=ono.toLowerCase(); if(!byOrder[k])byOrder[k]={sts:[]}; byOrder[k].sts.push(norm(r.line_status)); });
+  recs.forEach(r=>{ const ono=(r.order_no||'').trim(); if(!ono)return; const k=ono.toLowerCase(); if(!byOrder[k])byOrder[k]={sts:[],lineSet:new Set()}; byOrder[k].sts.push(norm(r.line_status)); const ln=norm(r.line_no); if(ln)byOrder[k].lineSet.add(ln); });
   try{ if(typeof pkLoadTrips==='function')await pkLoadTrips(); }catch(_){}
-  // Trip List: normal trips → tripByOrder (latest date); return trips → returnByOrder (highest return no.)
-  const tripByOrder={}, returnByOrder={};
+  // Trip List: normal trips → tripByOrder (latest date) + tripLinesByOrder (set of line_nos); returns → returnByOrder.
+  const tripByOrder={}, returnByOrder={}, tripLinesByOrder={};
   (CACHE.trips||[]).forEach(t=>{ const k=(t.order_no||'').trim().toLowerCase(); if(!k)return;
     if(t.kind==='return'){ const rn=parseInt(t.return_no)||1; if(!returnByOrder[k]||rn>returnByOrder[k])returnByOrder[k]=rn; }
-    else { const d=t.trip_date||''; if(!tripByOrder[k]||d>tripByOrder[k])tripByOrder[k]=d; } });
+    else { const d=t.trip_date||''; if(!tripByOrder[k]||d>tripByOrder[k])tripByOrder[k]=d; const set=tripLinesByOrder[k]||(tripLinesByOrder[k]=new Set()); cdParseLines(t.line_nos).forEach(x=>set.add(String(x))); } });
   // Complete Delivery List: any CD posting = order is in the list; fully acknowledged when every posting is 'done'.
   const cdByOrder={}; cdPosts().forEach(p=>{ const k=(p.orderNo||'').trim().toLowerCase(); if(!k)return; (cdByOrder[k]=cdByOrder[k]||[]).push(p); });
   const changed=[];
@@ -4090,16 +4147,21 @@ async function pkSyncOrderStatuses(recs){
     const allOpen=nLines>0&&withSt.every(isOpen);         // nothing started
     const anyDev=withSt.some(isInDev);                    // any in-development line
     const trip=tripByOrder[k]||'';
+    // Per-line Trip List coverage
+    const lineSet=byOrder[k].lineSet; const tripLines=tripLinesByOrder[k]||new Set();
+    const linesInTrip=[...lineSet].filter(x=>tripLines.has(String(x))).length;
+    const allInTrip=lineSet.size>0&&linesInTrip===lineSet.size;                 // every order line is on a trip
+    const someInTrip=(lineSet.size?linesInTrip>0:!!trip);                       // ≥1 line on a trip (fallback: any trip when line_nos unknown)
     const posts=cdByOrder[k]||[]; const hasCd=posts.length>0; const cdAllDone=hasCd&&posts.every(p=>p.status==='done');
     let ns=null, nd=o.deliveredAt||null;
-    if(allDisp&&cdAllDone){ ns='Delivery Completed'; nd=trip||o.deliveredAt||null; } // (a) all Dispatched + acknowledged
-    else if(returnByOrder[k]){ ns='Returned'; }                                       // (e) in Trip List as a return
-    else if(hasCd){ ns='Partially Completed'; }                                       // (b) in Complete Delivery List, not fully done
-    else if(trip){ ns='Partially Delivered'; }                                        // (c) in Trip List (non-return)
-    else if(anyDev){ ns='In Development'; }                                            // (d) in-development line statuses
-    else if(allOpen||!nLines){ ns='Yet to Start'; }                                   // (f) Open / nothing started
+    if(allInTrip||(allDisp&&cdAllDone)){ ns='Delivery Completed'; nd=trip||o.deliveredAt||null; } // all lines in Trip List (or all Dispatched + acknowledged)
+    else if(returnByOrder[k]){ ns='Returned'; }                                       // in Trip List as a return
+    else if(hasCd){ ns='Partially Completed'; }                                       // in Complete Delivery List, not fully complete
+    else if(someInTrip){ ns='Partially Delivered'; nd=trip||o.deliveredAt||null; }     // some lines in the Trip List
+    else if(anyDev){ ns='In Development'; }                                            // in-development line statuses
+    else if(allOpen||!nLines){ ns='Yet to Start'; }                                   // Open / nothing started
     else { ns='In Development'; }                                                      // started (e.g. Dispatched) but not yet tripped/CD
-    if(ns&&(o.status!==ns||(ns==='Delivery Completed'&&o.deliveredAt!==nd))){ o.status=ns; o.deliveredAt=nd; changed.push(orderToRow(o)); }
+    if(ns&&(o.status!==ns||((ns==='Delivery Completed'||ns==='Partially Delivered')&&o.deliveredAt!==nd))){ o.status=ns; o.deliveredAt=nd; changed.push(orderToRow(o)); }
   });
   for(let i=0;i<changed.length;i+=400){ const {error}=await sb.from('sample_orders').upsert(changed.slice(i,i+400)); if(error)throw error; }
   if(changed.length){ try{ await refreshAll(); }catch(_){} showToast(changed.length+' order status(es) auto-updated from Trip List &amp; Complete Delivery List.'); }
