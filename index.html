@@ -786,6 +786,9 @@ let editingOrderId=null;
 const COLLECTION_SERVICES=['FCE (Urgent)','Excelsior Courier'];
 const DELIVERY_SERVICES=['Excelsior Courier','Supply Chain Van','FCE (Urgent)'];
 const ORDER_STATUSES=['Yet to Start','Returned','In Development','Partially Delivered'];
+// Shared line-status classifier: a line counts as Dispatched when its ERP status is Despatched/Dispatched
+// (but NOT 'Sent for Hub Despatch') or Acknowledged. Used by the status sync, packing views and DN cells.
+function isLineDispatched(s){ const t=(''+(s||'')).trim(); return (/(despatch|dispatch)/i.test(t)&&!/hub/i.test(t))||/acknowledg/i.test(t); }
 // Normalise legacy / alternate spellings of order-status values to the current set.
 function normOrderStatus(s){ const t=(''+(s||'')).trim(); const m={'requested':'Yet to Start','open':'Yet to Start','returnted':'Returned','delivered':'Partially Delivered','completed':'Delivery Completed'}; return m[t.toLowerCase()]||t; }
 let currentUser=null, editingId=null, approveId=null, activeFCE=null, activeMonthLog='all', activeChartsMonth='all';
@@ -1640,7 +1643,7 @@ async function saveCourierEmails(){ if(!isAdmin()){ showToast('Only Super Admin 
 function taskShort(t){ return t==='Swatch Collection'?'DTM (Swatch/Other Ref.)':t==='Sample Delivery'?'Shade Known':(t||''); }
 function orderResponsible(o){ return o.task==='Sample Delivery' ? (o.service||o.fce||'') : (o.fce||o.service||''); }
 function intlPhone(p){ let d=(''+p).replace(/[^0-9]/g,''); if(d.startsWith('880'))return d; if(d.startsWith('0'))return '88'+d; if(d.length===10)return '880'+d; return d; }
-function orderMsg(o){ const L=['Sample requirement ('+(o.task||'')+')']; if(o.orderNo)L.push('Order No: '+o.orderNo); if(o.customer)L.push('Customer: '+o.customer); if(o.buyer)L.push('Buyer: '+o.buyer); if(o.to)L.push('Zone/Road: '+o.to); if(o.status)L.push('Status: '+o.status); if(o.date)L.push('Date: '+fmtDate(o.date)); if(o.reqTime)L.push('Requested time: '+o.reqTime); if(o.deliveredAt)L.push('Delivery date: '+fmtDate(o.deliveredAt)); L.push('Remarks: '+(o.remarks||'-')); return L.join('\n'); }
+function orderMsg(o){ const L=['Sample requirement ('+(taskShort(o.task)||'')+')']; if(o.orderNo)L.push('Order No: '+o.orderNo); if(o.customer)L.push('Customer: '+o.customer); if(o.buyer)L.push('Buyer: '+o.buyer); const _z=ordDeliveryZoneFor(o); if(_z)L.push('Zone/Road: '+_z); if(o.status)L.push('Status: '+ordStatusDisplay(o)); if(o.date)L.push('Date: '+fmtDate(o.date)); if(o.reqTime)L.push('Requested time: '+o.reqTime); if(o.deliveredAt)L.push('Delivery date: '+fmtDate(o.deliveredAt)); L.push('Remarks: '+(o.remarks||'-')); return L.join('\n'); }
 function oCopySend(){ try{ if(navigator.clipboard)navigator.clipboard.writeText(__sendMsg); showToast('Message copied.'); }catch(e){ showToast('Copy not available.','err'); } }
 function openSendModal(id){
   if(!canSendOrders()){ showToast('You don\'t have access to send requirements.','err'); return; }
@@ -1955,8 +1958,57 @@ function downloadChartsTable(){
 // ═══ NAV ═══
 const PAGE_META={dashboard:['Dashboard','FCE TA performance overview'],visitlog:['Visit Log','All daily visit records'],charts:['Charts','Visual analytics & summary table'],perfce:['Per FCE','Individual FCE breakdown'],addentry:['Add Entry','Record a new TA visit'],approval:['Approvals','Review and approve TA claims'],masterdata:['Master Data','Manage lists used in forms'],users:['User Accounts','Manage user access'],orders:['Order Tracker','Swatch collection & sample delivery'],packing:['Sample Packing','Delivery notes, stickers & trip schedules'],logdash:['Logistics Dashboard','Deliveries, DN status & order lines placed'],attendance:['Attendance Tracker','Daily attendance, dashboards & Packer bonus'],profile:['Profile Settings','Language, name & password'],cdm:['Complete Delivery Management','Bin posting, acknowledgement & incomplete-order follow-up']};
 let activePage='dashboard';
+
+// Reset a stage's filters to defaults so filters never leak between stages.
+// Called for BOTH the stage being left and the stage being entered (belt and braces).
+function resetStageFilters(name){
+  try{
+    if(name==='orders'){
+      activeOrderStatus='all'; if(typeof ordPage!=='undefined')ordPage=1;
+      ['order-no-filter','order-resp-filter'].forEach(id=>{ const el=document.getElementById(id); if(el)el.value=''; });
+      ['order-task-filter','order-zone-filter','order-service-filter','order-plant-filter'].forEach(id=>{ const el=document.getElementById(id); if(el)el.value=''; });
+    } else if(name==='packing'){
+      // sub-tab + search result back to defaults
+      if(typeof pkTab!=='undefined')pkTab='orders';
+      if(typeof pkOrder!=='undefined')pkOrder=null;
+      if(typeof pkResults!=='undefined')pkResults=[];
+      // trip / list / import / dashboard filter state
+      if(typeof pkListKind!=='undefined')pkListKind='';
+      if(typeof pkTripRoad!=='undefined')pkTripRoad='';
+      if(typeof pkTripDate!=='undefined')pkTripDate=null;
+      if(typeof pkLineDelPlant!=='undefined')pkLineDelPlant='';
+      if(typeof pkLineSupPlant!=='undefined')pkLineSupPlant='';
+      if(typeof pkLineStatusF!=='undefined')pkLineStatusF='__disp';
+      if(typeof pkRepeatSearch!=='undefined')pkRepeatSearch='';
+      if(typeof pkDashDelPlant!=='undefined')pkDashDelPlant='';
+      if(typeof pkDashSupPlant!=='undefined')pkDashSupPlant='';
+      if(typeof pkRetCust!=='undefined')pkRetCust='';
+      if(typeof pkRetRoad!=='undefined')pkRetRoad='';
+      if(typeof pkRetPlant!=='undefined')pkRetPlant='';
+      if(typeof pkRetMonth!=='undefined')pkRetMonth='';
+      // DOM-read filter inputs (Trip Schedule List etc.)
+      ['pk-search','pk-list-search','pk-list-road','pk-list-kind','pk-list-date'].forEach(id=>{ const el=document.getElementById(id); if(el)el.value=''; });
+    } else if(name==='cdm'){
+      if(typeof cdBinFilter!=='undefined')cdBinFilter='';
+    } else if(name==='logdash'){
+      if(typeof pkDashView!=='undefined')pkDashView='ops';
+      if(typeof pkDashGran!=='undefined')pkDashGran='month';
+      if(typeof pkDashRoad!=='undefined')pkDashRoad='';
+      if(typeof pkDashMonth!=='undefined')pkDashMonth='';
+      if(typeof pkOpsMonth!=='undefined')pkOpsMonth='';
+      if(typeof pkDashDelPlant!=='undefined')pkDashDelPlant='';
+      if(typeof pkDashSupPlant!=='undefined')pkDashSupPlant='';
+      if(typeof pkRetGran!=='undefined')pkRetGran='month';
+      if(typeof pkRetCust!=='undefined')pkRetCust='';
+      if(typeof pkRetRoad!=='undefined')pkRetRoad='';
+      if(typeof pkRetPlant!=='undefined')pkRetPlant='';
+      if(typeof pkRetMonth!=='undefined')pkRetMonth='';
+    }
+  }catch(_){}
+}
 function showPage(name,btn){
   if(!canSee(name)){ showToast('You don\'t have access to this page.','err'); return; }
+  if(activePage!==name){ resetStageFilters(activePage); resetStageFilters(name); }
   activePage=name;
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
@@ -2017,11 +2069,35 @@ function tripRoadForOrder(orderNo){
   const on=(''+(orderNo||'')).trim().toLowerCase(); const e=_tripRoadMap[on]; return e?e.road:'';
 }
 // Delivery Zone / Road Name: once an order is on the Trip List use the trip's Road Name; otherwise the Master Data mapping.
-function ordDeliveryZoneFor(o){ const tr=tripRoadForOrder(o.orderNo); if(tr)return tr; return ordZoneFor(o)||o.to||''; }
+function ordDeliveryZoneFor(o){ const tr=tripRoadForOrder(o.orderNo); if(tr)return tr; const z=ordZoneFor(o)||o.to||''; return /^[0\-\u2014\s]*$/.test(''+z)?'':z; }  // suppress junk values like '0'
 // Highest return number recorded for an order in the Trip List (0 = no returns).
 function ordReturnNoFor(o){ let rn=0; try{ (CACHE.trips||[]).forEach(t=>{ if(t.kind!=='return')return; if((t.order_no||'').trim().toLowerCase()!==(o.orderNo||'').trim().toLowerCase())return; const n=parseInt(t.return_no)||1; if(n>rn)rn=n; }); }catch(_){} return rn; }
 // Display label for an order's status — Returned orders show their actual return state.
 function ordStatusDisplay(o){ if(normOrderStatus(o.status)==='Returned')return 'Return-'+(ordReturnNoFor(o)||1)+' (Ready Lines)'; return o.status||''; }
+// One shared completion/status badge used by the Trip List completion cell, the Ask card, and anywhere
+// an order's actual current status must render — Returned orders NEVER inherit a regular status label.
+function ordCompletionBadge(o){
+  const st=normOrderStatus(o&&o.status);
+  const M={'Delivery Completed':['Fully Completed','#46e6a0','rgba(70,230,160,.15)'],
+           'Returned':['Return-'+(ordReturnNoFor(o)||1)+' (Ready Lines)','#ff9f5a','rgba(255,159,90,.15)'],
+           'Partially Completed':['Partially Completed','#ff9f5a','rgba(255,159,90,.15)'],
+           'Partially Delivered':['Partially Delivered','#ffc24d','rgba(255,194,77,.16)'],
+           'In Development':['In Development','#ffc24d','rgba(255,194,77,.14)'],
+           'Yet to Start':['Yet to Start','#9fb3d9','rgba(255,255,255,.08)']};
+  const b=M[st]||[(st||'—'),'#9fb3d9','rgba(255,255,255,.08)'];
+  return '<span class="badge" style="background:'+b[2]+';color:'+b[1]+';">'+attEsc(b[0])+'</span>';
+}
+// One shared tolerant date parser (ISO, ISO+time, DD/MM/YYYY, DD-MM-YYYY, DD.MM.YYYY, YYYY/MM/DD, Excel serial).
+function parseAnyDate(v){
+  if(v==null||v==='')return '';
+  if(v instanceof Date&&!isNaN(v))return v.toISOString().slice(0,10);
+  let t=(''+v).trim(); if(!t)return '';
+  let m=t.match(/^(\d{4})-(\d{2})-(\d{2})/); if(m)return m[1]+'-'+m[2]+'-'+m[3];
+  m=t.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{4})/); if(m)return m[3]+'-'+m[2].padStart(2,'0')+'-'+m[1].padStart(2,'0');
+  m=t.match(/^(\d{4})[\/\-.](\d{1,2})[\/\-.](\d{1,2})/); if(m)return m[1]+'-'+m[2].padStart(2,'0')+'-'+m[3].padStart(2,'0');
+  if(/^\d+(\.\d+)?$/.test(t)){ const n=parseFloat(t); if(n>1000&&n<80000){ const d=new Date(Date.UTC(1899,11,30)+n*86400000); if(!isNaN(d))return d.toISOString().slice(0,10); } }
+  const d=new Date(t); return isNaN(d)?'':d.toISOString().slice(0,10);
+}
 // Console helper — paste `debugCreationDate('RS40408128')` into DevTools to see why a row shows "—".
 if(typeof window!=='undefined'){
   window.debugCreationDate=async function(orderNo){
@@ -2055,7 +2131,7 @@ function ordCreationDateFor(o){
       ordCreationDateFor._pending.add(key);
       sb.from('sample_lines').select('creation_date').eq('order_no',on).limit(20).then(res=>{
         if(res&&!res.error&&res.data&&res.data.length){
-          const parseCd=v=>{ if(v==null||v==='')return ''; if(v instanceof Date&&!isNaN(v))return v.toISOString().slice(0,10); const s=(''+v).trim(); let mm=s.match(/^(\d{4})-(\d{2})-(\d{2})/); if(mm)return mm[1]+'-'+mm[2]+'-'+mm[3]; mm=s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{4})/); if(mm)return mm[3]+'-'+mm[2].padStart(2,'0')+'-'+mm[1].padStart(2,'0'); const d=new Date(s); return isNaN(d)?'':d.toISOString().slice(0,10); };
+          const parseCd=parseAnyDate;
           let best=''; res.data.forEach(r=>{ const cd=parseCd(r.creation_date); if(cd&&(!best||cd<best))best=cd; });
           if(best){ CACHE.orderCreationDate=CACHE.orderCreationDate||{}; CACHE.orderCreationDate[key]=best; try{ renderOrders(); }catch(_){} }
         }
@@ -2209,7 +2285,7 @@ function renderOrders(){
         <div id="ordlines-${o.id}" data-ono="${attEsc(o.orderNo||'')}"></div>
       </div></td></tr>`;
     const _cd=ordCreationDateFor(o); const cdCell=_cd?fmtDate(_cd):'<span style="color:var(--muted);" title="No creation_date on any sample_lines row for this order. Run debugCreationDate(\''+attEsc(o.orderNo||'')+'\') in the console for details.">—</span>';
-    return `<tr style="background:${orderRowTint(o)};"><td style="text-align:center;">${canSend?`<input type="checkbox" class="ord-tick" value="${o.id}" onclick="event.stopPropagation()" style="cursor:pointer;" title="Select for combined send">`:''}</td><td>${chevron}</td><td class="mono" style="color:var(--muted);white-space:nowrap;">${d}</td><td class="mono" style="color:var(--muted);white-space:nowrap;">${cdCell}</td><td style="font-size:12px;">${o.orderNo||'—'}</td><td style="font-size:12px;">${o.task?attEsc(taskShort(o.task)):'—'}</td><td style="font-size:12px;">${o.customer||'—'}</td><td style="font-size:12px;">${o.buyer||'—'}</td><td style="font-size:12px;">${o.fce||ordFceFor(o)||'—'}</td><td style="font-size:12px;">${o.service||'—'}</td><td style="font-size:12px;">${ordDeliveryZoneFor(o)||'—'}</td><td style="font-size:12px;color:var(--muted);">${extra}</td><td>${(()=>{ if(normOrderStatus(o.status)==='Returned'){ const rn=ordReturnNoFor(o)||1; return `<span class="status-badge" style="background:rgba(255,159,90,.16);color:#ff9f5a;">Return-${rn} (Ready Lines)</span>`; } return orderStatusBadge(o.status); })()}</td><td>${note}</td><td><div style="display:flex;gap:4px;align-items:center;">${sendBtn}${editBtn}</div></td></tr>${detail}`;
+    return `<tr style="background:${orderRowTint(o)};"><td style="text-align:center;">${canSend?`<input type="checkbox" class="ord-tick" value="${o.id}" onclick="event.stopPropagation()" style="cursor:pointer;" title="Select for combined send">`:''}</td><td>${chevron}</td><td class="mono" style="color:var(--muted);white-space:nowrap;">${d}</td><td class="mono" style="color:var(--muted);white-space:nowrap;">${cdCell}</td><td style="font-size:12px;">${o.orderNo||'—'}</td><td style="font-size:12px;">${o.task?attEsc(taskShort(o.task)):'—'}</td><td style="font-size:12px;">${o.customer||'—'}</td><td style="font-size:12px;">${o.buyer||'—'}</td><td style="font-size:12px;">${o.fce||ordFceFor(o)||'—'}</td><td style="font-size:12px;">${o.service||'—'}</td><td style="font-size:12px;">${ordDeliveryZoneFor(o)||'—'}</td><td style="font-size:12px;color:var(--muted);">${extra}</td><td>${normOrderStatus(o.status)==='Returned'?`<span class="status-badge" style="background:rgba(255,159,90,.16);color:#ff9f5a;">${attEsc(ordStatusDisplay(o))}</span>`:orderStatusBadge(o.status)}</td><td>${note}</td><td><div style="display:flex;gap:4px;align-items:center;">${sendBtn}${editBtn}</div></td></tr>${detail}`;
   }).join('')||'<tr><td colspan="15" style="text-align:center;color:var(--muted);padding:24px;">No orders yet</td></tr>';
   renderOrdersPager(ordTotal,totalPages,startIdx,rows.length);
   // Hide the New Order button for view-only users
@@ -3427,7 +3503,7 @@ function pkRenderOrderView(){
   const rows=o.lines.map((l,i)=>`<tr><td style="text-align:center;"><input type="checkbox" ${sel.has(i)?'checked':''} onchange="pkToggleLine(${i})"/></td><td>${attEsc(l.line_no)}</td><td>${attEsc(l.coats_brand_tex)}</td><td>${attEsc(l.product_code)}</td><td>${attEsc(l.shade)}</td><td>${attEsc(l.qty)}</td><td>${attEsc(l.style_no)}</td><td style="font-size:12px;">${attEsc(l.remarks)}</td></tr>`).join('');
   const allChecked=o.lines.length&&sel.size===o.lines.length;
   const _cdFull=cdIsComplete(o.shipTo,o.soldToCode,o.shipToCode,o.soldToName); const _cdPosted=cdOpenPostFor(o.orderNo);
-  const _disp=s=>{ const t=''+(s||''); return (/despatch|dispatch/i.test(t)&&!/hub/i.test(t))||/acknowledg/i.test(t); };
+  const _disp=isLineDispatched;
   const _dispN=o.lines.filter(l=>_disp(l.line_status)).length;
   const _allDisp=o.lines.length>0&&_dispN===o.lines.length;
   // Line-based readiness (independent of Trip List): all Dispatched → All Lines Completed;
@@ -3674,7 +3750,7 @@ function pkRenderListRows(){
     // DN copies exist but aren't line-tagged (legacy) → order-level Available.
     return '<span class="badge" style="background:rgba(70,230,160,.15);color:#46e6a0;" title="DN copy uploaded (not line-tagged).">Available</span>';
   };
-  const cmCell=t=>{ const o=ordMap[(t.order_no||'').trim().toLowerCase()]; if(!o)return '<span style="color:var(--dim);font-size:11px;">—</span>'; if(o.status==='Delivery Completed')return '<span class="badge" style="background:rgba(70,230,160,.15);color:#46e6a0;">Fully Completed</span>'; if(o.status==='Partially Completed')return '<span class="badge" style="background:rgba(255,159,90,.15);color:#ff9f5a;">Partially Completed</span>'; if(o.status==='Partially Delivered')return '<span class="badge" style="background:rgba(255,194,77,.16);color:#ffc24d;">Partially Delivered</span>'; return '<span style="color:var(--dim);font-size:11px;">'+attEsc(o.status||'—')+'</span>'; };
+  const cmCell=t=>{ const o=ordMap[(t.order_no||'').trim().toLowerCase()]; if(!o)return '<span style="color:var(--dim);font-size:11px;">—</span>'; return ordCompletionBadge(o); };
   tb.innerHTML=rows.map((t,i)=>{ const isRet=t.kind==='return'; const typeBadge=`<span style="font-size:11px;font-weight:600;color:${isRet?'#e0913a':'#4ecdc4'};">${pkListType(t)}</span>`; return `<tr><td style="text-align:center;"><input type="checkbox" ${pkListSel.has(t.id)?'checked':''} onchange="pkListTick('${t.id}')"/></td><td>${i+1}</td><td>${typeBadge}</td><td style="white-space:nowrap;">${fmtDate(t.trip_date)}</td><td>${attEsc(t.ship_to)}</td><td>${attEsc(t.order_no)}</td><td><div style="max-width:380px;min-width:160px;white-space:normal;word-break:break-word;font-size:11px;line-height:1.6;color:var(--muted);">${attEsc(t.line_nos)}</div></td><td>${attEsc(t.total_qty)}</td><td>${attEsc(t.carton_qty)}</td><td>${attEsc(t.road)||(isRet?'—':'')}</td><td>${dnCell(t)}</td><td>${cmCell(t)}</td><td style="white-space:nowrap;"><button class="btn btn-ghost btn-sm" onclick="pkListEdit('${t.id}')">Edit</button> ${(isPacker()||isFCE())?'':`<button class="btn btn-reject btn-sm" onclick="pkListDelete('${t.id}')">Delete</button>`}</td></tr>`;}).join('')||`<tr><td colspan="13" style="text-align:center;color:var(--muted);padding:16px;">No entries yet.</td></tr>`;
 }
 function pkListTick(id){ if(pkListSel.has(id))pkListSel.delete(id); else pkListSel.add(id); pkRenderListRows(); }
@@ -3813,22 +3889,7 @@ async function pkLoadPlantMap(force){
   if(CACHE._plantLoaded&&!force)return;
   const map={}; const dp=new Set(), sp=new Set();
   const cdMap={};                                    // ORDER_NO (upper) -> earliest creation_date (YYYY-MM-DD)
-  // Parse creation_date from many possible shapes (ISO, ISO+time, DD/MM/YYYY, DD-MM-YYYY, DD.MM.YYYY, YYYY/MM/DD, Excel serial).
-  const parseCd=v=>{
-    if(v==null||v==='')return '';
-    if(v instanceof Date&&!isNaN(v))return v.toISOString().slice(0,10);
-    let s=(''+v).trim(); if(!s)return '';
-    // ISO first (with or without time)
-    let m=s.match(/^(\d{4})-(\d{2})-(\d{2})/); if(m)return m[1]+'-'+m[2]+'-'+m[3];
-    // DD/MM/YYYY or DD-MM-YYYY or DD.MM.YYYY  (day first, as used in this app's fmtDate)
-    m=s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{4})/); if(m)return m[3]+'-'+m[2].padStart(2,'0')+'-'+m[1].padStart(2,'0');
-    // YYYY/MM/DD
-    m=s.match(/^(\d{4})[\/\-.](\d{1,2})[\/\-.](\d{1,2})/); if(m)return m[1]+'-'+m[2].padStart(2,'0')+'-'+m[3].padStart(2,'0');
-    // Excel serial (days since 1899-12-30)
-    if(/^\d+(\.\d+)?$/.test(s)){ const n=parseFloat(s); if(n>1000&&n<80000){ const d=new Date(Date.UTC(1899,11,30)+n*86400000); if(!isNaN(d))return d.toISOString().slice(0,10); } }
-    // Last resort: let JS try, and if valid, use it
-    const d=new Date(s); return isNaN(d)?'':d.toISOString().slice(0,10);
-  };
+  const parseCd=parseAnyDate;   // shared tolerant date parser
   try{
     let from=0; const size=1000;
     while(true){ const {data,error}=await sb.from('sample_lines').select('order_no,delivery_plant,supply_plant,creation_date').range(from,from+size-1); if(error)throw error;
@@ -4322,7 +4383,7 @@ async function pkSyncOrderStatuses(recs){
   const isOpen=s=>/^\s*open\s*$/i.test(norm(s));
   const isHub=s=>/hub/i.test(norm(s));                                             // "Sent for Hub Despatch" → in development, NOT dispatched
   const isAck=s=>/acknowledg/i.test(norm(s));
-  const isDispatched=s=>{ const t=norm(s); return (/(despatch|dispatch)/i.test(t)&&!isHub(s))||isAck(s); };
+  const isDispatched=isLineDispatched;
   const inDevRe=/processing in warehouse|processing in lab|picking_in_warehouse|partially_delivered/i;
   const isInDev=s=>inDevRe.test(norm(s))||isHub(s);
   const byOrder={};
@@ -4341,7 +4402,6 @@ async function pkSyncOrderStatuses(recs){
     // Preserve a manually-set Returned status only when there is no return record to derive from.
     if((o.status==='Returned'||o.status==='Returnted')&&!returnByOrder[k])return;
     const sts=byOrder[k].sts; const withSt=sts.filter(x=>x); const nLines=withSt.length;
-    const allDisp=nLines>0&&withSt.every(isDispatched);   // every line Dispatched (or Acknowledged)
     const allOpen=nLines>0&&withSt.every(isOpen);         // nothing started
     const anyDev=withSt.some(isInDev);                    // any in-development line
     const trip=tripByOrder[k]||'';
@@ -4356,7 +4416,6 @@ async function pkSyncOrderStatuses(recs){
     const ackSet=new Set();
     posts.forEach(p=>{ cdDeliveredLines(p).forEach(x=>ackSet.add(String(x))); if(p.status==='done')cdParseLines(p.lineNos).forEach(x=>ackSet.add(String(x))); });
     const ackInOrder=lineSet.size?[...lineSet].filter(x=>ackSet.has(String(x))).length:ackSet.size;
-    const someAck=ackInOrder>0;                                                        // ≥1 line acknowledged (DN received)
     const allAck=lineSet.size?(ackInOrder===lineSet.size&&lineSet.size>0):(hasCd&&posts.every(p=>p.status==='done')); // every line acknowledged
     // Last Delivered On = the most recent delivery date from either the Trip List or CD line-delivery records.
     let lastDeliv=trip||'';
@@ -4638,13 +4697,8 @@ function aiStat(v,l,color){ return '<div style="display:inline-block;min-width:9
 function aiOrderCard(o){
   const hasDN=!!((o.noteFiles&&o.noteFiles.length)||o.noteFile);
   const dnBadge='<span style="background:'+(hasDN?'rgba(70,230,160,.15)':'rgba(255,107,107,.12)')+';color:'+(hasDN?'#46e6a0':'#ff8a8a')+';border-radius:999px;padding:1px 9px;font-size:11px;font-weight:700;">DN: '+(hasDN?'Available':'Not Available')+'</span>';
-  let comp='', compCol='';
-  if(o.status==='Delivery Completed'){ comp='Fully Completed'; compCol='#46e6a0'; }
-  else if(normOrderStatus(o.status)==='Returned'){ comp='Return-'+(ordReturnNoFor(o)||1)+' (Ready Lines)'; compCol='#ff9f5a'; }
-  else if(o.status==='Partially Completed'){ comp='Partially Completed'; compCol='#ff9f5a'; }
-  else if(o.status==='Partially Delivered'){ comp='Partially Delivered'; compCol='#ffc24d'; }
-  const compBadge=comp?(' <span style="background:'+(compCol==='#46e6a0'?'rgba(70,230,160,.15)':'rgba(255,159,90,.15)')+';color:'+compCol+';border-radius:999px;padding:1px 9px;font-size:11px;font-weight:700;">'+comp+'</span>'):'';
-  return '<div style="background:var(--surface,rgba(255,255,255,.06));border:1px solid var(--border,#244372);border-radius:10px;padding:9px 12px;margin-bottom:7px;font-size:12.5px;color:var(--text,#fff);"><b>'+attEsc(o.orderNo||'—')+'</b> · '+attEsc(ordStatusDisplay(o))+'<br><span style="color:var(--muted,#8aa2c4);">'+attEsc(o.customer||'')+(o.buyer?(' → '+attEsc(o.buyer)):'')+'</span><br><span style="color:var(--muted,#8aa2c4);">'+attEsc(o.task||'')+(o.service?(' · '+attEsc(o.service)):'')+(ordDeliveryZoneFor(o)?(' · '+attEsc(ordDeliveryZoneFor(o))):'')+(o.deliveredAt?(' · delivered '+fmtDate(o.deliveredAt)):'')+'</span><div style="margin-top:5px;display:flex;gap:6px;flex-wrap:wrap;">'+dnBadge+compBadge+'</div></div>';
+  const compBadge=' '+ordCompletionBadge(o);   // shared badge — every status covered, Returned shows Return-N
+  return '<div style="background:var(--surface,rgba(255,255,255,.06));border:1px solid var(--border,#244372);border-radius:10px;padding:9px 12px;margin-bottom:7px;font-size:12.5px;color:var(--text,#fff);"><b>'+attEsc(o.orderNo||'—')+'</b> · '+attEsc(ordStatusDisplay(o))+'<br><span style="color:var(--muted,#8aa2c4);">'+attEsc(o.customer||'')+(o.buyer?(' → '+attEsc(o.buyer)):'')+'</span><br><span style="color:var(--muted,#8aa2c4);">'+attEsc(taskShort(o.task)||'')+(o.service?(' · '+attEsc(o.service)):'')+(ordDeliveryZoneFor(o)?(' · '+attEsc(ordDeliveryZoneFor(o))):'')+(o.deliveredAt?(' · delivered '+fmtDate(o.deliveredAt)):'')+'</span><div style="margin-top:5px;display:flex;gap:6px;flex-wrap:wrap;">'+dnBadge+compBadge+'</div></div>';
 }
 function aiOrderList(list){ if(!list.length)return '<div style="color:var(--muted,#8aa2c4);">None.</div>'; return list.slice(0,8).map(aiOrderCard).join('')+(list.length>8?('<div style="color:var(--muted,#8aa2c4);font-size:11.5px;">+'+(list.length-8)+' more…</div>'):''); }
 function askToggle(show){ const o=document.getElementById('ask-overlay'); if(!o)return; if(show){ o.style.display='flex'; const i=document.getElementById('ask-in'); if(i){ i.value=''; setTimeout(()=>i.focus(),30); } const out=document.getElementById('ask-out'); if(out)out.innerHTML=aiHelp(); } else { o.style.display='none'; } }
