@@ -772,10 +772,24 @@ const DEFAULT_SERVICE_BY = ['FCE (Urgent)','Excelsior Courier','Supply Chain Van
 const DEFAULT_RESPONSIBILITY = ['Excelsior Courier'];
 const FCE_COLORS = {'Sabbir':'#9b8cff','Rasel':'#46e6d6','Torikul':'#ffc24d','Akram':'#ff9fd0','Mehedi':'#6fc0ff','Amirul 2':'#5fe6a0','Shajib':'#ff7a90','Amirul 1':'#ff9f5a','Biplob':'#b9a3ff'};
 const PALETTE = ['#9b8cff','#46e6d6','#ffc24d','#ff9fd0','#6fc0ff','#5fe6a0','#ff7a90','#ff9f5a','#b9a3ff','#66e6b8'];
-function fceColor(n){ return FCE_COLORS[n] || PALETTE[Math.abs(hashStr(n||''))%PALETTE.length]; }
+// One color per FCE name, unique and consistent across ALL views (tables, legends, every chart).
+// Known short names keep their existing neon colors; full names match by substring; new names get the
+// first unused palette color so two FCEs never share a color.
+const _fceColorReg=new Map();
+function fceColor(n){
+  n=(''+(n||'')).trim(); if(!n)return PALETTE[0];
+  if(_fceColorReg.has(n))return _fceColorReg.get(n);
+  let c=FCE_COLORS[n];
+  if(!c){ const low=n.toLowerCase(); const keys=Object.keys(FCE_COLORS).sort((a,b)=>b.length-a.length);
+    const hit=keys.find(k=>{ const parts=k.toLowerCase().split(/\s+/); return parts.every(p=>low.includes(p)); });
+    if(hit)c=FCE_COLORS[hit]; }
+  if(!c){ const used=new Set(_fceColorReg.values()); Object.values(FCE_COLORS).forEach(x=>used.add(x));
+    c=PALETTE.find(x=>!used.has(x))||distinctColor(_fceColorReg.size%12,12); }
+  _fceColorReg.set(n,c); return c;
+}
 function hslToHex(h,s,l){ s/=100;l/=100; const a=s*Math.min(l,1-l); const f=n=>{const k=(n+h/30)%12; const c=l-a*Math.max(-1,Math.min(k-3,Math.min(9-k,1))); return Math.round(255*c).toString(16).padStart(2,'0');}; return '#'+f(0)+f(8)+f(4); }
 function distinctColor(i,total){ return hslToHex(Math.round(i*360/Math.max(1,total))%360,72,66); }
-function fceColorList(names){ return names.map((n,i)=>distinctColor(i,names.length)); }
+function fceColorList(names){ return names.map(n=>fceColor(n)); }   // per-NAME colors so every chart/legend matches
 
 function hashStr(s){ let h=0; for(let i=0;i<s.length;i++){h=((h<<5)-h+s.charCodeAt(i))|0;} return h; }
 function fmtDate(d){ if(!d)return '—'; const dt=new Date((''+d).slice(0,10)+'T00:00:00'); if(isNaN(dt))return '—'; const dd=String(dt.getDate()).padStart(2,'0'); const mm=String(dt.getMonth()+1).padStart(2,'0'); return dd+'/'+mm+'/'+dt.getFullYear(); }
@@ -1284,7 +1298,7 @@ function renderSummary(){
   document.getElementById('dash-month-sub').textContent=(mf==='all'?'All months':monthLabel(mf))+' — approved entries';
   const rc=['#f5a623','#a0a0b8','#c47a4e'];
   document.getElementById('summary-table').innerHTML=data.map((r,i)=>{
-    const cpv=r.visits?Math.round(r.ta/r.visits):0, vpd=r.days?(r.visits/r.days).toFixed(1):'—', pct=total?Math.round(r.ta/total*100):0, c=distinctColor(i,data.length), rcol=i<3?rc[i]:'#aeb4d6';
+    const cpv=r.visits?Math.round(r.ta/r.visits):0, vpd=r.days?(r.visits/r.days).toFixed(1):'—', pct=total?Math.round(r.ta/total*100):0, c=fceColor(r.name), rcol=i<3?rc[i]:'#aeb4d6';
     return `<tr><td><span class="rank-badge" style="background:${rcol}26;color:${rcol};font-weight:700;">${i+1}</span></td><td><span class="fw6" style="color:${c};">${r.name}</span></td><td class="mono">${r.days}</td><td class="mono">${r.visits}</td><td class="mono fw6">৳${r.ta.toLocaleString()}</td><td class="mono">৳${Math.round(r.ta/Math.max(1,r.days)).toLocaleString()}</td><td class="mono">৳${cpv}</td><td class="mono">${vpd}</td><td><div class="bar-wrap"><div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:${c};"></div></div><span class="pct">${pct}%</span></div></td></tr>`;
   }).join('')||`<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:24px;">No approved entries yet</td></tr>`;
   updateSidebarTotal();
@@ -1899,7 +1913,7 @@ let chartInstances={};
 function renderChartsSummaryTable(mf){
   const data=getSummaryData(mf);
   const rows=data.map(r=>{ const perday=r.days?Math.round(r.ta/r.days):0, avg=r.visits?(r.ta/r.visits):0; return {name:r.name,days:r.days,ta:r.ta,perday,visits:r.visits,avg}; });
-  document.getElementById('charts-summary-table').innerHTML=rows.map((r,i)=>`<tr><td class="fw6" style="color:${distinctColor(i,rows.length)};">${r.name}</td><td class="mono">${r.days}</td><td class="mono">৳${r.ta.toLocaleString()}</td><td class="mono">৳${r.perday}</td><td class="mono">${r.visits}</td><td class="mono">৳${r.avg.toFixed(2)}</td></tr>`).join('')||'<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:20px;">No data</td></tr>';
+  document.getElementById('charts-summary-table').innerHTML=rows.map((r,i)=>`<tr><td class="fw6" style="color:${fceColor(r.name)};">${r.name}</td><td class="mono">${r.days}</td><td class="mono">৳${r.ta.toLocaleString()}</td><td class="mono">৳${r.perday}</td><td class="mono">${r.visits}</td><td class="mono">৳${r.avg.toFixed(2)}</td></tr>`).join('')||'<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:20px;">No data</td></tr>';
   const tD=rows.reduce((s,r)=>s+r.days,0), tTA=rows.reduce((s,r)=>s+r.ta,0), tV=rows.reduce((s,r)=>s+r.visits,0), avgCall=tV?(tTA/tV):0;
   document.getElementById('charts-summary-foot').innerHTML=rows.length?`<tr><td>Total</td><td class="mono">${tD}</td><td class="mono">৳${tTA.toLocaleString()}</td><td class="mono">—</td><td class="mono">${tV}</td><td class="mono">৳${avgCall.toFixed(2)}</td></tr>`:'';
 }
@@ -1919,7 +1933,7 @@ function buildCharts(monthFilter){
   mk('c-pie',{type:'doughnut',data:{labels:names,datasets:[{data:tas,backgroundColor:colors.map(c=>c+'cc'),borderColor:colors,borderWidth:1.5,hoverOffset:8}]},options:{responsive:true,maintainAspectRatio:false,cutout:'68%',plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>`${ctx.label}: ৳${ctx.parsed.toLocaleString()} (${totalTA?Math.round(ctx.parsed/totalTA*100):0}%)`}}}},plugins:[piCenter]});
   document.getElementById('legend-pie').innerHTML=names.map((n,i)=>`<div class="legend-item"><div class="legend-dot" style="background:${colors[i]};"></div>${n} ${totalTA?Math.round(tas[i]/totalTA*100):0}%</div>`).join('');
   mk('c-perday',bar(perday)); mk('c-visits',bar(visits));
-  mk('c-avgcall',bar(cpvs,cpvs.map(v=>{const avg=cpvs.reduce((a,b)=>a+b,0)/Math.max(1,cpvs.length);return v>avg?'#e05252':'#52c87a';})));
+  mk('c-avgcall',bar(cpvs));   // per-FCE-name colors — matches the table, legend and all other charts
   mk('c-bubble',{type:'bubble',data:{datasets:data.map((r,i)=>({label:r.name,data:[{x:r.days,y:r.visits,r:Math.max(5,Math.round(r.visits/Math.max(1,r.days)*2.5))}],backgroundColor:colors[i]+'99',borderColor:colors[i],borderWidth:1.5}))},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>`${ctx.dataset.label}: ${ctx.raw.y} visits, ${ctx.raw.x} days`}}},scales:{x:{title:{display:true,text:'Working days',color:tc,font:{size:10}},ticks:{color:tc,font:tf},grid:{color:gc},border:{display:false},min:0,max:Math.max(...data.map(r=>r.days),5)+3},y:{title:{display:true,text:'Total visits',color:tc,font:{size:10}},ticks:{color:tc,font:tf},grid:{color:gc},border:{display:false},min:0}},layout:{padding:10}}});
   const pmap={}; scopedEntries().filter(e=>e.status==='approved'&&(mf==='all'||(e.month||e.date.slice(0,7))===mf)).forEach(e=>{pmap[e.purpose]=(pmap[e.purpose]||0)+1;});
   const pn=Object.keys(pmap).sort((a,b)=>pmap[b]-pmap[a]), pv=pn.map(p=>pmap[p]), pc=pn.map((_,i)=>PALETTE[i%PALETTE.length]);
@@ -1990,6 +2004,17 @@ function resetStageFilters(name){
       ['pk-search','pk-list-search','pk-list-road','pk-list-kind','pk-list-date'].forEach(id=>{ const el=document.getElementById(id); if(el)el.value=''; });
     } else if(name==='cdm'){
       if(typeof cdBinFilter!=='undefined')cdBinFilter='';
+      if(typeof cdStatusFilter!=='undefined')cdStatusFilter='open';
+      if(typeof cdSearch!=='undefined')cdSearch='';
+    } else if(name==='attendance'){
+      if(typeof attTab!=='undefined')attTab='mark';
+      if(typeof attLoc!=='undefined')attLoc='';
+      if(typeof attTitle!=='undefined')attTitle='';
+      if(typeof attSearch!=='undefined')attSearch='';
+      if(typeof attSelEmp!=='undefined')attSelEmp='';
+      if(typeof attDayDate!=='undefined')attDayDate='';
+      if(typeof attPeriod!=='undefined')attPeriod='H1';
+      if(typeof attYear!=='undefined')attYear=new Date().getFullYear();
     } else if(name==='logdash'){
       if(typeof pkDashView!=='undefined')pkDashView='ops';
       if(typeof pkDashGran!=='undefined')pkDashGran='month';
@@ -2361,17 +2386,32 @@ async function ordLoadLines(id){
         <thead><tr style="background:rgba(110,160,255,.08);">
           <th style="padding:6px 18px;text-align:left;font-size:10px;letter-spacing:.08em;color:var(--muted);">LINE</th>
           <th style="padding:6px 18px;text-align:left;font-size:10px;letter-spacing:.08em;color:var(--muted);">STATUS</th>
+          <th style="padding:6px 14px;text-align:left;font-size:10px;letter-spacing:.08em;color:var(--muted);">COTS MATERIAL NO.</th>
+          <th style="padding:6px 14px;text-align:left;font-size:10px;letter-spacing:.08em;color:var(--muted);">BRAND</th>
+          <th style="padding:6px 14px;text-align:left;font-size:10px;letter-spacing:.08em;color:var(--muted);">SUPPLY PLANT</th>
+          <th style="padding:6px 14px;text-align:left;font-size:10px;letter-spacing:.08em;color:var(--muted);">ENRICHED BY</th>
+          <th style="padding:6px 14px;text-align:left;font-size:10px;letter-spacing:.08em;color:var(--muted);">STYLE NO./PROD. NO.</th>
+          <th style="padding:6px 14px;text-align:left;font-size:10px;letter-spacing:.08em;color:var(--muted);">COMMENTS &amp; REMARKS</th>
           <th style="padding:6px 18px;text-align:center;font-size:10px;letter-spacing:.08em;color:var(--muted);">QTY</th></tr></thead>
         <tbody>${lines.map((l,i)=>{ const [bg,fg]=PILL[stKey(l.line_status)];
           return `<tr style="${i%2?'background:rgba(255,255,255,.025);':''}">
             <td style="padding:6px 18px;font-family:'DM Mono',monospace;font-weight:600;">${attEsc(l.line_no||'—')}</td>
             <td style="padding:6px 18px;"><span style="background:${bg};color:${fg};border-radius:999px;padding:2px 12px;font-size:11.5px;font-weight:700;display:inline-block;">${attEsc(l.line_status||'No status')}</span></td>
+            <td style="padding:6px 14px;font-family:'DM Mono',monospace;">${attEsc(_matOf(l)||'—')}</td>
+            <td style="padding:6px 14px;">${attEsc(l.coats_brand_tex||'—')}</td>
+            <td style="padding:6px 14px;">${attEsc(l.supply_plant||'—')}</td>
+            <td style="padding:6px 14px;">${attEsc(l.enriched_by||'—')}</td>
+            <td style="padding:6px 14px;">${attEsc(l.style_no||'—')}</td>
+            <td style="padding:6px 14px;font-size:11.5px;color:var(--muted);max-width:180px;">${attEsc(l.remarks||'—')}</td>
             <td style="padding:6px 18px;text-align:center;">${attEsc(l.qty!=null?l.qty:'—')}</td></tr>`; }).join('')}
         <tr style="border-top:1px solid var(--border);background:rgba(110,160,255,.05);">
-          <td style="padding:6px 18px;font-size:11px;color:var(--muted);font-weight:700;">TOTAL</td><td style="padding:6px 18px;"></td>
+          <td style="padding:6px 18px;font-size:11px;color:var(--muted);font-weight:700;">TOTAL</td><td colspan="7" style="padding:6px 18px;"></td>
           <td style="padding:6px 18px;text-align:center;font-weight:800;color:var(--accent2);">${Math.round(totQ*100)/100}</td></tr>
         </tbody></table></div>`;
   };
+  // COTS Material No. = material_no (+shade suffix when not already included) — same rule as the packing views.
+  const _matOf=l=>{ let m=(''+(l.material_no||'')).trim(); const sh=(''+(l.shade||'')).trim(); if(sh&&m&&!m.toUpperCase().includes(sh.toUpperCase()))m=m+(m.endsWith('-')?'':'-')+sh; return m||''; };
+  // Enriched By = the imported file's 'Enriched By' column (column AW of the ERP export).
   box.innerHTML='<span style="font-size:11px;color:var(--dim);">Loading lines…</span>';
   try{
     try{ if(typeof pkLoadTrips==='function')await pkLoadTrips(); }catch(_){}
@@ -2379,7 +2419,7 @@ async function ordLoadLines(id){
     const tripLineDate={}; let tripDate='';
     (CACHE.trips||[]).forEach(t=>{ if(t.kind==='return')return; if((t.order_no||'').trim().toLowerCase()!==ono.toLowerCase())return; const d=t.trip_date||''; if(d>tripDate)tripDate=d; cdParseLines(t.line_nos).forEach(x=>{ const key=String(x); if(!tripLineDate[key]||d>tripLineDate[key])tripLineDate[key]=d; }); });
     let data=_ordLinesCache[ono];
-    if(!data){ const res=await sb.from('sample_lines').select('line_no,line_status,qty').eq('order_no',ono); if(res.error)throw res.error; data=res.data||[]; data.sort((a,b)=>(parseFloat(a.line_no)||0)-(parseFloat(b.line_no)||0)); _ordLinesCache[ono]=data.map(l=>({...l})); }
+    if(!data){ let res=await sb.from('sample_lines').select('line_no,line_status,qty,material_no,coats_brand_tex,supply_plant,style_no,remarks,shade,cs_name,enriched_by').eq('order_no',ono); if(res.error&&/enriched_by/i.test((res.error.message||'')+(res.error.details||''))){ res=await sb.from('sample_lines').select('line_no,line_status,qty,material_no,coats_brand_tex,supply_plant,style_no,remarks,shade,cs_name').eq('order_no',ono); } if(res.error)throw res.error; data=res.data||[]; data.sort((a,b)=>(parseFloat(a.line_no)||0)-(parseFloat(b.line_no)||0)); _ordLinesCache[ono]=data.map(l=>({...l})); }
     // Re-derive display each open so Trip List changes reflect immediately (don't mutate cache).
     // A line that is on the Trip List shows "Dispatched on <trip date>"; every other line keeps its own status.
     const view=(_ordLinesCache[ono]||[]).map(l=>{ const o2={...l}; const key=String(l.line_no==null?'':l.line_no).trim(); const td=tripLineDate[key]; if(td)o2.line_status='Dispatched on '+fmtDate(td); return o2; });
@@ -2773,7 +2813,7 @@ async function attSaveDay(){
 }
 
 /* ── AGGREGATION ── */
-function attAgg(empId,start,end){let p=0,a=0,l=0,h=0;CACHE.attendance.forEach(r=>{if(r.emp_id===empId&&r.date>=start&&r.date<=end){if(r.status==='present')p++;else if(r.status==='absent')a++;else if(r.status==='holiday')h++;else if(isLeaveStatus(r.status))l++;}});const sched=p+a+l;const pct=sched?Math.round(p/sched*1000)/10:null;return{p,a,l,h,sched,pct};}
+function attAgg(empId,start,end){const _k=x=>(''+(x||'')).trim().toUpperCase();const key=_k(empId);let p=0,a=0,l=0,h=0;CACHE.attendance.forEach(r=>{if(_k(r.emp_id)===key&&r.date>=start&&r.date<=end){if(r.status==='present')p++;else if(r.status==='absent')a++;else if(r.status==='holiday')h++;else if(isLeaveStatus(r.status))l++;}});const sched=p+a+l;const pct=sched?Math.round(p/sched*1000)/10:null;return{p,a,l,h,sched,pct};}
 function attRange(){const y=attYear;if(attPeriod==='H1')return[y+'-01-01',y+'-06-30','Jan–Jun '+y];if(attPeriod==='H2')return[y+'-07-01',y+'-12-31','Jul–Dec '+y];return[y+'-01-01',y+'-12-31','Full year '+y];}
 function attScopeEmps(){const lock=tlLockedLoc();const loc=lock||attLoc;return attActiveEmps().filter(e=>!loc||locEq(e.location,loc));}
 function attDashEmps(){ if(attSelEmp){ const e=attActiveEmps().find(x=>x.id===attSelEmp); return e?[e]:[]; } return attScopeEmps(); }
@@ -3409,8 +3449,8 @@ async function dbPkUpsert(rows){
   let {error}=await sb.from('sample_lines').upsert(rows,{onConflict:'id'});
   if(error){
     const m=(error.message||'')+' '+(error.details||'')+' '+(error.hint||'');
-    if(/delivery_plant|supply_plant|customer_name|line_status|ship_to_code|sold_to_code|plant/i.test(m)){
-      const stripped=rows.map(r=>{ const c={...r}; delete c.delivery_plant; delete c.supply_plant; delete c.customer_name; delete c.line_status; delete c.ship_to_code; delete c.sold_to_code; return c; });
+    if(/delivery_plant|supply_plant|customer_name|line_status|ship_to_code|sold_to_code|plant|enriched_by/i.test(m)){
+      const stripped=rows.map(r=>{ const c={...r}; delete c.delivery_plant; delete c.supply_plant; delete c.customer_name; delete c.line_status; delete c.ship_to_code; delete c.sold_to_code; if(/enriched_by/i.test(m)){ delete c.enriched_by; window.__pkEnrichedColMissing=true; } return c; });
       const r2=await sb.from('sample_lines').upsert(stripped,{onConflict:'id'}); if(r2.error)throw r2.error;
       window.__pkPlantColMissing=true; return;
     }
@@ -4213,6 +4253,7 @@ const PK_HMAP=[
  [['sold to party code','sold-to party code','sold to code','sold to party'],'sold_to_code'],
  [['delivery plant','delivery plant code','delivery plant name','del plant'],'delivery_plant'],
  [['supply plant','supply plant code','supply plant name','sup plant','supplying plant'],'supply_plant'],
+ [['enriched by','enriched by name','enriched'],'enriched_by'],
 ];
 function pkNorm(s){ return (''+(s==null?'':s)).trim().toLowerCase().replace(/\s+/g,' '); }
 // ── Master data for enrichment (Tex from ART/TKT, CS mobile from Customer Mapping) ──
@@ -4447,7 +4488,7 @@ async function pkDoImport(){
   const fi=document.getElementById('pk-file'); const files=fi?[...fi.files]:[];
   const st=document.getElementById('pk-import-status');
   if(!files.length){ showToast('Choose one or more files first.','err'); return; }
-  window.__pkPlantColMissing=false;
+  window.__pkPlantColMissing=false; window.__pkEnrichedColMissing=false;
   st.textContent='Loading reader…';
   try{
     await pkLoadSheetJS();
@@ -4468,6 +4509,8 @@ async function pkDoImport(){
       let hdrIdx=aoa.findIndex(r=>{ const set=r.map(pkNorm); return set.some(x=>x.includes('order ref')||x==='order no'||x==='sample order no')&&set.some(x=>x.includes('ship to party name')); });
       if(hdrIdx<0)hdrIdx=0;
       const headers=(aoa[hdrIdx]||[]).map(pkFieldFor);
+      // "Enriched By" lives in column AW of the ERP export. If the header text didn't match, map it by position.
+      if(!headers.includes('enriched_by')&&(aoa[hdrIdx]||[]).length>48&&!headers[48])headers[48]='enriched_by';
       if(!headers.includes('order_no')){ fileErrs.push(f.name); continue; }
       for(let i=hdrIdx+1;i<aoa.length;i++){
         const row=aoa[i]||[]; const o={};
@@ -4509,6 +4552,7 @@ async function pkDoImport(){
     const errNote=fileErrs.length?` <span style="color:var(--amber);">Skipped ${fileErrs.length} file(s) with no recognizable header.</span>`:'';
     st.innerHTML=`<span style="color:var(--green);font-weight:600;">Done — ${recs.length} order lines added / updated from ${files.length} file(s).</span>${dupNote}${errNote} <span style="color:var(--muted);">Kept cumulatively — all historical data is retained.</span>`;
     if(window.__pkPlantColMissing){ st.innerHTML+=' <span style="color:#e0913a;">⚠ Delivery/Supply Plant was NOT saved — the database columns don\'t exist yet. Run the ALTER TABLE statements (add delivery_plant & supply_plant to sample_lines), then re-import to see plant breakdowns.</span>'; }
+    if(window.__pkEnrichedColMissing){ st.innerHTML+=' <span style="color:#e0913a;">⚠ Enriched By was NOT saved — run in Supabase: <b>alter table sample_lines add column if not exists enriched_by text;</b> then re-import.</span>'; }
     try{ if(typeof pkLoadPlantMap==='function')await pkLoadPlantMap(true); }catch(_){}
     if(typeof pkDashLines!=='undefined')pkDashLines=null;
     try{ const nOrd=await pkAutoCreateOrders(recs); if(nOrd)st.innerHTML+=' <span style="color:var(--accent2);">＋ '+nOrd+' new order(s) added to Order Tracker (Created Date, Order No, Customer, Buyer, Delivery Zone & Responsibility auto-mapped).</span>'; }catch(_){}
