@@ -2013,7 +2013,7 @@ function resetStageFilters(name){
       if(typeof attSearch!=='undefined')attSearch='';
       if(typeof attSelEmp!=='undefined')attSelEmp='';
       if(typeof attDayDate!=='undefined')attDayDate='';
-      if(typeof attPeriod!=='undefined')attPeriod='H1';
+      if(typeof attPeriod!=='undefined')attPeriod='FY';   // Full year default
       if(typeof attYear!=='undefined')attYear=new Date().getFullYear();
     } else if(name==='logdash'){
       if(typeof pkDashView!=='undefined')pkDashView='ops';
@@ -2713,7 +2713,7 @@ window.addEventListener('DOMContentLoaded',async()=>{
 // ═══════════════════════════════════════════════════════════════
 //  ATTENDANCE TRACKER MODULE
 // ═══════════════════════════════════════════════════════════════
-let attTab='mark', attDate=null, attYear=new Date().getFullYear(), attPeriod='H1';
+let attTab='mark', attDate=null, attYear=new Date().getFullYear(), attPeriod='FY';   // default: Full year — always shows current data
 let attLoc='', attTitle='', attSearch='', attSelEmp='', attCalY=null, attCalM=null, attDayDate='';
 let attStage={}, attCharts={}, attEditingEmp=null;
 const ATT_LOCS=['Chattogram','Gazipur','Dhaka H/O'];
@@ -2732,10 +2732,13 @@ async function attLoad(force){
   if(!CONFIGURED)return;
   if(CACHE._attLoaded&&!force)return;
   try{
-    const [e,a]=await Promise.all([sb.from('employees').select('*').order('name'),sb.from('attendance').select('*')]);
+    const fetchAll=async(tbl,order)=>{ let out=[],from=0; const size=1000;
+      while(true){ let q=sb.from(tbl).select('*').range(from,from+size-1); if(order)q=q.order(order); const {data,error}=await q; if(error)throw error; out=out.concat(data||[]); if(!data||data.length<size)break; from+=size; if(from>200000)break; }
+      return out; };
+    const [e,a]=await Promise.all([fetchAll('employees','name'),fetchAll('attendance')]);
     if(e.error)throw e.error; if(a.error)throw a.error;
-    CACHE.employees=(e.data||[]);
-    CACHE.attendance=(a.data||[]).map(r=>({...r,date:(''+r.date).slice(0,10)}));
+    CACHE.employees=(e||[]);
+    CACHE.attendance=(a||[]).map(r=>({...r,date:(''+r.date).slice(0,10)}));
     CACHE._attLoaded=true;
   }catch(err){
     CACHE.employees=[];CACHE.attendance=[];CACHE._attLoaded=false;
@@ -2813,7 +2816,49 @@ async function attSaveDay(){
 }
 
 /* ── AGGREGATION ── */
-function attAgg(empId,start,end){const _k=x=>(''+(x||'')).trim().toUpperCase();const key=_k(empId);let p=0,a=0,l=0,h=0;CACHE.attendance.forEach(r=>{if(_k(r.emp_id)===key&&r.date>=start&&r.date<=end){if(r.status==='present')p++;else if(r.status==='absent')a++;else if(r.status==='holiday')h++;else if(isLeaveStatus(r.status))l++;}});const sched=p+a+l;const pct=sched?Math.round(p/sched*1000)/10:null;return{p,a,l,h,sched,pct};}
+// ── Attendance record index ─────────────────────────────────────────────────
+// Joins marks to employees by normalized ID, with a digits-only fallback that rescues records
+// orphaned by an employee-ID edit (e.g. marks saved under C111852 while the employee is now CG111852).
+// The fallback only fires when the numeric part maps to exactly ONE employee, so it can never cross-match.
+let _attIdx=null,_attIdxRef=null;
+function attIndex(){
+  const arr=CACHE.attendance||[]; if(_attIdxRef===arr&&_attIdx)return _attIdx;
+  _attIdxRef=arr;
+  const K=x=>(''+(x||'')).trim().toUpperCase(), D=x=>K(x).replace(/[^0-9]/g,'');
+  const byKey=new Map(), byDig=new Map();
+  arr.forEach(r=>{ const k=K(r.emp_id); if(!byKey.has(k))byKey.set(k,[]); byKey.get(k).push(r);
+    const d=D(r.emp_id); if(d){ if(!byDig.has(d))byDig.set(d,{ids:new Set(),rows:[]}); const e=byDig.get(d); e.ids.add(k); e.rows.push(r); } });
+  // digits shared by more than one EMPLOYEE are ambiguous — never fall back for those
+  const empDigCount=new Map();
+  (CACHE.employees||[]).forEach(e=>{ const d=D(e.id); if(d)empDigCount.set(d,(empDigCount.get(d)||0)+1); });
+  _attIdx={byKey,byDig,empDigCount,K,D}; return _attIdx;
+}
+function attRowsFor(empId){
+  const ix=attIndex(); const k=ix.K(empId);
+  let rows=ix.byKey.get(k)||[];
+  if(!rows.length){ const d=ix.D(empId);
+    if(d&&(ix.empDigCount.get(d)||0)<=1){ const e=ix.byDig.get(d); if(e&&e.ids.size===1)rows=e.rows; } }
+  return rows;
+}
+function attAgg(empId,start,end){let p=0,a=0,l=0,h=0;attRowsFor(empId).forEach(r=>{if(r.date>=start&&r.date<=end){if(r.status==='present')p++;else if(r.status==='absent')a++;else if(r.status==='holiday')h++;else if(isLeaveStatus(r.status))l++;}});const sched=p+a+l;const pct=sched?Math.round(p/sched*1000)/10:null;return{p,a,l,h,sched,pct};}
+// Console diagnostic — paste debugAttendance('CG111852') in DevTools to see exactly what exists for an ID.
+if(typeof window!=='undefined'){
+  window.debugAttendance=function(empId){
+    const ix=attIndex(); const k=ix.K(empId), d=ix.D(empId);
+    const emp=(CACHE.employees||[]).find(e=>ix.K(e.id)===k);
+    console.log('employee record   :', emp||'(none found under this ID)');
+    const exact=ix.byKey.get(k)||[];
+    console.log('marks (exact ID)  :', exact.length);
+    if(exact.length)console.table(exact.map(r=>({emp_id:r.emp_id,date:r.date,status:r.status,marked_by:r.marked_by})));
+    if(d){ const e=ix.byDig.get(d);
+      if(e){ console.log('marks sharing digits '+d+' :', e.rows.length, '· under emp_id(s):', [...e.ids].join(', '));
+        if(!exact.length&&e.rows.length)console.table(e.rows.slice(0,30).map(r=>({emp_id:r.emp_id,date:r.date,status:r.status})));
+      } else console.log('no attendance rows share the digits', d);
+    }
+    console.log('total attendance rows loaded:', (CACHE.attendance||[]).length);
+    if(!exact.length&&(!d||!ix.byDig.get(d)))console.warn('No records exist for this employee under ANY ID variant — they were never marked, or marks were deleted.');
+  };
+}
 function attRange(){const y=attYear;if(attPeriod==='H1')return[y+'-01-01',y+'-06-30','Jan–Jun '+y];if(attPeriod==='H2')return[y+'-07-01',y+'-12-31','Jul–Dec '+y];return[y+'-01-01',y+'-12-31','Full year '+y];}
 function attScopeEmps(){const lock=tlLockedLoc();const loc=lock||attLoc;return attActiveEmps().filter(e=>!loc||locEq(e.location,loc));}
 function attDashEmps(){ if(attSelEmp){ const e=attActiveEmps().find(x=>x.id===attSelEmp); return e?[e]:[]; } return attScopeEmps(); }
@@ -2832,7 +2877,7 @@ function attRenderDash(){
   const selfOnly=attSelfOnly(); const selfEmp=selfOnly?attSelfEmp():null; if(selfOnly)attSelEmp=selfEmp?selfEmp.id:'__none__';
   const empOpts=selfOnly
     ? (selfEmp?`<option value="${attEsc(selfEmp.id)}" selected>${attEsc(selfEmp.name)} · ${attEsc(normTitle(selfEmp.title))}</option>`:'<option value="">(your employee record not found)</option>')
-    : ['<option value="">— pick an employee —</option>'].concat(attScopeEmps().map(e=>`<option value="${attEsc(e.id)}" ${attSelEmp===e.id?'selected':''}>${attEsc(e.name)} · ${attEsc(e.title)}</option>`)).join('');
+    : ['<option value="">— pick an employee —</option>'].concat(attScopeEmps().map(e=>`<option value="${attEsc(e.id)}" ${attSelEmp===e.id?'selected':''}>${attEsc(e.name)} · ${attEsc(normTitle(e.title))}</option>`)).join('');
   body.innerHTML=`
     <div class="detail-meta"><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
       <select class="filter-sel" onchange="attYear=+this.value;attRenderDash()">${yOpts}</select>
@@ -2901,8 +2946,8 @@ function attRenderDashTable(){
     const g=attAgg(em.id,s,e); const pct=g.pct;
     const pctTxt=pct==null?'<span style="color:var(--muted)">—</span>':`<b style="color:${pct>=85?ATTCOL.present:pct>=70?ATTCOL.leave:ATTCOL.absent}">${pct}%</b>`;
     let bonus='<span style="color:var(--muted)">—</span>';
-    if(em.bonus_eligible){ if(pct==null)bonus='<span class="att-pill" style="background:#33415c;color:#c8d4e6">No data</span>'; else if(pct>=85)bonus='<span class="att-pill" style="background:'+ATTCOL.present+';color:#06210f">On track</span>'; else bonus='<span class="att-pill" style="background:'+ATTCOL.absent+';color:#2a0a0a">Not eligible</span>'; }
-    return `<tr><td>${attEsc(em.id)}</td><td>${attEsc(em.name)}</td><td>${attEsc(em.title)}</td><td>${attEsc(em.location)}</td><td>${g.p}</td><td>${g.a}</td><td>${g.l}</td><td>${pctTxt}</td><td>${bonus}</td></tr>`;
+    if(em.bonus_eligible){ if(pct==null)bonus='<span class="att-pill" style="background:#33415c;color:#c8d4e6" title="No attendance records found for '+attEsc(em.id)+' in the selected period. Check the period/year filters, or run debugAttendance(\''+attEsc(em.id)+'\') in the browser console to inspect the raw records.">No data</span>'; else if(pct>=85)bonus='<span class="att-pill" style="background:'+ATTCOL.present+';color:#06210f">On track</span>'; else bonus='<span class="att-pill" style="background:'+ATTCOL.absent+';color:#2a0a0a">Not eligible</span>'; }
+    return `<tr><td>${attEsc(em.id)}</td><td>${attEsc(em.name)}</td><td>${attEsc(normTitle(em.title))}</td><td>${attEsc(em.location)}</td><td>${g.p}</td><td>${g.a}</td><td>${g.l}</td><td>${pctTxt}</td><td>${bonus}</td></tr>`;
   }).join('')||`<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:18px;">No employees.</td></tr>`;
 }
 function attChart(id,cfg){if(attCharts[id]){try{attCharts[id].destroy();}catch(e){}}const cv=document.getElementById(id);if(cv)attCharts[id]=new Chart(cv,cfg);}
@@ -2987,7 +3032,7 @@ function attRenderEmps(){
       <button class="btn btn-primary btn-sm" onclick="attEmpModal()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>Add Employee</button>
     </div></div>
     <div class="card" style="overflow:auto;"><table><thead><tr><th>ID</th><th>Name</th><th>Title</th><th>Location</th><th>Bonus</th><th>Active</th><th></th></tr></thead><tbody>${
-      pageEmps.map(e=>`<tr><td>${attEsc(e.id)}</td><td>${attEsc(e.name)}</td><td>${attEsc(e.title)}</td><td>${attEsc(e.location)}</td><td>${e.bonus_eligible?'<span class="att-pill" style="background:'+ATTCOL.accent2+';color:#06210f">Packer</span>':'—'}</td><td>${e.active===false?'<span style="color:var(--muted)">No</span>':'Yes'}</td><td><button class="btn btn-ghost btn-sm" onclick="attEmpModal('${attEsc(e.id)}')">Edit</button></td></tr>`).join('')||'<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:18px;">No employees yet — add one or run the setup SQL.</td></tr>'
+      pageEmps.map(e=>`<tr><td>${attEsc(e.id)}</td><td>${attEsc(e.name)}</td><td>${attEsc(normTitle(e.title))}</td><td>${attEsc(e.location)}</td><td>${e.bonus_eligible?'<span class="att-pill" style="background:'+ATTCOL.accent2+';color:#06210f">Packer</span>':'—'}</td><td>${e.active===false?'<span style="color:var(--muted)">No</span>':'Yes'}</td><td><button class="btn btn-ghost btn-sm" onclick="attEmpModal('${attEsc(e.id)}')">Edit</button></td></tr>`).join('')||'<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:18px;">No employees yet — add one or run the setup SQL.</td></tr>'
     }</tbody></table>${pager}</div>`;
 }
 function attEmpSetPageSize(v){ attEmpPageSize=parseInt(v)||15; attEmpPage=1; attRenderEmps(); }
