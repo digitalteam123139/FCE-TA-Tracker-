@@ -98,9 +98,10 @@ td{padding:10px 14px;border-bottom:1px solid rgba(255,255,255,.04);font-size:13p
 tr:last-child td{border-bottom:none;}
 /* ── Row-level hover: highlight + lift (no geometric scaling → columns stay aligned) ── */
 tbody tr{transition:transform .14s ease,box-shadow .14s ease;}
-tbody tr:not([id*="detail"]):hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(0,0,0,.34);position:relative;z-index:2;}
-tbody tr:not([id*="detail"]):hover td{background:rgba(110,160,255,.13)!important;}
-tbody tr:not([id*="detail"]):hover td:first-child{box-shadow:inset 3px 0 0 var(--accent);}
+tbody tr:not([id*="detail"]):hover{transform:translateY(-2px);box-shadow:0 10px 28px rgba(0,0,0,.40);position:relative;z-index:2;}
+tbody tr:not([id*="detail"]):hover td{background:linear-gradient(135deg,rgba(110,160,255,.16),rgba(124,106,245,.08) 60%,rgba(110,160,255,.04))!important;backdrop-filter:blur(7px) saturate(140%);-webkit-backdrop-filter:blur(7px) saturate(140%);border-top:1px solid rgba(110,160,255,.50);border-bottom:1px solid rgba(110,160,255,.50);}
+tbody tr:not([id*="detail"]):hover td:first-child{border-left:1px solid rgba(110,160,255,.60);border-top-left-radius:12px;border-bottom-left-radius:12px;}
+tbody tr:not([id*="detail"]):hover td:last-child{border-right:1px solid rgba(110,160,255,.60);border-top-right-radius:12px;border-bottom-right-radius:12px;}
 @media(prefers-reduced-motion:reduce){tbody tr:not([id*="detail"]):hover{transform:none;box-shadow:none;}}
 tfoot td{font-weight:600;background:var(--surface2);border-top:1px solid var(--border);}
 .bar-wrap{display:flex;align-items:center;gap:8px;}
@@ -401,7 +402,7 @@ input[type="date"]::-moz-clear{display:none!important;}
       </div>
       <div class="charts-grid">
         <div class="chart-card"><div class="chart-title">Claimed amount per FCE (৳)</div><div class="chart-wrap"><canvas id="c-bar"></canvas></div></div>
-        <div class="chart-card"><div class="chart-title">TA share breakdown</div><div class="chart-wrap"><canvas id="c-pie"></canvas></div><div class="legend" id="legend-pie"></div></div>
+        <div class="chart-card"><div class="chart-title">TA share breakdown</div><div class="chart-wrap" style="position:relative;"><canvas id="c-pie"></canvas><div id="c-pie-center" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;"></div></div><div class="legend" id="legend-pie"></div></div>
       </div>
       <div class="charts-grid-3">
         <div class="chart-card"><div class="chart-title">Per day cost (৳)</div><div class="chart-wrap-sm"><canvas id="c-perday"></canvas></div></div>
@@ -1002,6 +1003,7 @@ function isFCE(){ return currentUser&&currentUser.role==='fce'; }
 function myFCE(){ return isFCE()?currentUser.fce:null; }
 function isTeamLeader(){ return currentUser&&currentUser.role==='teamleader'; }
 function isPacker(){ return currentUser&&currentUser.role==='packer'; }
+function isLogistics(){ return currentUser&&currentUser.role==='logistics'; }
 function packerBlocked(){ if(isPacker()){ showToast('Packers have edit-only access — delete/cancel is not allowed.','err'); return true; } return false; }
 // A team leader only sees employees of their own location/zone.
 function tlLockedLoc(){ return (isTeamLeader()||isPacker())?((currentUser.station||'').trim()):null; }
@@ -1930,7 +1932,8 @@ function buildCharts(monthFilter){
   const bar=(d,clr)=>({type:'bar',data:{labels:names,datasets:[{data:d,backgroundColor:(clr||colors).map(c=>c+'cc'),borderColor:clr||colors,borderWidth:1,borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{ticks:{color:tc,font:tf},grid:{color:gc},border:{display:false}},x:{ticks:{color:tc,font:{size:9}},grid:{display:false},border:{display:false}}}}});
   mk('c-bar',{type:'bar',data:{labels:names,datasets:[{data:tas,backgroundColor:colors.map(c=>c+'cc'),borderColor:colors,borderWidth:1,borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{ticks:{callback:v=>'৳'+(v/1000).toFixed(0)+'k',color:tc,font:tf},grid:{color:gc},border:{display:false}},x:{ticks:{color:tc,font:{size:10}},grid:{display:false},border:{display:false}}}}});
   const piCenter={id:'piCenter',afterDraw(chart){const a=chart.chartArea;if(!a)return;const x=(a.left+a.right)/2,y=(a.top+a.bottom)/2,ctx=chart.ctx;ctx.save();ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle='#e8e8f2';ctx.font='700 20px "DM Mono",monospace';ctx.fillText('৳'+(totalTA>=1000?(totalTA/1000).toFixed(1)+'k':totalTA),x,y-6);ctx.fillStyle='#8a8aa0';ctx.font='600 11px Inter,sans-serif';ctx.fillText('Total TA',x,y+14);ctx.restore();}};
-  mk('c-pie',{type:'doughnut',data:{labels:names,datasets:[{data:tas,backgroundColor:colors.map(c=>c+'cc'),borderColor:colors,borderWidth:1.5,hoverOffset:8}]},options:{responsive:true,maintainAspectRatio:false,cutout:'68%',plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>`${ctx.label}: ৳${ctx.parsed.toLocaleString()} (${totalTA?Math.round(ctx.parsed/totalTA*100):0}%)`}}}},plugins:[piCenter]});
+  mk('c-pie',{type:'doughnut',data:{labels:names,datasets:[{data:tas,backgroundColor:colors.map(c=>c+'cc'),borderColor:colors,borderWidth:1.5,hoverOffset:8}]},options:{responsive:true,maintainAspectRatio:false,cutout:'68%',plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>`${ctx.label}: ৳${ctx.parsed.toLocaleString()} (${totalTA?Math.round(ctx.parsed/totalTA*100):0}%)`}}}}});
+  { const cc=document.getElementById('c-pie-center'); if(cc)cc.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-weight:700;font-size:20px;color:#e8e8f2;">৳'+(totalTA/1000).toFixed(1)+'k</div><div style="font-size:11px;color:#8aa2c4;">Total TA</div>'; }
   document.getElementById('legend-pie').innerHTML=names.map((n,i)=>`<div class="legend-item"><div class="legend-dot" style="background:${colors[i]};"></div>${n} ${totalTA?Math.round(tas[i]/totalTA*100):0}%</div>`).join('');
   mk('c-perday',bar(perday)); mk('c-visits',bar(visits));
   mk('c-avgcall',bar(cpvs));   // per-FCE-name colors — matches the table, legend and all other charts
@@ -2016,7 +2019,7 @@ function resetStageFilters(name){
       if(typeof attPeriod!=='undefined')attPeriod='FY';   // Full year default
       if(typeof attYear!=='undefined')attYear=new Date().getFullYear();
     } else if(name==='logdash'){
-      if(typeof pkDashView!=='undefined')pkDashView='ops';
+      if(typeof pkDashView!=='undefined')pkDashView=(typeof isLogistics==='function'&&isLogistics())?'returns':'ops';
       if(typeof pkDashGran!=='undefined')pkDashGran='month';
       if(typeof pkDashRoad!=='undefined')pkDashRoad='';
       if(typeof pkDashMonth!=='undefined')pkDashMonth='';
@@ -2310,7 +2313,7 @@ function renderOrders(){
         <div id="ordlines-${o.id}" data-ono="${attEsc(o.orderNo||'')}"></div>
       </div></td></tr>`;
     const _cd=ordCreationDateFor(o); const cdCell=_cd?fmtDate(_cd):'<span style="color:var(--muted);" title="No creation_date on any sample_lines row for this order. Run debugCreationDate(\''+attEsc(o.orderNo||'')+'\') in the console for details.">—</span>';
-    return `<tr style="background:${orderRowTint(o)};"><td style="text-align:center;">${canSend?`<input type="checkbox" class="ord-tick" value="${o.id}" onclick="event.stopPropagation()" style="cursor:pointer;" title="Select for combined send">`:''}</td><td>${chevron}</td><td class="mono" style="color:var(--muted);white-space:nowrap;">${d}</td><td class="mono" style="color:var(--muted);white-space:nowrap;">${cdCell}</td><td style="font-size:12px;">${o.orderNo||'—'}</td><td style="font-size:12px;">${o.task?attEsc(taskShort(o.task)):'—'}</td><td style="font-size:12px;">${o.customer||'—'}</td><td style="font-size:12px;">${o.buyer||'—'}</td><td style="font-size:12px;">${o.fce||ordFceFor(o)||'—'}</td><td style="font-size:12px;">${o.service||'—'}</td><td style="font-size:12px;">${ordDeliveryZoneFor(o)||'—'}</td><td style="font-size:12px;color:var(--muted);">${extra}</td><td>${normOrderStatus(o.status)==='Returned'?`<span class="status-badge" style="background:rgba(255,159,90,.16);color:#ff9f5a;">${attEsc(ordStatusDisplay(o))}</span>`:orderStatusBadge(o.status)}</td><td>${note}</td><td><div style="display:flex;gap:4px;align-items:center;">${sendBtn}${editBtn}</div></td></tr>${detail}`;
+    return `<tr style="background:${orderRowTint(o)};"><td style="text-align:center;">${canSend?`<input type="checkbox" class="ord-tick" value="${o.id}" onclick="event.stopPropagation()" style="cursor:pointer;" title="Select for combined send">`:''}</td><td>${chevron}</td><td class="mono" style="color:var(--muted);white-space:nowrap;">${d}</td><td class="mono" style="color:var(--muted);white-space:nowrap;">${cdCell}</td><td style="font-size:12px;">${o.orderNo||'—'}</td><td style="font-size:12px;">${o.task?attEsc(taskShort(o.task)):'—'}</td><td style="font-size:12px;">${o.customer||'—'}</td><td style="font-size:12px;">${o.buyer||'—'}</td><td style="font-size:12px;">${o.fce||ordFceFor(o)||'—'}</td><td style="font-size:12px;">${o.service||'—'}${tripRoadForOrder(o.orderNo)?`<br><a href="javascript:void(0)" onclick="event.stopPropagation();ordShowRiderTrack('${attEsc(o.orderNo)}')" title="Track delivery — rider name, mobile & status" style="display:inline-flex;align-items:center;gap:4px;margin-top:3px;background:linear-gradient(135deg,var(--accent,#7c6af5),#4d7df2);color:#fff;font-size:10.5px;font-weight:700;padding:2px 10px;border-radius:999px;text-decoration:none;box-shadow:0 2px 8px rgba(124,106,245,.45);">🛵 Track</a>`:''}</td><td style="font-size:12px;">${ordDeliveryZoneFor(o)||'—'}</td><td style="font-size:12px;color:var(--muted);">${extra}</td><td>${normOrderStatus(o.status)==='Returned'?`<span class="status-badge" style="background:rgba(255,159,90,.16);color:#ff9f5a;">${attEsc(ordStatusDisplay(o))}</span>`:orderStatusBadge(o.status)}</td><td>${note}</td><td><div style="display:flex;gap:4px;align-items:center;">${sendBtn}${editBtn}</div></td></tr>${detail}`;
   }).join('')||'<tr><td colspan="15" style="text-align:center;color:var(--muted);padding:24px;">No orders yet</td></tr>';
   renderOrdersPager(ordTotal,totalPages,startIdx,rows.length);
   // Hide the New Order button for view-only users
@@ -3505,6 +3508,110 @@ async function dbPkUpsert(rows){
 async function dbGetTrips(){ const {data,error}=await sb.from('trip_schedule').select('*').order('trip_date',{ascending:false}).limit(3000); if(error)throw error; return data||[]; }
 async function dbInsertTrip(rows){ const {error}=await sb.from('trip_schedule').insert(rows); if(error)throw error; }
 async function dbDeleteTrip(id){ const {error}=await sb.from('trip_schedule').delete().eq('id',id); if(error)throw error; }
+// ── Rider assignment & delivery tracking ─────────────────────────────────────
+function _riderOverlay(id){ let el=document.getElementById(id); if(el)return el;
+  el=document.createElement('div'); el.id=id;
+  el.style.cssText='position:fixed;inset:0;z-index:99990;display:none;align-items:center;justify-content:center;background:rgba(4,10,26,.62);backdrop-filter:blur(4px);';
+  el.addEventListener('click',e=>{ if(e.target===el)el.style.display='none'; });
+  document.body.appendChild(el); return el; }
+// Group assignment — one rider for an entire road on a given date (daily morning workflow).
+function pkAssignRiderByRoad(){
+  const trips=(CACHE.trips||[]).filter(x=>x.kind!=='return');
+  const dates=[...new Set(trips.map(x=>x.trip_date).filter(Boolean))].sort().reverse().slice(0,30);
+  const day0=dates[0]||new Date().toISOString().slice(0,10);
+  const riders=[...new Set(trips.map(x=>(x.rider_name||'').trim()).filter(Boolean))].sort();
+  const roadsFor=d=>[...new Set(trips.filter(x=>x.trip_date===d).map(x=>x.road||'').filter(Boolean))].sort();
+  const el=_riderOverlay('pk-rider-road-modal');
+  const paint=(d)=>{ const roads=roadsFor(d);
+    el.innerHTML=`<div style="background:var(--surface,#131f42);border:1px solid var(--border,#27407A);border-radius:14px;padding:20px 22px;width:min(92vw,440px);box-shadow:0 24px 60px rgba(0,0,0,.5);">
+    <div style="font-weight:700;font-size:15px;margin-bottom:2px;">🛵 Assign Riders by Road</div>
+    <div style="font-size:11.5px;color:var(--muted);margin-bottom:12px;">One rider covers every delivery on the selected road for the day.</div>
+    <label class="form-label">Trip date</label>
+    <select class="form-input" id="rr-date" style="margin-bottom:10px;" onchange="pkAssignRiderByRoad._repaint(this.value)">${dates.map(x=>`<option value="${x}" ${x===d?'selected':''}>${fmtDate(x)}</option>`).join('')}</select>
+    <label class="form-label">Road / Delivery zone *</label>
+    <select class="form-input" id="rr-road" style="margin-bottom:10px;">${roads.length?roads.map(r=>`<option>${attEsc(r)}</option>`).join(''):'<option value="">— no trips on this date —</option>'}</select>
+    <label class="form-label">Rider name *</label>
+    <input class="form-input" id="rr-nm" list="rider-dl2" placeholder="e.g. Md. Rakib Hasan" style="margin-bottom:10px;"/>
+    <datalist id="rider-dl2">${riders.map(r=>`<option>${attEsc(r)}</option>`).join('')}</datalist>
+    <label class="form-label">Mobile no.</label>
+    <input class="form-input" id="rr-mb" placeholder="e.g. 01313014898" style="margin-bottom:14px;"/>
+    <div style="display:flex;gap:8px;justify-content:flex-end;"><button class="btn btn-ghost btn-sm" onclick="document.getElementById('pk-rider-road-modal').style.display='none'">Cancel</button><button class="btn btn-primary btn-sm" onclick="pkSaveRiderByRoad()">Assign to road</button></div></div>`;
+    el.style.display='flex'; };
+  pkAssignRiderByRoad._repaint=paint; paint(day0);
+}
+async function pkSaveRiderByRoad(){
+  const d=(document.getElementById('rr-date')||{}).value||'', road=(document.getElementById('rr-road')||{}).value||'';
+  const nm=((document.getElementById('rr-nm')||{}).value||'').trim(), mb=((document.getElementById('rr-mb')||{}).value||'').trim();
+  if(!d||!road){ showToast('Pick a trip date and road.','err'); return; }
+  if(!nm){ showToast('Enter the rider name.','err'); return; }
+  const targets=(CACHE.trips||[]).filter(x=>x.kind!=='return'&&x.trip_date===d&&(x.road||'')===road);
+  if(!targets.length){ showToast('No deliveries on that road/date.','err'); return; }
+  try{
+    for(const x of targets){ await dbUpdateTrip(x.id,{rider_name:nm,rider_mobile:mb}); }
+    document.getElementById('pk-rider-road-modal').style.display='none';
+    await pkLoadTrips(true); try{ pkRenderListRows(); }catch(_){} try{ pkRenderTripRows(); }catch(_){}
+    showToast('🛵 '+nm+' assigned to '+targets.length+' delivery(ies) on '+road+' · '+fmtDate(d)+'.');
+  }catch(e){ const m=(e.message||'')+(e.details||'');
+    if(/rider_/i.test(m)) showToast('Rider columns missing — run in Supabase: alter table trip_schedule add column if not exists rider_name text; alter table trip_schedule add column if not exists rider_mobile text;','err');
+    else showToast('Save failed: '+(e.message||e),'err'); }
+}
+function pkAssignRider(tripId){
+  const t=(CACHE.trips||[]).find(x=>x.id===tripId); if(!t){ showToast('Trip not found.','err'); return; }
+  const riders=[...new Set((CACHE.trips||[]).map(x=>(x.rider_name||'').trim()).filter(Boolean))].sort();
+  const el=_riderOverlay('pk-rider-modal');
+  el.innerHTML=`<div style="background:var(--surface,#131f42);border:1px solid var(--border,#27407A);border-radius:14px;padding:20px 22px;width:min(92vw,420px);box-shadow:0 24px 60px rgba(0,0,0,.5);">
+    <div style="font-weight:700;font-size:15px;margin-bottom:2px;">🛵 Assign Rider / Delivery Person</div>
+    <div style="font-size:11.5px;color:var(--muted);margin-bottom:12px;">${attEsc(t.order_no)} · ${attEsc(t.road||'—')} · ${fmtDate(t.trip_date)}</div>
+    <label class="form-label">Rider name *</label>
+    <input class="form-input" id="rider-nm" list="rider-dl" value="${attEsc(t.rider_name||'')}" placeholder="e.g. Md. Rakib Hasan" style="margin-bottom:10px;"/>
+    <datalist id="rider-dl">${riders.map(r=>`<option>${attEsc(r)}</option>`).join('')}</datalist>
+    <label class="form-label">Mobile no.</label>
+    <input class="form-input" id="rider-mb" value="${attEsc(t.rider_mobile||'')}" placeholder="e.g. 01313014898" style="margin-bottom:12px;"/>
+    <label style="display:flex;gap:8px;align-items:center;font-size:12.5px;color:var(--text);cursor:pointer;margin-bottom:14px;"><input type="checkbox" id="rider-all" checked/> Apply to ALL orders on <b>&nbsp;${attEsc(t.road||'this road')}&nbsp;</b> · ${fmtDate(t.trip_date)}</label>
+    <div style="display:flex;gap:8px;justify-content:flex-end;"><button class="btn btn-ghost btn-sm" onclick="document.getElementById('pk-rider-modal').style.display='none'">Cancel</button><button class="btn btn-primary btn-sm" onclick="pkSaveRider('${tripId}')">Save</button></div></div>`;
+  el.style.display='flex';
+}
+async function pkSaveRider(tripId){
+  const t=(CACHE.trips||[]).find(x=>x.id===tripId); if(!t)return;
+  const nm=(document.getElementById('rider-nm')||{}).value||'', mb=(document.getElementById('rider-mb')||{}).value||'';
+  if(!nm.trim()){ showToast('Enter the rider name.','err'); return; }
+  const all=!!((document.getElementById('rider-all')||{}).checked);
+  const targets=all?(CACHE.trips||[]).filter(x=>x.kind!=='return'&&x.trip_date===t.trip_date&&(x.road||'')===(t.road||'')):[t];
+  try{
+    for(const x of targets){ await dbUpdateTrip(x.id,{rider_name:nm.trim(),rider_mobile:mb.trim()}); }
+    document.getElementById('pk-rider-modal').style.display='none';
+    await pkLoadTrips(true); try{ pkRenderListRows(); }catch(_){} try{ pkRenderTripRows(); }catch(_){}
+    showToast('Rider assigned to '+targets.length+' delivery(ies).');
+  }catch(e){
+    const m=(e.message||'')+(e.details||'');
+    if(/rider_/i.test(m)) showToast('Rider columns missing — run in Supabase: alter table trip_schedule add column if not exists rider_name text; alter table trip_schedule add column if not exists rider_mobile text;','err');
+    else showToast('Save failed: '+(e.message||e),'err');
+  }
+}
+// Delivery-tracking popup from the Order Tracker (per your status rules).
+function ordShowRiderTrack(orderNo){
+  const on=(''+orderNo).trim().toLowerCase();
+  const o=(typeof getOrders==='function'?getOrders():[]).find(x=>(x.orderNo||'').trim().toLowerCase()===on);
+  const trips=(CACHE.trips||[]).filter(x=>x.kind!=='return'&&(x.order_no||'').trim().toLowerCase()===on).sort((a,b)=>(b.trip_date||'').localeCompare(a.trip_date||''));
+  const orderDone=o&&normOrderStatus(o.status)==='Delivery Completed';
+  // Per-trip status: delivered lines whose DN copy is uploaded count as Delivery Completed,
+  // even when the order overall is only Partially Delivered. No DN yet → still On the Way.
+  const dnFiles=(o&&o.noteFiles)||[]; const tagSet=new Set(); dnFiles.forEach(f=>(f.lines||[]).forEach(x=>tagSet.add(String(x))));
+  const tripDone=x=>{ if(orderDone)return true; const lines=cdParseLines(x.line_nos).map(String);
+    if(tagSet.size)return lines.length>0&&lines.every(l=>tagSet.has(l));   // DN copy covers this trip's lines
+    return dnFiles.length>0; };                                             // untagged DN copy = delivered confirmation
+  const stBadge=x=>tripDone(x)?'<span class="badge" style="background:rgba(70,230,160,.15);color:#46e6a0;">Delivery Completed</span>'
+                              :'<span class="badge" style="background:rgba(255,194,77,.16);color:#ffc24d;">On the Way</span>';
+  const el=_riderOverlay('ord-track-modal');
+  el.innerHTML=`<div style="background:var(--surface,#131f42);border:1px solid var(--border,#27407A);border-radius:14px;padding:20px 22px;width:min(94vw,560px);max-height:80vh;overflow:auto;box-shadow:0 24px 60px rgba(0,0,0,.5);">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;"><div style="font-weight:700;font-size:15px;">🛵 Delivery Tracking — ${attEsc(orderNo)}</div><button class="btn btn-ghost btn-sm" onclick="document.getElementById('ord-track-modal').style.display='none'">✕</button></div>
+    ${trips.length?trips.map(x=>`<div style="border:1px solid var(--border,#27407A);border-radius:10px;padding:12px 16px;margin-bottom:8px;display:grid;grid-template-columns:1fr 1.25fr 1.25fr 1.4fr;gap:8px;align-items:center;text-align:center;font-size:12.5px;">
+      <div><div style="font-size:10px;color:var(--muted);letter-spacing:.06em;margin-bottom:2px;">LINES</div>${attEsc(x.line_nos||'—')}</div>
+      <div><div style="font-size:10px;color:var(--muted);letter-spacing:.06em;margin-bottom:2px;">RIDER</div>${x.rider_name?attEsc(x.rider_name):'<span style="color:var(--dim);">Not assigned yet</span>'}</div>
+      <div><div style="font-size:10px;color:var(--muted);letter-spacing:.06em;margin-bottom:2px;">MOBILE</div>${x.rider_mobile?`<a href="tel:${attEsc(x.rider_mobile)}" style="color:var(--accent2);text-decoration:none;">${attEsc(x.rider_mobile)}</a>`:'—'}</div>
+      <div><div style="font-size:10px;color:var(--muted);letter-spacing:.06em;margin-bottom:2px;">CURRENT STATUS</div>${stBadge(x)}<div style="font-size:10.5px;color:var(--dim);margin-top:2px;">${attEsc(x.road||'—')} · ${fmtDate((tripDone(x)&&o&&o.deliveredAt)?o.deliveredAt:x.trip_date)}</div></div></div>`).join(''):'<div style="color:var(--muted);font-size:12.5px;">This order is not on any trip list yet.</div>'}</div>`;
+  el.style.display='flex';
+}
 async function dbUpdateTrip(id,patch){ const {error}=await sb.from('trip_schedule').update(patch).eq('id',id); if(error)throw error; }
 async function dbPkClearAll(){ const {error}=await sb.from('sample_lines').delete().neq('id','___never___'); if(error)throw error; }
 async function pkLoadTrips(force){ if(CACHE._tripsLoaded&&!force)return; try{ CACHE.trips=await dbGetTrips(); CACHE._tripsLoaded=true; }catch(e){ CACHE.trips=CACHE.trips||[]; CACHE._tripsLoaded=false; } }
@@ -3792,10 +3899,10 @@ function pkRenderList(){
       <select class="filter-sel" id="pk-list-road" onchange="pkRenderListRows()"><option value="">All roads</option>${zones.map(z=>`<option>${attEsc(z)}</option>`).join('')}</select>
       <input class="search-pill" type="text" id="pk-list-search" placeholder="Search Order No…" oninput="pkRenderListRows()" style="width:185px;"/>
       <input class="filter-sel" type="date" id="pk-list-date" onchange="pkRenderListRows()" style="width:150px;"/>
-      <button class="btn btn-ghost btn-sm" onclick="pkPrintSelectedList()">🖨 Print selected</button>
+      <button class="btn btn-primary btn-sm" onclick="pkAssignRiderByRoad()" title="Assign one rider to every delivery on a road for a given date">🛵 Assign riders by road</button> <button class="btn btn-ghost btn-sm" onclick="pkPrintSelectedList()">🖨 Print selected</button>
       <button class="btn btn-ghost btn-sm" onclick="pkExportList()">Download CSV</button>
     </div></div>
-    <div style="overflow:auto;"><table><thead><tr><th style="width:30px;text-align:center;"><input type="checkbox" id="pk-list-all" onchange="pkListTickAll(this.checked)" title="Tick all"/></th><th>Serial</th><th>Type</th><th>Schedule Date</th><th>Ship to Party</th><th>Order No</th><th>Line Nos</th><th>Total Qty</th><th>Carton Qty</th><th>Road</th><th>DN Status</th><th>Completion</th><th>Actions</th></tr></thead><tbody id="pk-list-rows"></tbody></table></div></div>`;
+    <div style="overflow:auto;"><table><thead><tr><th style="width:30px;text-align:center;"><input type="checkbox" id="pk-list-all" onchange="pkListTickAll(this.checked)" title="Tick all"/></th><th>Serial</th><th>Type</th><th>Schedule Date</th><th>Ship to Party</th><th>Order No</th><th>Line Nos</th><th>Total Qty</th><th>Carton Qty</th><th>Road</th><th>Rider</th><th>DN Status</th><th>Completion</th><th>Actions</th></tr></thead><tbody id="pk-list-rows"></tbody></table></div></div>`;
   pkRenderListRows();
 }
 function pkListFiltered(){
@@ -3836,7 +3943,7 @@ function pkRenderListRows(){
     return '<span class="badge" style="background:rgba(70,230,160,.15);color:#46e6a0;" title="DN copy uploaded (not line-tagged).">Available</span>';
   };
   const cmCell=t=>{ const o=ordMap[(t.order_no||'').trim().toLowerCase()]; if(!o)return '<span style="color:var(--dim);font-size:11px;">—</span>'; return ordCompletionBadge(o); };
-  tb.innerHTML=rows.map((t,i)=>{ const isRet=t.kind==='return'; const typeBadge=`<span style="font-size:11px;font-weight:600;color:${isRet?'#e0913a':'#4ecdc4'};">${pkListType(t)}</span>`; return `<tr><td style="text-align:center;"><input type="checkbox" ${pkListSel.has(t.id)?'checked':''} onchange="pkListTick('${t.id}')"/></td><td>${i+1}</td><td>${typeBadge}</td><td style="white-space:nowrap;">${fmtDate(t.trip_date)}</td><td>${attEsc(t.ship_to)}</td><td>${attEsc(t.order_no)}</td><td><div style="max-width:380px;min-width:160px;white-space:normal;word-break:break-word;font-size:11px;line-height:1.6;color:var(--muted);">${attEsc(t.line_nos)}</div></td><td>${attEsc(t.total_qty)}</td><td>${attEsc(t.carton_qty)}</td><td>${attEsc(t.road)||(isRet?'—':'')}</td><td>${dnCell(t)}</td><td>${cmCell(t)}</td><td style="white-space:nowrap;"><button class="btn btn-ghost btn-sm" onclick="pkListEdit('${t.id}')">Edit</button> ${(isPacker()||isFCE())?'':`<button class="btn btn-reject btn-sm" onclick="pkListDelete('${t.id}')">Delete</button>`}</td></tr>`;}).join('')||`<tr><td colspan="13" style="text-align:center;color:var(--muted);padding:16px;">No entries yet.</td></tr>`;
+  tb.innerHTML=rows.map((t,i)=>{ const isRet=t.kind==='return'; const typeBadge=`<span style="font-size:11px;font-weight:600;color:${isRet?'#e0913a':'#4ecdc4'};">${pkListType(t)}</span>`; return `<tr><td style="text-align:center;"><input type="checkbox" ${pkListSel.has(t.id)?'checked':''} onchange="pkListTick('${t.id}')"/></td><td>${i+1}</td><td>${typeBadge}</td><td style="white-space:nowrap;">${fmtDate(t.trip_date)}</td><td>${attEsc(t.ship_to)}</td><td>${attEsc(t.order_no)}</td><td><div style="max-width:380px;min-width:160px;white-space:normal;word-break:break-word;font-size:11px;line-height:1.6;color:var(--muted);">${attEsc(t.line_nos)}</div></td><td>${attEsc(t.total_qty)}</td><td>${attEsc(t.carton_qty)}</td><td>${attEsc(t.road)||(isRet?'—':'')}</td><td style="white-space:nowrap;">${t.rider_name?`<div style="font-size:12px;font-weight:600;">${attEsc(t.rider_name)}</div><a href="tel:${attEsc(t.rider_mobile||'')}" style="font-size:11px;color:var(--accent2);text-decoration:none;">${attEsc(t.rider_mobile||'')}</a> <a href="javascript:void(0)" onclick="pkAssignRider('${t.id}')" title="Change rider" style="font-size:11px;">✏️</a>`:`<button class="btn btn-ghost btn-sm" onclick="pkAssignRider('${t.id}')" title="Assign today's rider for this delivery">🛵 Assign</button>`}</td><td>${dnCell(t)}</td><td>${cmCell(t)}</td><td style="white-space:nowrap;"><button class="btn btn-ghost btn-sm" onclick="pkListEdit('${t.id}')">Edit</button> ${(isPacker()||isFCE())?'':`<button class="btn btn-reject btn-sm" onclick="pkListDelete('${t.id}')">Delete</button>`}</td></tr>`;}).join('')||`<tr><td colspan="14" style="text-align:center;color:var(--muted);padding:16px;">No entries yet.</td></tr>`;
 }
 function pkListTick(id){ if(pkListSel.has(id))pkListSel.delete(id); else pkListSel.add(id); pkRenderListRows(); }
 function pkListTickAll(on){ pkListSel=new Set(on?pkListFiltered().map(t=>t.id):[]); pkRenderListRows(); }
@@ -3998,8 +4105,9 @@ const PK_AXIS={ticks:{color:'#b0c6fa',precision:0},grid:{color:'rgba(255,255,255
 async function renderLogDash(){ try{ await pkLoadTrips(); }catch(e){} try{ await pkLoadPlantMap(); }catch(e){} if(!PKM.loaded){ try{ await dbPkmLoad(); }catch(e){} } pkRenderDash(); }
 function pkRenderDash(){
   const b=document.getElementById('dash-root'); if(!b)return;
+  if(isLogistics())pkDashView='returns';   // logistics role: Returns Trend only
   b.innerHTML=`<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;">
-     <button class="att-tab ${pkDashView==='ops'?'active':''}" onclick="pkDashView='ops';pkRenderDash()">Deliveries &amp; DN</button>
+     ${isLogistics()?'':`<button class="att-tab ${pkDashView==='ops'?'active':''}" onclick="pkDashView='ops';pkRenderDash()">Deliveries &amp; DN</button>`}
      <button class="att-tab ${pkDashView==='returns'?'active':''}" onclick="pkDashView='returns';pkRenderDash()">Returns Trend</button>
    </div><div id="pk-dash-body"></div>`;
   if(pkDashView==='lines')pkDashView='ops'; if(pkDashView==='returns')pkRenderReturns(); else pkDashOps();
