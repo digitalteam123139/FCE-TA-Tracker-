@@ -573,7 +573,7 @@ input[type="date"]::-moz-clear{display:none!important;}
         <span style="display:inline-flex;align-items:center;gap:5px;"><span style="width:11px;height:11px;border-radius:3px;background:rgba(255,90,95,.98);"></span>3+ days due</span>
         <span style="display:inline-flex;align-items:center;gap:5px;"><span style="width:11px;height:11px;border-radius:3px;background:rgba(70,230,160,.95);"></span>DN uploaded</span>
       </div>
-      <div class="card tbl-scroll"><table><thead><tr><th style="width:26px;text-align:center;"><input type="checkbox" id="ord-tick-all" onclick="toggleAllTicks(this)" title="Select all" style="cursor:pointer;"></th><th style="width:30px;"></th><th>Entry Date</th><th>Creation Date</th><th>Order No</th><th>Task</th><th>Customer</th><th>Buyer</th><th>Responsibility To</th><th>Service / Delivery By</th><th>Delivery Zone</th><th>Req. Time / Delivered</th><th>Status</th><th>DN Download</th><th>Actions</th></tr></thead><tbody id="orders-table"></tbody></table><div id="orders-pager"></div></div>
+      <div class="card tbl-scroll"><table><thead><tr><th style="width:26px;text-align:center;"><input type="checkbox" id="ord-tick-all" onclick="toggleAllTicks(this)" title="Select all" style="cursor:pointer;"></th><th style="width:30px;"></th><th>Entry Date</th><th>Creation Date</th><th>Order No</th><th>Task</th><th>Customer</th><th>Buyer</th><th>Responsibility To</th><th>Service / Delivery By</th><th>Delivery Zone</th><th>Req. Time / Dispatched</th><th>Status</th><th>DN Download</th><th>Actions</th></tr></thead><tbody id="orders-table"></tbody></table><div id="orders-pager"></div></div>
     </div>
 
     <!-- SAMPLE PACKING -->
@@ -677,7 +677,7 @@ input[type="date"]::-moz-clear{display:none!important;}
      <!-- MANUAL MODE -->
      <div id="o-manualmode" style="display:none;">
        <div class="form-grid">
-         <div class="form-group"><label class="form-label">Order No</label><input class="form-input" type="text" id="o-orderno" placeholder="e.g. RS40294323"/></div>
+         <div class="form-group"><label class="form-label">Order No <span style="text-transform:none;color:var(--dim);">(leave blank to auto-generate)</span></label><input class="form-input" type="text" id="o-orderno" placeholder="e.g. RS40294323 — or leave blank for SC10000000…"/></div>
          
          <div class="form-group"><label class="form-label">Customer Name <span style="text-transform:none;color:var(--dim);">(type to search)</span></label><div class="combo"><input class="form-input" type="text" id="o-customer" placeholder="Type customer…" autocomplete="off" oninput="oComboFilter('customer',this.value)" onfocus="oComboFilter('customer',this.value)"/><div class="combo-list" id="o-customer-list"></div></div></div>
          <div class="form-group"><label class="form-label">Buyer Name <span style="text-transform:none;color:var(--dim);">(type to search)</span></label><div class="combo"><input class="form-input" type="text" id="o-buyer" placeholder="Type buyer…" autocomplete="off" oninput="oComboFilter('buyer',this.value)" onfocus="oComboFilter('buyer',this.value)"/><div class="combo-list" id="o-buyer-list"></div></div></div>
@@ -693,7 +693,7 @@ input[type="date"]::-moz-clear{display:none!important;}
            <div id="o-file-list" style="font-size:11px;color:var(--muted);margin-top:6px;display:flex;flex-direction:column;gap:4px;"></div>
          </div>
          <div class="form-group"><label class="form-label">Delivery Zone <span style="text-transform:none;color:var(--dim);">(road)</span></label><select class="form-input" id="o-zone" onchange="onZoneSelect(this)"></select></div>
-         <div class="form-group"><label class="form-label">Status</label><select class="form-input" id="o-status" onchange="onOrderStatusChange()"><option>Yet to Start</option><option>Returned</option><option>In Development</option><option>Partially Delivered</option><option>Partially Completed</option><option>Delivery Completed</option></select></div>
+         <div class="form-group"><label class="form-label">Status</label><select class="form-input" id="o-status" onchange="onOrderStatusChange()"><option>Yet to Start</option><option>Returned</option><option>In Processing</option><option>Partially Delivered</option><option>Partially Completed</option><option>Delivery Completed</option></select></div>
          <div class="form-group"><label class="form-label">Service / Delivery By *</label><select class="form-input" id="o-service"><option value="">Select task first…</option></select></div>
          <div class="form-group full"><label class="form-label">Remarks</label><textarea class="form-input" id="o-remarks" style="min-height:48px;"></textarea></div>
        </div>
@@ -722,6 +722,7 @@ input[type="date"]::-moz-clear{display:none!important;}
   <div class="modal-body">
     <div class="form-group"><label class="form-label">Date</label><input class="form-input" id="pk-road-date" type="date"/></div>
     <div class="form-group" style="position:relative;"><label class="form-label">Road / Delivery Zone *</label><input class="form-input" id="pk-road-search" type="text" placeholder="🔍 Type 2–3 letters to search road…" oninput="pkRoadFilter(this.value)" onfocus="pkRoadFilter(this.value)" autocomplete="off" style="margin-bottom:6px;"/><div id="pk-road-sugg" style="display:none;position:absolute;left:0;right:0;top:100%;margin-top:-4px;z-index:50;background:var(--surface);border:1px solid var(--accent);border-radius:8px;max-height:180px;overflow:auto;box-shadow:0 10px 28px rgba(0,0,0,.45);"></div><select class="form-input" id="pk-road-sel"></select></div>
+    <div class="form-group"><label class="form-label">Service / Delivery By *</label><select class="form-input" id="pk-road-service"></select></div>
     <div class="form-group"><label class="form-label">Carton Qty</label><input class="form-input" id="pk-road-carton" type="number" min="0" value="1"/></div>
     <div class="form-group" id="pk-road-reason-wrap" style="display:none;"><label class="form-label">Return Reason *</label><select class="form-input" id="pk-road-reason"></select></div>
     <div id="pk-road-note" style="font-size:12px;color:var(--muted);"></div>
@@ -805,12 +806,12 @@ let CACHE = { entries:[], users:[], master:null, orders:[], employees:[], attend
 let editingOrderId=null;
 const COLLECTION_SERVICES=['FCE (Urgent)','Excelsior Courier'];
 const DELIVERY_SERVICES=['Excelsior Courier','Supply Chain Van','FCE (Urgent)'];
-const ORDER_STATUSES=['Yet to Start','Returned','In Development','Partially Delivered'];
+const ORDER_STATUSES=['Yet to Start','Returned','In Processing','Partially Delivered'];
 // Shared line-status classifier: a line counts as Dispatched when its ERP status is Despatched/Dispatched
 // (but NOT 'Sent for Hub Despatch') or Acknowledged. Used by the status sync, packing views and DN cells.
 function isLineDispatched(s){ const t=(''+(s||'')).trim(); return (/(despatch|dispatch)/i.test(t)&&!/hub/i.test(t))||/acknowledg/i.test(t); }
 // Normalise legacy / alternate spellings of order-status values to the current set.
-function normOrderStatus(s){ const t=(''+(s||'')).trim(); const m={'requested':'Yet to Start','open':'Yet to Start','returnted':'Returned','delivered':'Partially Delivered','completed':'Delivery Completed'}; return m[t.toLowerCase()]||t; }
+function normOrderStatus(s){ const t=(''+(s||'')).trim(); const m={'requested':'Yet to Start','open':'Yet to Start','returnted':'Returned','delivered':'Partially Delivered','completed':'Delivery Completed','in development':'In Processing'}; return m[t.toLowerCase()]||t; }
 let currentUser=null, editingId=null, approveId=null, activeFCE=null, activeMonthLog='all', activeChartsMonth='all';
 let comboMatches=[], comboHi=-1;
 
@@ -1063,7 +1064,7 @@ const I18N_BN={
  'Order No':'অর্ডার নং','Task':'কাজ','Buyer':'বায়ার','Service By':'সার্ভিস প্রদানকারী','Responsibility To':'দায়িত্বপ্রাপ্ত',
  'Delivery Zone':'ডেলিভারি জোন','Req. Time / Delivered':'অনুরোধের সময় / ডেলিভারি','DN Download':'ডিএন ডাউনলোড','New Order Entry':'নতুন অর্ডার এন্ট্রি',
  'All tasks':'সব কাজ','All zones':'সব জোন','All services':'সব সার্ভিস','Collection':'কালেকশন','Delivery':'ডেলিভারি',
- 'Requested':'শুরু হয়নি','Yet to Start':'শুরু হয়নি','Returned':'ফেরত','In Development':'ডেভেলপমেন্টে','Delivered':'আংশিক ডেলিভারি','Partially Delivered':'আংশিক ডেলিভারি','Download CSV':'সিএসভি ডাউনলোড',
+ 'Requested':'শুরু হয়নি','Yet to Start':'শুরু হয়নি','Returned':'ফেরত','In Development':'প্রক্রিয়াধীন','In Processing':'প্রক্রিয়াধীন','Delivered':'আংশিক ডেলিভারি','Partially Delivered':'আংশিক ডেলিভারি','Download CSV':'সিএসভি ডাউনলোড',
  'Send combined':'একসাথে পাঠান','Service Review':'সার্ভিস রিভিউ',
  // attendance
  'Mark Attendance':'উপস্থিতি চিহ্নিত করুন','Employees Name':'কর্মচারীদের নাম','Present':'উপস্থিত','Absent':'অনুপস্থিত','Leave':'ছুটি',
@@ -1459,18 +1460,18 @@ async function mdDeleteAllMap(){
 }
 const RR_DEFAULTS=['Wrong shade','Wrong Tex / material','Quality issue','Excess quantity','Customer rejected','Damaged in transit','Late delivery','Other'];
 function rrList(){ if(typeof CONTACTS==='undefined'||!CONTACTS)return RR_DEFAULTS.slice(); if(!Array.isArray(CONTACTS.retReasons)||!CONTACTS.retReasons.length)return RR_DEFAULTS.slice(); return CONTACTS.retReasons; }
-function rrRender(){ const el=document.getElementById('master-retreason-list'); if(!el)return; const list=rrList(); const adm=isAdmin();
-  el.innerHTML=list.map((x,i)=>`<div class="master-item"><span class="mi-name">${attEsc(x)}</span>${adm?`<div style="display:flex;gap:6px;"><button type="button" class="btn-icon rr-act" data-act="edit" data-idx="${i}" style="padding:3px 6px;" title="Edit"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="pointer-events:none;"><path d="M17 3a2.828 2.828 0 114 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg></button><button type="button" class="btn-icon rr-act" data-act="del" data-idx="${i}" style="padding:3px 6px;color:var(--red);" title="Remove"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="pointer-events:none;"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>`:''}</div>`).join('');
+function rrRender(){ const el=document.getElementById('master-retreason-list'); if(!el)return; const list=rrList(); const adm=isAuthorizer(); const _sa=isAdmin();
+  el.innerHTML=list.map((x,i)=>`<div class="master-item"><span class="mi-name">${attEsc(x)}</span>${adm?`<div style="display:flex;gap:6px;"><button type="button" class="btn-icon rr-act" data-act="edit" data-idx="${i}" style="padding:3px 6px;" title="Edit"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="pointer-events:none;"><path d="M17 3a2.828 2.828 0 114 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg></button>${_sa?`<button type="button" class="btn-icon rr-act" data-act="del" data-idx="${i}" style="padding:3px 6px;color:var(--red);" title="Remove (Super Admin only)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="pointer-events:none;"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>`:''}</div>`:''}</div>`).join('');
 }
 async function rrPersist(){ try{ await dbSaveContacts(); showToast('Return reasons saved · shared to all PCs.'); }catch(e){ showToast('Save failed: '+(e.message||e),'err'); } rrRender(); }
-async function rrAdd(){ if(!isAdmin()){ showToast('Only Super Admin can edit master data.','err'); return; } const inp=document.getElementById('new-retreason-input'); const v=(inp.value||'').trim(); if(!v)return; if(!Array.isArray(CONTACTS.retReasons)||!CONTACTS.retReasons.length)CONTACTS.retReasons=RR_DEFAULTS.slice(); if(CONTACTS.retReasons.some(x=>x.toLowerCase()===v.toLowerCase())){ showToast('Already in the list.','err'); return; } CONTACTS.retReasons.push(v); inp.value=''; await rrPersist(); }
+async function rrAdd(){ if(!isAuthorizer()){ showToast('Only an Authorizer or Super Admin can edit master data.','err'); return; } const inp=document.getElementById('new-retreason-input'); const v=(inp.value||'').trim(); if(!v)return; if(!Array.isArray(CONTACTS.retReasons)||!CONTACTS.retReasons.length)CONTACTS.retReasons=RR_DEFAULTS.slice(); if(CONTACTS.retReasons.some(x=>x.toLowerCase()===v.toLowerCase())){ showToast('Already in the list.','err'); return; } CONTACTS.retReasons.push(v); inp.value=''; await rrPersist(); }
 document.addEventListener('click',function(e){
   try{
     const b=e.target.closest&&e.target.closest('.rr-act'); if(!b)return; e.preventDefault();
-    if(!isAdmin()){ showToast('Only Super Admin can edit master data.','err'); return; }
+    if(!isAuthorizer()){ showToast('Only an Authorizer or Super Admin can edit master data.','err'); return; }
     const idx=parseInt(b.getAttribute('data-idx'));
     if(!Array.isArray(CONTACTS.retReasons)||!CONTACTS.retReasons.length)CONTACTS.retReasons=RR_DEFAULTS.slice();
-    if(b.getAttribute('data-act')==='del'){ if(!confirm('Remove "'+CONTACTS.retReasons[idx]+'"?'))return; CONTACTS.retReasons.splice(idx,1); rrPersist(); return; }
+    if(b.getAttribute('data-act')==='del'){ if(!isAdmin()){ showToast('Delete access in Master Data is restricted to the Super Admin.','err'); return; } if(!confirm('Remove "'+CONTACTS.retReasons[idx]+'"?'))return; CONTACTS.retReasons.splice(idx,1); rrPersist(); return; }
     const old=document.getElementById('md-edit-overlay'); if(old)old.remove();
     const ov=document.createElement('div'); ov.id='md-edit-overlay';
     ov.style.cssText='position:fixed;inset:0;background:rgba(4,10,30,.72);z-index:100000;display:flex;align-items:center;justify-content:center;';
@@ -1527,7 +1528,7 @@ function mdRenderMapTable(){
   ${pager}`;
 }
 function mdEditMapRow(ix){
-  if(!isAdmin()){ showToast('Only Super Admin can edit the mapping.','err'); return; }
+  if(!isAdmin()){ showToast('The Customer Mapping (Sample Packing data sheet) can only be edited by the Super Admin.','err'); return; }
   const isNew=ix<0; const r=isNew?['#CMAP','','','','','','','','','','','']:(window.PKM_CMFULL||[])[ix];
   if(!r)return;
   const old=document.getElementById('md-map-overlay'); if(old)old.remove();
@@ -1596,15 +1597,15 @@ function renderMasterData(){
   mdPaintMapStatus();
   mdRenderMapTable();
   rrRender();
-  const act=document.getElementById('md-cmap-actions'); if(act)act.style.display=isAdmin()?'':'none';
-  document.querySelectorAll('#page-masterdata .add-item-row').forEach(r=>{ r.style.display=isAdmin()?'':'none'; });
+  const act=document.getElementById('md-cmap-actions'); if(act)act.style.display=isAdmin()?'':'none'; // Customer Mapping (Sample Packing data sheet) — Super Admin only
+  document.querySelectorAll('#page-masterdata .add-item-row').forEach(r=>{ r.style.display=isAuthorizer()?'':'none'; });
   if(document.getElementById('master-fce-list')) renderMasterList('master-fce-list',m.fce,'fce');
   renderMasterList('master-purpose-list',m.purposes,'purpose');
   renderMasterList('master-reason-list',m.reasons,'reason');
   renderFcePhones(); renderCourierEmails();
 }
 function renderMasterList(id,items,type){ const el=document.getElementById(id); if(!el)return; el.innerHTML=items.map((item,i)=>masterItemHTML(item,type,i)).join(''); }
-function masterItemHTML(item,type,i){ if(!isAdmin()){ return `<div class="master-item"><span class="mi-name">${attEsc(item)}</span></div>`; } return `<div class="master-item"><span class="mi-name">${attEsc(item)}</span><div style="display:flex;gap:6px;"><button type="button" class="btn-icon md-act" data-act="edit" data-type="${attEsc(type)}" data-idx="${i}" style="padding:3px 6px;" title="Edit"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="pointer-events:none;"><path d="M17 3a2.828 2.828 0 114 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg></button><button type="button" class="btn-icon md-act" data-act="del" data-type="${attEsc(type)}" data-idx="${i}" style="padding:3px 6px;color:var(--red);" title="Remove"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="pointer-events:none;"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div></div>`; }
+function masterItemHTML(item,type,i){ if(!isAuthorizer()){ return `<div class="master-item"><span class="mi-name">${attEsc(item)}</span></div>`; } const _del=isAdmin()?`<button type="button" class="btn-icon md-act" data-act="del" data-type="${attEsc(type)}" data-idx="${i}" style="padding:3px 6px;color:var(--red);" title="Remove (Super Admin only)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="pointer-events:none;"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>`:''; return `<div class="master-item"><span class="mi-name">${attEsc(item)}</span><div style="display:flex;gap:6px;"><button type="button" class="btn-icon md-act" data-act="edit" data-type="${attEsc(type)}" data-idx="${i}" style="padding:3px 6px;" title="Edit"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="pointer-events:none;"><path d="M17 3a2.828 2.828 0 114 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg></button>${_del}</div></div>`; }
 window.addEventListener('error',function(ev){ try{ console.error('APP ERROR:',ev.message,ev.filename,ev.lineno); if(typeof showToast==='function'&&!window._errToasted){ window._errToasted=true; showToast('A script error occurred: '+ev.message+' — some buttons may not work. Please screenshot this and report.','err'); } }catch(_){} });
 // Consistent date-format hint (DD/MM/YYYY) under every native date input — the picker's own display follows the browser locale, so this label removes ambiguity.
 function attachDateHints(){ try{ document.querySelectorAll('input[type="date"]:not([data-dh])').forEach(inp=>{ inp.setAttribute('data-dh','1'); inp.title='Date format: DD/MM/YYYY'; }); document.querySelectorAll('.date-hint').forEach(h=>h.remove()); }catch(_){} }
@@ -1622,11 +1623,11 @@ let CONTACTS={fce:{},courier:{}}; let __sendMsg='';
 function getContacts(){ return CONTACTS||{fce:{},courier:{}}; }
 async function dbSaveContacts(){ const cur=await dbGetMaster().catch(()=>null); const row={...(cur||{}),id:1,contacts:CONTACTS,updated_at:new Date().toISOString()}; const {error}=await sb.from('master_data').upsert(row); if(error)throw error; lsSet('sc_contacts',CONTACTS); }
 function renderFcePhones(){
-  const box=document.getElementById('master-fce-phones'); if(!box)return; const m=getMaster(); const c=getContacts().fce||{}; const ed=isAdmin();
+  const box=document.getElementById('master-fce-phones'); if(!box)return; const m=getMaster(); const c=getContacts().fce||{}; const ed=isAuthorizer();
   const fl=getFceNames(); box.innerHTML=(fl.length?fl.map((n,i)=>`<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border);"><span style="flex:1;font-size:13px;" id="fcnm-${i}">${attEsc(n)}</span>${ed?`<button class="btn-icon fce-rename" data-name="${attEsc(n)}" title="Rename FCE (updates everywhere)" style="padding:3px 6px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="pointer-events:none;"><path d="M17 3a2.828 2.828 0 114 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg></button>`:''}<input class="form-input" style="max-width:170px;" type="tel" id="fcph-${i}" value="${attEsc(c[n]||'')}" placeholder="01XXXXXXXXX" ${ed?'':'disabled'}/></div>`).join(''):'<div style="color:var(--muted);font-size:12px;">Add FCE names via the Customer Mapping above.</div>')+(ed&&fl.length?`<div style="margin-top:10px;"><button class="btn btn-primary btn-sm" onclick="saveFcePhones()">Save numbers</button></div>`:'');
 }
 async function fceRename(oldName){
-  if(!isAdmin()){ showToast('Only Super Admin can rename FCEs.','err'); return; }
+  if(!isAuthorizer()){ showToast('Only an Authorizer or Super Admin can rename FCEs.','err'); return; }
   const nn=prompt('Rename FCE "'+oldName+'" to:\n\nThis updates the name everywhere it is used — orders, mapping FCE assignments, phone list, and dropdowns.',oldName);
   if(nn===null)return; const newName=nn.trim(); if(!newName||newName===oldName)return;
   try{
@@ -1651,24 +1652,41 @@ async function fceRename(oldName){
   finally{ setSync&&setSync(false); }
 }
 document.addEventListener('click',function(e){ const b=e.target.closest&&e.target.closest('.fce-rename'); if(!b)return; e.preventDefault(); fceRename(b.getAttribute('data-name')); },true);
-async function saveFcePhones(){ if(!isAdmin()){ showToast('Only Super Admin can edit contacts.','err'); return; } const map={}; getFceNames().forEach((n,i)=>{ const el=document.getElementById('fcph-'+i); const v=el?el.value.trim():''; if(v)map[n]=v; }); CONTACTS.fce=map; try{ await dbSaveContacts(); showToast('FCE numbers saved (shared to all PCs).'); }catch(e){ showToast('Cloud save failed: '+e.message,'err'); } }
+async function saveFcePhones(){ if(!isAuthorizer()){ showToast('Only an Authorizer or Super Admin can edit contacts.','err'); return; } const map={}; getFceNames().forEach((n,i)=>{ const el=document.getElementById('fcph-'+i); const v=el?el.value.trim():''; if(v)map[n]=v; }); CONTACTS.fce=map; try{ await dbSaveContacts(); showToast('FCE numbers saved (shared to all PCs).'); }catch(e){ showToast('Cloud save failed: '+e.message,'err'); } }
 const DEFAULT_COURIERS=['Excelsior Courier','Supply Chain Van'];
 function courierNames(){ const c=getContacts().courier||{}; return [...new Set([...DEFAULT_COURIERS,...DELIVERY_SERVICES,...Object.keys(c)])]; }
 function renderCourierEmails(){
-  const box=document.getElementById('master-courier-emails'); if(!box)return; const c=getContacts().courier||{}; const ed=isAdmin(); const names=courierNames();
+  const box=document.getElementById('master-courier-emails'); if(!box)return; const c=getContacts().courier||{}; const ed=isAuthorizer(); const names=courierNames();
   box.innerHTML=names.map((n,i)=>`<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border);"><span style="flex:1;font-size:13px;">${attEsc(n)}</span><input class="form-input" style="max-width:230px;" type="email" id="cremail-${i}" data-name="${attEsc(n)}" value="${attEsc(c[n]||'')}" placeholder="name@courier.com" ${ed?'':'disabled'}/></div>`).join('')+(ed?`<div style="margin-top:10px;"><button class="btn btn-primary btn-sm" onclick="saveCourierEmails()">Save emails</button></div>`:'');
 }
-function addCourier(){ if(!isAdmin()){ showToast('Only Super Admin can edit contacts.','err'); return; } const inp=document.getElementById('new-courier-input'); const v=(inp.value||'').trim(); if(!v)return; CONTACTS.courier=CONTACTS.courier||{}; if(!(v in CONTACTS.courier))CONTACTS.courier[v]=''; inp.value=''; renderCourierEmails(); }
-async function saveCourierEmails(){ if(!isAdmin()){ showToast('Only Super Admin can edit contacts.','err'); return; } const map={}; document.querySelectorAll('[id^=cremail-]').forEach(el=>{ const n=el.getAttribute('data-name'); const v=el.value.trim(); if(v)map[n]=v; }); CONTACTS.courier=map; try{ await dbSaveContacts(); showToast('Courier emails saved (shared to all PCs).'); }catch(e){ showToast('Cloud save failed: '+e.message,'err'); } }
+function addCourier(){ if(!isAuthorizer()){ showToast('Only an Authorizer or Super Admin can edit contacts.','err'); return; } const inp=document.getElementById('new-courier-input'); const v=(inp.value||'').trim(); if(!v)return; CONTACTS.courier=CONTACTS.courier||{}; if(!(v in CONTACTS.courier))CONTACTS.courier[v]=''; inp.value=''; renderCourierEmails(); }
+async function saveCourierEmails(){ if(!isAuthorizer()){ showToast('Only an Authorizer or Super Admin can edit contacts.','err'); return; } const map={}; document.querySelectorAll('[id^=cremail-]').forEach(el=>{ const n=el.getAttribute('data-name'); const v=el.value.trim(); if(v)map[n]=v; }); CONTACTS.courier=map; try{ await dbSaveContacts(); showToast('Courier emails saved (shared to all PCs).'); }catch(e){ showToast('Cloud save failed: '+e.message,'err'); } }
 // ---- Send requirement (tap-to-send) ----
+// Requester (import column G) & Requester Mobile (column H) come from the imported
+// sample_lines and are merged into the order objects just before a message is built.
+async function ordFetchRequesters(list){
+  const need=(list||[]).filter(o=>o&&!o._reqFetched&&(o.orderNo||'').trim());
+  if(!need.length)return;
+  try{
+    const onos=[...new Set(need.map(o=>o.orderNo.trim()))];
+    const map={};
+    for(let i=0;i<onos.length;i+=150){
+      const {data,error}=await sb.from('sample_lines').select('order_no,requester,requester_mobile').in('order_no',onos.slice(i,i+150)).limit(4000);
+      if(error)throw error;
+      (data||[]).forEach(r=>{ const k=(r.order_no||'').trim().toLowerCase(); const rq=(r.requester||'').toString().trim(), rm=(r.requester_mobile||'').toString().trim(); if(!k)return; if(!map[k]&&(rq||rm))map[k]={rq,rm}; });
+    }
+    need.forEach(o=>{ o._reqFetched=true; const v=map[(o.orderNo||'').trim().toLowerCase()]; if(v){ if(!o.requester)o.requester=v.rq; if(!o.requesterMobile)o.requesterMobile=v.rm; } });
+  }catch(e){ need.forEach(o=>{ o._reqFetched=true; }); /* requester columns may be missing — message falls back to '—' */ }
+}
 function taskShort(t){ return t==='Swatch Collection'?'DTM (Swatch/Other Ref.)':t==='Sample Delivery'?'Shade Known':(t||''); }
 function orderResponsible(o){ return o.task==='Sample Delivery' ? (o.service||o.fce||'') : (o.fce||o.service||''); }
 function intlPhone(p){ let d=(''+p).replace(/[^0-9]/g,''); if(d.startsWith('880'))return d; if(d.startsWith('0'))return '88'+d; if(d.length===10)return '880'+d; return d; }
-function orderMsg(o){ const L=['Sample requirement ('+(taskShort(o.task)||'')+')']; if(o.orderNo)L.push('Order No: '+o.orderNo); if(o.customer)L.push('Customer: '+o.customer); if(o.buyer)L.push('Buyer: '+o.buyer); const _z=ordDeliveryZoneFor(o); if(_z)L.push('Zone/Road: '+_z); if(o.status)L.push('Status: '+ordStatusDisplay(o)); if(o.date)L.push('Date: '+fmtDate(o.date)); if(o.reqTime)L.push('Requested time: '+o.reqTime); if(o.deliveredAt)L.push('Delivery date: '+fmtDate(o.deliveredAt)); L.push('Remarks: '+(o.remarks||'-')); return L.join('\n'); }
+function orderMsg(o){ const L=['Sample requirement ('+(taskShort(o.task)||'')+')']; if(o.orderNo)L.push('Order No: '+o.orderNo); if(o.customer)L.push('Customer: '+o.customer); if(o.buyer)L.push('Buyer: '+o.buyer); L.push('Requester: '+((o.requester||'').trim()||'—')); L.push('Requester Mobile: '+((o.requesterMobile||'').trim()||'—')); const _z=ordDeliveryZoneFor(o); if(_z)L.push('Zone/Road: '+_z); if(o.status)L.push('Status: '+ordStatusDisplay(o)); if(o.date)L.push('Date: '+fmtDate(o.date)); if(o.reqTime)L.push('Requested time: '+o.reqTime); if(o.deliveredAt)L.push('Delivery date: '+fmtDate(o.deliveredAt)); L.push('Remarks: '+(o.remarks||'-')); return L.join('\n'); }
 function oCopySend(){ try{ if(navigator.clipboard)navigator.clipboard.writeText(__sendMsg); showToast('Message copied.'); }catch(e){ showToast('Copy not available.','err'); } }
-function openSendModal(id){
+async function openSendModal(id){
   if(!canSendOrders()){ showToast('You don\'t have access to send requirements.','err'); return; }
   const o=getOrders().find(x=>x.id===id); if(!o)return;
+  await ordFetchRequesters([o]);
   const party=orderResponsible(o); const c=getContacts();
   const phone=(c.fce&&c.fce[party])||''; const email=(c.courier&&c.courier[party])||'';
   const msg=orderMsg(o); __sendMsg=msg;
@@ -1696,6 +1714,8 @@ function combinedMsg(party,list){
     const parts=[(i+1)+') '+(o.orderNo||'(no order no)')];
     if(o.task)parts.push(o.task);
     if(o.customer)parts.push(o.customer);
+    parts.push('Requester: '+((o.requester||'').trim()||'—'));
+    parts.push('Requester Mobile: '+((o.requesterMobile||'').trim()||'—'));
     if(o.to)parts.push('Zone: '+o.to);
     if(o.task==='Sample Delivery'){ if(o.deliveredAt)parts.push('Delivered '+fmtDate(o.deliveredAt)); }
     else if(o.reqTime)parts.push('Req. '+o.reqTime);
@@ -1705,10 +1725,11 @@ function combinedMsg(party,list){
   return L.join('\n');
 }
 function toggleAllTicks(master){ document.querySelectorAll('#orders-table .ord-tick').forEach(c=>{ c.checked=master.checked; }); }
-function openCombinedSendModal(){
+async function openCombinedSendModal(){
   if(!canSendOrders()){ showToast('You don\'t have access to send requirements.','err'); return; }
   const ticked=[...document.querySelectorAll('#orders-table .ord-tick:checked')].map(c=>c.value);
   const pool = ticked.length ? (visibleOrders||[]).filter(o=>ticked.includes(o.id)) : (visibleOrders||[]);
+  await ordFetchRequesters(pool);
   const groups={};
   pool.forEach(o=>{ const party=orderResponsible(o); if(!party)return; (groups[party]=groups[party]||[]).push(o); });
   const parties=Object.keys(groups).sort((a,b)=>a.localeCompare(b));
@@ -1739,19 +1760,20 @@ function openCombinedSendModal(){
 }
 function masterKey(type){ return ({fce:'fce',customer:'customers',purpose:'purposes',reason:'reasons',buyer:'buyers'})[type]||type; }
 async function addMasterItem(type){
+  if(!isAuthorizer()){ showToast('Only an Authorizer or Super Admin can edit master data.','err'); return; }
   const val=document.getElementById('new-'+type+'-input').value.trim(); if(!val){ showToast('Enter a name first.','err'); return; }
   const m=getMaster(); const key=masterKey(type); if(m[key].includes(val)){ showToast('Already exists.','err'); return; }
   m[key].push(val); if(type==='customer'){ if(!m.customerCodes)m.customerCodes=CUSTOMER_MASTER.slice(); m.customerCodes.push(['—',val]); }
   try{ await dbSaveMaster(m); await refreshAll(); document.getElementById('new-'+type+'-input').value=''; showToast(val+' added.'); }catch(err){ showToast('Failed: '+err.message,'err'); }
 }
 async function deleteMasterItem(type,idx){
-  if(!isAdmin()){ showToast('Only Super Admin can delete master items.','err'); return; }
+  if(!isAdmin()){ showToast('Delete access in Master Data is restricted to the Super Admin.','err'); return; }
   const m=getMaster(); const key=masterKey(type); const removed=m[key].splice(idx,1)[0];
   if(type==='customer'&&m.customerCodes){ const ci=m.customerCodes.findIndex(c=>c[1]===removed); if(ci>-1)m.customerCodes.splice(ci,1); }
   try{ await dbSaveMaster(m); await refreshAll(); showToast(removed+' removed.'); }catch(err){ showToast('Failed: '+err.message,'err'); }
 }
 async function editMasterItem(type,idx){
-  if(!isAdmin()){ showToast('Only Super Admin can edit master data.','err'); return; }
+  if(!isAuthorizer()){ showToast('Only an Authorizer or Super Admin can edit master data.','err'); return; }
   const m=getMaster(); const key=masterKey(type); const cur=m[key][idx]; if(cur==null)return;
   const old=document.getElementById('md-edit-overlay'); if(old)old.remove();
   const ov=document.createElement('div'); ov.id='md-edit-overlay';
@@ -2115,7 +2137,7 @@ function ordCompletionBadge(o){
            'Returned':['Return-'+(ordReturnNoFor(o)||1)+' (Ready Lines)','#ff9f5a','rgba(255,159,90,.15)'],
            'Partially Completed':['Partially Completed','#ff9f5a','rgba(255,159,90,.15)'],
            'Partially Delivered':['Partially Delivered','#ffc24d','rgba(255,194,77,.16)'],
-           'In Development':['In Development','#ffc24d','rgba(255,194,77,.14)'],
+           'In Processing':['In Processing','#ffc24d','rgba(255,194,77,.14)'],
            'Yet to Start':['Yet to Start','#9fb3d9','rgba(255,255,255,.08)']};
   const b=M[st]||[(st||'—'),'#9fb3d9','rgba(255,255,255,.08)'];
   return '<span class="badge" style="background:'+b[2]+';color:'+b[1]+';">'+attEsc(b[0])+'</span>';
@@ -2158,6 +2180,7 @@ function ordCreationDateFor(o){
     const key=on.toUpperCase();
     const m=(CACHE&&CACHE.orderCreationDate)||{};
     if(m[key])return m[key];
+    if(/^SC\d{8}$/.test(key))return o.date||''; // manual entry: Creation Date = Entry Date
     // On-demand: fetch only the creation_date rows for this one order, cache, then trigger a re-render.
     if(!ordCreationDateFor._pending)ordCreationDateFor._pending=new Set();
     if(!ordCreationDateFor._pending.has(key)&&typeof sb!=='undefined'&&sb){
@@ -2180,7 +2203,7 @@ function buildOrderStatusBar(){
   bar.innerHTML=chips.map(s=>`<button class="month-chip${(activeOrderStatus===s)?' active':''}" onclick="setOrderStatus('${s}',this)">${s==='all'?'All':s}</button>`).join('');
 }
 function setOrderStatus(s,btn){ activeOrderStatus=s; ordPage=1; document.querySelectorAll('#order-status-bar .month-chip').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); renderOrders(); }
-function orderStatusBadge(s){ const m={'Yet to Start':'s-draft','Requested':'s-draft','Collected':'s-draft','In Development':'s-pending','Partially Delivered':'s-pending','Delivery Completed':'s-approved','Partially Completed':'s-pending','Completed':'s-approved','Delivered':'s-approved'}; const st={'Partially Delivered':'background:rgba(255,194,77,.16);color:#ffc24d;','Partially Completed':'background:rgba(255,159,90,.15);color:#ff9f5a;','Delivery Completed':'background:rgba(70,230,160,.18);color:#46e6a0;','Completed':'background:rgba(70,230,160,.18);color:#46e6a0;'}; return `<span class="status-badge ${m[s]||'s-draft'}" style="${st[s]||''}">${s}</span>`; }
+function orderStatusBadge(s){ s=normOrderStatus(s); const m={'Yet to Start':'s-draft','Requested':'s-draft','Collected':'s-draft','In Processing':'s-pending','In Development':'s-pending','Partially Delivered':'s-pending','Delivery Completed':'s-approved','Partially Completed':'s-pending','Completed':'s-approved','Delivered':'s-approved'}; const st={'Partially Delivered':'background:rgba(255,194,77,.16);color:#ffc24d;','Partially Completed':'background:rgba(255,159,90,.15);color:#ff9f5a;','Delivery Completed':'background:rgba(70,230,160,.18);color:#46e6a0;','Completed':'background:rgba(70,230,160,.18);color:#46e6a0;'}; return `<span class="status-badge ${m[s]||'s-draft'}" style="${st[s]||''}">${s}</span>`; }
 let visibleOrders=[];
 let ordPage=1, ordPageSize=50;
 function renderOrdersPager(total,totalPages,startIdx,shown){
@@ -2299,13 +2322,19 @@ function renderOrders(){
     // if the order has no date at all → "Yet to List in Trip List".
     let _lastTrip=''; try{ (CACHE.trips||[]).forEach(t=>{ if(t.kind==='return')return; if((t.order_no||'').trim().toLowerCase()!==(o.orderNo||'').trim().toLowerCase())return; const td=t.trip_date||''; if(td>_lastTrip)_lastTrip=td; }); }catch(_){}
     const _dd=_lastTrip||o.deliveredAt||'';
-    const extra = o.task==='Sample Delivery'
-      ? (_dd?('Delivered '+fmtDate(_dd)):'<span style="color:var(--dim);">Yet to List in Trip List</span>')
-      : (o.reqTime?('Req. '+o.reqTime):'—');
+    // Workflow rule: until the DN is uploaded show the Req. Time; once Delivery Completed
+    // (DN uploaded) the Req. Time is replaced by the Dispatch Date.
+    const _done=normOrderStatus(o.status)==='Delivery Completed';
+    const extra = _done
+      ? ('<span style="color:#46e6a0;">Dispatched '+((_dd&&fmtDate(_dd))||(o.deliveredAt&&fmtDate(o.deliveredAt))||'—')+'</span>')
+      : (o.reqTime?('Req. '+o.reqTime)
+        : (o.task==='Sample Delivery'
+          ? (_dd?('Delivered '+fmtDate(_dd)):'<span style="color:var(--dim);">Yet to List in Trip List</span>')
+          : '—'));
     const _nfs=o.noteFiles||[]; const _esc=s=>String(s||'').replace(/'/g,"\\'"); const note=_nfs.length?_nfs.map((f,ix)=>{ const _img=isImageFile(f.name||f.path); return `<a href="javascript:void(0)" onclick="openNote('${_esc(f.path)}');return false;"${_img?` onmouseenter="imgPreviewShow(event,'${_esc(f.path)}','${_esc(f.name||'')}')" onmouseleave="imgPreviewHide()"`:''} class="btn-approve" title="${attEsc(f.name||('file '+(ix+1)))}${_img?' — hover to preview':''}" style="text-decoration:none;display:block;max-width:170px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin:2px 0;">${_img?'🖼 ':''}${attEsc(f.name||('file '+(ix+1)))}</a>`; }).join(''):'<span style="color:var(--muted);">—</span>';
     const editBtn=canEdit?`<button class="btn-icon btn-sm" onclick="openOrderModal('${o.id}')" title="Edit"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.828 2.828 0 114 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg></button>`:'<span style="color:var(--muted);">—</span>';
     const sendBtn=canSendOrders()?`<button class="btn-icon btn-sm" onclick="openSendModal('${o.id}')" title="Send requirement (SMS / WhatsApp / Email)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg></button>`:'';
-    const chevron=`<button class="btn-icon btn-sm" onclick="toggleOrderRow('${o.id}')" title="Show details" id="chev-${o.id}" style="transition:transform .15s;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></button>`;
+    const chevron=`<button class="btn-icon btn-sm" onclick="toggleOrderRow('${o.id}')" title="Show details" id="chev-${o.id}" style="transition:transform .15s;color:#ff5a5f;background:rgba(255,90,95,.14);border:1px solid rgba(255,90,95,.5);border-radius:6px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></button>`;
     const detailItems=[
       ['Requested Time',o.reqTime],
       ['Delivery Plant',(()=>{ try{ const e=((CACHE&&CACHE.plantMap)||{})[(o.orderNo||'').trim()]; return (e&&e.dp)||''; }catch(_){ return ''; } })()],
@@ -2318,7 +2347,7 @@ function renderOrders(){
         <div id="ordlines-${o.id}" data-ono="${attEsc(o.orderNo||'')}"></div>
       </div></td></tr>`;
     const _cd=ordCreationDateFor(o); const cdCell=_cd?fmtDate(_cd):'<span style="color:var(--muted);" title="No creation_date on any sample_lines row for this order. Run debugCreationDate(\''+attEsc(o.orderNo||'')+'\') in the console for details.">—</span>';
-    return `<tr style="background:${orderRowTint(o)};"><td style="text-align:center;">${canSend?`<input type="checkbox" class="ord-tick" value="${o.id}" onclick="event.stopPropagation()" style="cursor:pointer;" title="Select for combined send">`:''}</td><td>${chevron}</td><td class="mono" style="color:var(--muted);white-space:nowrap;">${d}</td><td class="mono" style="color:var(--muted);white-space:nowrap;">${cdCell}</td><td style="font-size:12px;">${o.orderNo||'—'}</td><td style="font-size:12px;">${o.task?attEsc(taskShort(o.task)):'—'}</td><td style="font-size:12px;">${o.customer||'—'}</td><td style="font-size:12px;">${o.buyer||'—'}</td><td style="font-size:12px;">${o.fce||ordFceFor(o)||'—'}</td><td style="font-size:12px;${tripRoadForOrder(o.orderNo)?'text-align:center;':''}">${o.service||'—'}${tripRoadForOrder(o.orderNo)?`<a href="javascript:void(0)" class="track-pill" onclick="event.stopPropagation();ordShowRiderTrack('${attEsc(o.orderNo)}')" title="Track delivery — rider name, mobile & status"><span style="font-size:16px;line-height:1;filter:drop-shadow(0 0 3px rgba(120,220,255,.8));">🛵</span> Track</a>`:''}</td><td style="font-size:12px;">${ordDeliveryZoneFor(o)||'—'}</td><td style="font-size:12px;color:var(--muted);">${extra}</td><td>${normOrderStatus(o.status)==='Returned'?`<span class="status-badge" style="background:rgba(255,159,90,.16);color:#ff9f5a;">${attEsc(ordStatusDisplay(o))}</span>`:orderStatusBadge(o.status)}</td><td>${note}</td><td><div style="display:flex;gap:4px;align-items:center;">${sendBtn}${editBtn}</div></td></tr>${detail}`;
+    return `<tr style="background:${orderRowTint(o)};"><td style="text-align:center;">${canSend?`<input type="checkbox" class="ord-tick" value="${o.id}" onclick="event.stopPropagation()" style="cursor:pointer;" title="Select for combined send">`:''}</td><td>${chevron}</td><td class="mono" style="color:var(--muted);white-space:nowrap;">${d}</td><td class="mono" style="color:var(--muted);white-space:nowrap;">${cdCell}</td><td style="font-size:12px;">${o.orderNo||'—'}</td><td style="font-size:12px;">${o.task?attEsc(taskShort(o.task)):'—'}</td><td style="font-size:12px;">${o.customer||'—'}</td><td style="font-size:12px;">${o.buyer||'—'}</td><td style="font-size:12px;">${o.fce||ordFceFor(o)||'—'}</td><td style="font-size:12px;${tripRoadForOrder(o.orderNo)?'text-align:center;':''}">${o.service||'—'}${tripRoadForOrder(o.orderNo)?`<a href="javascript:void(0)" class="track-pill" onclick="event.stopPropagation();ordShowRiderTrack('${attEsc(o.orderNo)}')" title="Track delivery — rider name, mobile & status"><span style="display:inline-flex;line-height:1;filter:drop-shadow(0 0 4px rgba(255,80,80,.95));">${pkBikeIcon(14,'#ff4d4d')}</span> Track</a>`:''}</td><td style="font-size:12px;">${ordDeliveryZoneFor(o)||'—'}</td><td style="font-size:12px;color:var(--muted);">${extra}</td><td>${normOrderStatus(o.status)==='Returned'?`<span class="status-badge" style="background:rgba(255,159,90,.16);color:#ff9f5a;">${attEsc(ordStatusDisplay(o))}</span>`:orderStatusBadge(o.status)}</td><td>${note}</td><td><div style="display:flex;gap:4px;align-items:center;">${sendBtn}${editBtn}</div></td></tr>${detail}`;
   }).join('')||'<tr><td colspan="15" style="text-align:center;color:var(--muted);padding:24px;">No orders yet</td></tr>';
   renderOrdersPager(ordTotal,totalPages,startIdx,rows.length);
   // Hide the New Order button for view-only users
@@ -2435,8 +2464,8 @@ async function ordLoadLines(id){
   }catch(e){ box.innerHTML='<span style="font-size:11px;color:var(--dim);">Could not load line data.</span>'; }
 }
 function canDeleteOrders(){
-  // Delete: Super Admin & Authorizer only (Team Leader cannot delete).
-  return canSee('orders')&&(isAdmin()||isAuthorizer());
+  // Delete: Super Admin ONLY — Team Leaders and Authorizers cannot delete Order Tracker records (data-integrity rule).
+  return canSee('orders')&&isAdmin();
 }
 function canSendOrders(){
   // Send requirement (SMS/WhatsApp/email): Super Admin, Authorizer and Team Leader.
@@ -2523,7 +2552,7 @@ async function oFileParse(input){
     const ci={ order:col('Order No','OrderNo','Order'), cust:col('Customer','Customer Name'), buyer:col('Buyer','Buyer Name'),
       svc:col('Service By','Service','Service By Name'), zone:col('Delivery Zone','Zone','Road'), status:col('Status'),
       req:col('Req Time/Delivered','Req Time','Requested Time','Delivered','Delivery Date'), rem:col('Remarks','Remark','Note') };
-    const ALLOWED=['Yet to Start','Requested','Returned','Collected','In Development','Partially Delivered','Partially Completed','Delivery Completed']; const val=v=>v==null?'':(''+v).trim();
+    const ALLOWED=['Yet to Start','Requested','Returned','Collected','In Processing','In Development','Partially Delivered','Partially Completed','Delivery Completed']; const val=v=>v==null?'':(''+v).trim();
     oBulkRows=[];
     for(let i=1;i<rows.length;i++){ const r=rows[i]; if(!r)continue;
       const order=val(r[ci.order]), cust=val(r[ci.cust]); if(!order&&!cust)continue;
@@ -2557,17 +2586,18 @@ async function saveOrderBulk(){
   const btn=document.getElementById('o-savebulk-btn'); const orig=btn.textContent; btn.disabled=true; btn.innerHTML='<span class="loader"></span> Saving…';
   try{
     let ok=0, skipped=0;
+    const __gen=new Set(); // SC numbers generated within this bulk save
     const seen=new Set(getOrders().map(x=>((x.orderNo||'').trim().toLowerCase()+'|'+(x.task||''))));
     for(const r of oBulkRows){
       const ono=(r.orderNo||'').trim(); const key=ono.toLowerCase()+'|'+task;
       if(ono && seen.has(key)){ skipped++; continue; } // duplicate order no for the same task — skip
       if(ono) seen.add(key);
       const o={ id:'o_'+Date.now()+'_'+Math.random().toString(36).slice(2,7), date, task,
-        orderNo:ono, service:r.service||'', customer:r.customer||'', buyer:r.buyer||'', fce:'',
+        orderNo:ono||(function(){ const g=nextManualOrderNo(__gen); __gen.add(g); return g; })(), service:r.service||'', customer:r.customer||'', buyer:r.buyer||'', fce:'',
         reqTime:(task==='Swatch Collection'?(r.req||''):''), to:r.zone||null,
         status:r.status||'Yet to Start', deliveredAt:(task==='Sample Delivery'?(oToISO(r.req)||null):null),
         remarks:r.remarks||'', createdBy:currentUser.id };
-      await dbUpsertOrder(orderToRow(o)); ok++;
+      await dbUpsertOrder(orderToRow(o)); if(/^SC\d{8}$/i.test(o.orderNo))await ordEnsurePackingLine(o); ok++;
     }
     await refreshAll(); closeModal('order-modal'); showPage('orders');
     showToast(ok+' order'+(ok!==1?'s':'')+' added'+(skipped?(' · '+skipped+' duplicate(s) skipped'):'')+'.');
@@ -2648,6 +2678,28 @@ function oRenderNoteFiles(){ const el=document.getElementById('o-file-list'); if
   }
   el.innerHTML=h||'<span style="color:var(--dim);">No attachments yet.</span>';
 }
+// ── Manual order entry ────────────────────────────────────────────────
+// Auto-generated tracking numbers for manually entered orders: SC10000000, SC10000001, …
+function nextManualOrderNo(extra){
+  let max=9999999;
+  const scan=v=>{ const m=/^SC(\d{8})$/i.exec((''+(v||'')).trim()); if(m){ const n=parseInt(m[1],10); if(n>max)max=n; } };
+  try{ getOrders().forEach(o=>scan(o.orderNo)); }catch(_){}
+  if(extra&&extra.forEach)extra.forEach(scan);
+  return 'SC'+(max+1);
+}
+// A manual order has no imported ERP lines, so it would never show up in the Sample
+// Packing tab. Create one basic line (Customer, Buyer, Remarks — no data mapping)
+// so DN & Sticker printing and the trip workflow run through the regular process.
+async function ordEnsurePackingLine(o){
+  try{
+    const on=(o.orderNo||'').trim(); if(!on)return;
+    const existing=await dbPkLookup(on); if(existing&&existing.length)return;
+    const rec={ id:on+'|1||', order_no:on, line_no:'1', ship_to:o.customer||'', customer_name:o.customer||'',
+      buyer:o.buyer||'', qty:1, remarks:o.remarks||'Manual entry',
+      creation_date:o.date||new Date().toISOString().slice(0,10), import_batch:'manual' };
+    await dbPkUpsert([rec]);
+  }catch(e){ console.error('manual packing line',e); }
+}
 async function saveOrder(){
   if(!canSee('orders')){ showToast('No access to Order Tracker.','err'); return; }
   const date=document.getElementById('o-date').value;
@@ -2661,6 +2713,9 @@ async function saveOrder(){
     to:(function(){const z=document.getElementById('o-zone');return z&&z.value&&z.value!=='__new__'?z.value:null;})(),
     status:document.getElementById('o-status').value, deliveredAt:document.getElementById('o-delivered').value||null,
     remarks:document.getElementById('o-remarks').value.trim(), createdBy:currentUser.id };
+  // Manual entry: blank Order No → auto-generate the SC tracking number (Creation Date = Entry Date).
+  let __autoNo=false;
+  if(!editingOrderId&&!o.orderNo){ o.orderNo=nextManualOrderNo(); __autoNo=true; }
   // attachments are managed via oEditNoteFiles / oPendingFiles / oRemovedNotePaths
   if(o.orderNo){
     const dup=getOrders().find(x=>x.id!==o.id && (x.orderNo||'').trim().toLowerCase()===o.orderNo.toLowerCase() && (x.task||'')===o.task);
@@ -2674,16 +2729,17 @@ async function saveOrder(){
     for(const rp of oRemovedNotePaths){ try{ await dbDeleteNote(rp); }catch(e){} }
     o.noteFiles=files; o.noteFile=(files[0]&&files[0].path)||null; o.noteName=(files[0]&&files[0].name)||null;
     await dbUpsertOrder(orderToRow(o));
+    if(!editingOrderId)await ordEnsurePackingLine(o); // manual orders become searchable in Sample Packing
     await refreshAll();
     // Re-derive this order's status right away (e.g. DN copy uploaded → Return-N becomes Delivery Completed).
     if(o.orderNo){ try{ const {data,error}=await sb.from('sample_lines').select('order_no,line_no,line_status').eq('order_no',o.orderNo); if(!error&&data&&data.length)await pkSyncOrderStatuses(data); }catch(e){ console.error('save resync',e); } }
     closeModal('order-modal');
     showPage('orders');
-    showToast('Order saved.');
+    showToast(__autoNo?('Order saved — Order No '+o.orderNo+' auto-generated (share it as the tracking number).'):'Order saved.');
   }catch(e){ showToast('Save failed: '+e.message,'err'); }
   finally{ btn.disabled=false; btn.textContent='Save Order'; }
 }
-async function deleteOrder(){ if(!canDeleteOrders()){ showToast('Only Super Admin / Authorizer can delete orders.','err'); return; }
+async function deleteOrder(){ if(!canDeleteOrders()){ showToast('Delete access in the Order Tracker is restricted to the Super Admin.','err'); return; }
   if(!editingOrderId)return;
   if(!confirm('Delete this order?'))return;
   try{
@@ -3502,8 +3558,8 @@ async function dbPkUpsert(rows){
   let {error}=await sb.from('sample_lines').upsert(rows,{onConflict:'id'});
   if(error){
     const m=(error.message||'')+' '+(error.details||'')+' '+(error.hint||'');
-    if(/delivery_plant|supply_plant|customer_name|line_status|ship_to_code|sold_to_code|plant|enriched_by/i.test(m)){
-      const stripped=rows.map(r=>{ const c={...r}; delete c.delivery_plant; delete c.supply_plant; delete c.customer_name; delete c.line_status; delete c.ship_to_code; delete c.sold_to_code; if(/enriched_by/i.test(m)){ delete c.enriched_by; window.__pkEnrichedColMissing=true; } return c; });
+    if(/delivery_plant|supply_plant|customer_name|line_status|ship_to_code|sold_to_code|plant|enriched_by|import_batch|requester/i.test(m)){
+      const stripped=rows.map(r=>{ const c={...r}; delete c.delivery_plant; delete c.supply_plant; delete c.customer_name; delete c.line_status; delete c.ship_to_code; delete c.sold_to_code; if(/enriched_by/i.test(m)){ delete c.enriched_by; window.__pkEnrichedColMissing=true; } if(/import_batch/i.test(m)){ delete c.import_batch; window.__pkBatchColMissing=true; } if(/requester/i.test(m)){ delete c.requester; delete c.requester_mobile; window.__pkRequesterColMissing=true; } return c; });
       const r2=await sb.from('sample_lines').upsert(stripped,{onConflict:'id'}); if(r2.error)throw r2.error;
       window.__pkPlantColMissing=true; return;
     }
@@ -3529,7 +3585,7 @@ function pkAssignRiderByRoad(){
   const el=_riderOverlay('pk-rider-road-modal');
   const paint=(d)=>{ const roads=roadsFor(d);
     el.innerHTML=`<div style="background:var(--surface,#131f42);border:1px solid var(--border,#27407A);border-radius:14px;padding:20px 22px;width:min(92vw,440px);box-shadow:0 24px 60px rgba(0,0,0,.5);">
-    <div style="font-weight:700;font-size:15px;margin-bottom:2px;">🛵 Assign Riders by Road</div>
+    <div style="font-weight:700;font-size:15px;margin-bottom:2px;">${pkBikeIcon(15,'#6ea0ff')} Assign Riders by Road</div>
     <div style="font-size:11.5px;color:var(--muted);margin-bottom:12px;">One rider covers every delivery on the selected road for the day.</div>
     <label class="form-label">Trip date</label>
     <select class="form-input" id="rr-date" style="margin-bottom:10px;" onchange="pkAssignRiderByRoad._repaint(this.value)">${dates.map(x=>`<option value="${x}" ${x===d?'selected':''}>${fmtDate(x)}</option>`).join('')}</select>
@@ -3539,7 +3595,9 @@ function pkAssignRiderByRoad(){
     <input class="form-input" id="rr-nm" list="rider-dl2" placeholder="e.g. Md. Rakib Hasan" style="margin-bottom:10px;"/>
     <datalist id="rider-dl2">${riders.map(r=>`<option>${attEsc(r)}</option>`).join('')}</datalist>
     <label class="form-label">Mobile no.</label>
-    <input class="form-input" id="rr-mb" placeholder="e.g. 01313014898" style="margin-bottom:14px;"/>
+    <input class="form-input" id="rr-mb" placeholder="e.g. 01313014898" style="margin-bottom:10px;"/>
+    <label class="form-label">Service / Delivery By <span style="color:var(--dim);font-weight:400;">(optional — applies to every delivery on the road)</span></label>
+    <select class="form-input" id="rr-svc" style="margin-bottom:14px;">${pkServiceOptions('')}</select>
     <div style="display:flex;gap:8px;justify-content:flex-end;"><button class="btn btn-ghost btn-sm" onclick="document.getElementById('pk-rider-road-modal').style.display='none'">Cancel</button><button class="btn btn-primary btn-sm" onclick="pkSaveRiderByRoad()">Assign to road</button></div></div>`;
     el.style.display='flex'; };
   pkAssignRiderByRoad._repaint=paint; paint(day0);
@@ -3547,17 +3605,20 @@ function pkAssignRiderByRoad(){
 async function pkSaveRiderByRoad(){
   const d=(document.getElementById('rr-date')||{}).value||'', road=(document.getElementById('rr-road')||{}).value||'';
   const nm=((document.getElementById('rr-nm')||{}).value||'').trim(), mb=((document.getElementById('rr-mb')||{}).value||'').trim();
+  const svc=((document.getElementById('rr-svc')||{}).value||'').trim();
   if(!d||!road){ showToast('Pick a trip date and road.','err'); return; }
   if(!nm){ showToast('Enter the rider name.','err'); return; }
   const targets=(CACHE.trips||[]).filter(x=>x.kind!=='return'&&x.trip_date===d&&(x.road||'')===road);
   if(!targets.length){ showToast('No deliveries on that road/date.','err'); return; }
   try{
-    for(const x of targets){ await dbUpdateTrip(x.id,{rider_name:nm,rider_mobile:mb}); }
+    const patch={rider_name:nm,rider_mobile:mb}; if(svc)patch.service=svc;
+    for(const x of targets){ await dbUpdateTrip(x.id,patch); }
     document.getElementById('pk-rider-road-modal').style.display='none';
     await pkLoadTrips(true); try{ pkRenderListRows(); }catch(_){} try{ pkRenderTripRows(); }catch(_){}
-    showToast('🛵 '+nm+' assigned to '+targets.length+' delivery(ies) on '+road+' · '+fmtDate(d)+'.');
+    showToast(nm+' assigned to '+targets.length+' delivery(ies) on '+road+(svc?(' · '+svc):'')+' · '+fmtDate(d)+'.');
   }catch(e){ const m=(e.message||'')+(e.details||'');
     if(/rider_/i.test(m)) showToast('Rider columns missing — run in Supabase: alter table trip_schedule add column if not exists rider_name text; alter table trip_schedule add column if not exists rider_mobile text;','err');
+    else if(/service/i.test(m)) showToast('Service column missing — run in Supabase: alter table trip_schedule add column if not exists service text;','err');
     else showToast('Save failed: '+(e.message||e),'err'); }
 }
 function pkAssignRider(tripId){
@@ -3565,7 +3626,7 @@ function pkAssignRider(tripId){
   const riders=[...new Set((CACHE.trips||[]).map(x=>(x.rider_name||'').trim()).filter(Boolean))].sort();
   const el=_riderOverlay('pk-rider-modal');
   el.innerHTML=`<div style="background:var(--surface,#131f42);border:1px solid var(--border,#27407A);border-radius:14px;padding:20px 22px;width:min(92vw,420px);box-shadow:0 24px 60px rgba(0,0,0,.5);">
-    <div style="font-weight:700;font-size:15px;margin-bottom:2px;">🛵 Assign Rider / Delivery Person</div>
+    <div style="font-weight:700;font-size:15px;margin-bottom:2px;">${pkBikeIcon(15,'#6ea0ff')} Assign Rider / Delivery Person</div>
     <div style="font-size:11.5px;color:var(--muted);margin-bottom:12px;">${attEsc(t.order_no)} · ${attEsc(t.road||'—')} · ${fmtDate(t.trip_date)}</div>
     <label class="form-label">Rider name *</label>
     <input class="form-input" id="rider-nm" list="rider-dl" value="${attEsc(t.rider_name||'')}" placeholder="e.g. Md. Rakib Hasan" style="margin-bottom:10px;"/>
@@ -3609,7 +3670,7 @@ function ordShowRiderTrack(orderNo){
                               :'<span class="badge" style="background:rgba(255,194,77,.16);color:#ffc24d;">On the Way</span>';
   const el=_riderOverlay('ord-track-modal');
   el.innerHTML=`<div style="background:var(--surface,#131f42);border:1px solid var(--border,#27407A);border-radius:14px;padding:20px 22px;width:min(94vw,560px);max-height:80vh;overflow:auto;box-shadow:0 24px 60px rgba(0,0,0,.5);">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;"><div style="font-weight:700;font-size:15px;">🛵 Delivery Tracking — ${attEsc(orderNo)}</div><button class="btn btn-ghost btn-sm" onclick="document.getElementById('ord-track-modal').style.display='none'">✕</button></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;"><div style="font-weight:700;font-size:15px;">${pkBikeIcon(15,'#ff4d4d')} Delivery Tracking — ${attEsc(orderNo)}</div><button class="btn btn-ghost btn-sm" onclick="document.getElementById('ord-track-modal').style.display='none'">✕</button></div>
     ${trips.length?trips.map(x=>`<div style="border:1px solid var(--border,#27407A);border-radius:10px;padding:12px 16px;margin-bottom:8px;display:grid;grid-template-columns:1fr 1.25fr 1.25fr 1.4fr;gap:8px;align-items:center;text-align:center;font-size:12.5px;">
       <div><div style="font-size:10px;color:var(--muted);letter-spacing:.06em;margin-bottom:2px;">LINES</div>${attEsc(x.line_nos||'—')}</div>
       <div><div style="font-size:10px;color:var(--muted);letter-spacing:.06em;margin-bottom:2px;">RIDER</div>${x.rider_name?attEsc(x.rider_name):'<span style="color:var(--dim);">Not assigned yet</span>'}</div>
@@ -3754,6 +3815,25 @@ function pkRenderOrderView(){
 function pkToggleLine(i){ if(!pkOrder)return; const s=pkOrder._sel; if(s.has(i))s.delete(i); else s.add(i); pkRenderOrderView(); }
 function pkToggleAllLines(on){ if(!pkOrder)return; pkOrder._sel=new Set(on?pkOrder.lines.map((_,i)=>i):[]); pkRenderOrderView(); }
 function pkSelectedLines(){ if(!pkOrder)return []; const s=pkOrder._sel; return pkOrder.lines.filter((_,i)=>s.has(i)); }
+// ── Service / Delivery By helpers (global assignment/mapping) ──
+function pkServiceNames(){ try{ return [...new Set([...DELIVERY_SERVICES,...DEFAULT_SERVICE_BY,...(CACHE.trips||[]).map(t=>(t.service||'').trim()).filter(Boolean)])]; }catch(_){ return ['Excelsior Courier','Supply Chain Van','FCE (Urgent)']; } }
+function pkServiceOptions(sel){ return '<option value="">— select service —</option>'+pkServiceNames().map(s=>`<option ${s===sel?'selected':''}>${attEsc(s)}</option>`).join(''); }
+function pkOrderServiceFor(orderNo){ try{ const on=(''+orderNo).trim().toLowerCase(); const o=getOrders().find(x=>(x.orderNo||'').trim().toLowerCase()===on); return (o&&o.service)||''; }catch(_){ return ''; } }
+function pkListServiceFor(t){
+  const own=(t.service||'').trim(); if(own)return own;
+  try{
+    const os=getOrders();
+    if(!pkListServiceFor._map||pkListServiceFor._n!==os.length){
+      const m={}; os.forEach(o=>{ const k=(o.orderNo||'').trim().toLowerCase(); if(k&&m[k]==null)m[k]=(o.service||'').trim(); });
+      pkListServiceFor._map=m; pkListServiceFor._n=os.length;
+    }
+    return pkListServiceFor._map[(t.order_no||'').trim().toLowerCase()]||'';
+  }catch(_){ return ''; }
+}
+// Fixed-colour inline SVG bike icon — replaces the 🛵 emoji, whose colour was
+// rendered by each device's emoji font (yellow on Android/iOS, red on desktop
+// browsers). An SVG guarantees the exact same colour on mobile and web.
+function pkBikeIcon(sz,col){ sz=sz||14; return `<svg width="${sz}" height="${sz}" viewBox="0 0 24 24" fill="none" stroke="${col||'currentColor'}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;flex-shrink:0;"><circle cx="18.5" cy="17.5" r="3.5"/><circle cx="5.5" cy="17.5" r="3.5"/><circle cx="15" cy="5" r="1"/><path d="M12 17.5V14l-3-3 4-3 2 3h2"/></svg>`; }
 let __pkRoadMode='trip';
 // Live search for the Road / Delivery Zone in the Add to Trip / Add to Return dialog.
 // Typing shows matching road names in a dropdown list; clicking one selects it.
@@ -3782,6 +3862,7 @@ function pkOpenRoadModal(mode){
   const _rs=document.getElementById('pk-road-search'); if(_rs)_rs.value='';
   document.getElementById('pk-road-sel').innerHTML='<option value="">— select road —</option>'+zones.map(z=>`<option>${attEsc(z)}</option>`).join('');
   const rw=document.getElementById('pk-road-reason-wrap'); if(rw){ rw.style.display=mode==='return'?'':'none'; if(mode==='return'){ document.getElementById('pk-road-reason').innerHTML='<option value="">— select reason —</option>'+rrList().map(r=>`<option>${attEsc(r)}</option>`).join(''); } }
+  const _svcSel=document.getElementById('pk-road-service'); if(_svcSel)_svcSel.innerHTML=pkServiceOptions(pkOrderServiceFor(pkOrder.orderNo));
   document.getElementById('pk-road-carton').value='1';
   document.getElementById('pk-road-date').value=new Date().toISOString().split('T')[0];
   const sel=pkSelectedLines(); const n=sel.length?sel.length:pkOrder.lines.length;
@@ -3793,35 +3874,43 @@ async function pkRoadConfirm(){
   if(!road){ showToast('Please select a road name first — it is required.','err'); return; }
   const carton=parseInt((document.getElementById('pk-road-carton')||{}).value,10)||0;
   const date=((document.getElementById('pk-road-date')||{}).value||'').trim()||new Date().toISOString().split('T')[0];
+  const service=((document.getElementById('pk-road-service')||{}).value||'').trim();
+  if(!service){ showToast('Please select a Service / Delivery By — it is required.','err'); return; }
   let reason='';
   if(__pkRoadMode==='return'){ reason=((document.getElementById('pk-road-reason')||{}).value||'').trim(); if(!reason){ showToast('Please select a Return Reason — it is required.','err'); return; } }
   closeModal('pk-road-modal');
-  if(__pkRoadMode==='return') await pkDoAddReturn(road,carton,date,reason); else await pkDoAddTrip(road,carton,date);
+  if(__pkRoadMode==='return') await pkDoAddReturn(road,carton,date,reason,service); else await pkDoAddTrip(road,carton,date,service);
 }
-async function pkDoAddTrip(road,carton,date){
+async function pkDoAddTrip(road,carton,date,service){
   if(!pkOrder)return; const o=pkOrder;
   const day=date||new Date().toISOString().split('T')[0];
+  const svc=(service||'').trim()||pkOrderServiceFor(o.orderNo)||'';
   const sel=pkSelectedLines(); const used=(sel.length?sel:o.lines);
   const lineNos=used.map(l=>l.line_no).filter(x=>x!=null&&x!=='').join(',');
   const totalQty=used.reduce((s,l)=>s+(parseFloat(l.qty)||0),0);
   const serial=(CACHE.trips||[]).filter(t=>t.kind!=='return'&&t.trip_date===day&&(t.road||'')===road).length+1;
-  const rec={id:'trip_'+Date.now()+'_'+Math.random().toString(36).slice(2,5),kind:'trip',trip_date:day,road,serial,ship_to:o.shipTo,order_no:o.orderNo,line_nos:lineNos,total_qty:totalQty,carton_qty:carton,created_by:currentUser.id,created_at:new Date().toISOString()};
-  try{ await dbInsertTrip([rec]); await pkLoadTrips(true); pkTripDate=day; pkTripRoad=road; pkTab='trip'; pkRender(); await pkResyncAfterTripChange(); try{ await cdSyncTripNote(o.orderNo,lineNos,day); }catch(_){} showToast('Added to trip — '+road+' · '+o.orderNo+' (lines '+(lineNos||'—')+') on '+fmtDate(day)+'.'); }
-  catch(e){ showToast('Failed: '+e.message,'err'); }
+  const rec={id:'trip_'+Date.now()+'_'+Math.random().toString(36).slice(2,5),kind:'trip',trip_date:day,road,serial,ship_to:o.shipTo,order_no:o.orderNo,line_nos:lineNos,total_qty:totalQty,carton_qty:carton,service:svc,created_by:currentUser.id,created_at:new Date().toISOString()};
+  try{ await dbInsertTrip([rec]); }
+  catch(e){ const m=(e.message||'')+(e.details||'');
+    if(/service/i.test(m)){ const c={...rec}; delete c.service; try{ await dbInsertTrip([c]); showToast('Saved without Service — run in Supabase: alter table trip_schedule add column if not exists service text;','err'); }catch(e2){ showToast('Failed: '+e2.message,'err'); return; } }
+    else { showToast('Failed: '+e.message,'err'); return; } }
+  await pkLoadTrips(true); pkTripDate=day; pkTripRoad=road; pkTab='trip'; pkRender(); await pkResyncAfterTripChange(); try{ await cdSyncTripNote(o.orderNo,lineNos,day); }catch(_){} showToast('Added to trip — '+(svc?svc+' · ':'')+road+' · '+o.orderNo+' (lines '+(lineNos||'—')+') on '+fmtDate(day)+'.');
 }
-async function pkDoAddReturn(road,carton,date,reason){
+async function pkDoAddReturn(road,carton,date,reason,service){
   if(!pkOrder)return; const o=pkOrder;
   const day=date||new Date().toISOString().split('T')[0];
+  const svc=(service||'').trim()||pkOrderServiceFor(o.orderNo)||'';
   const sel=pkSelectedLines(); const used=(sel.length?sel:o.lines);
   const lineNos=used.map(l=>l.line_no).filter(x=>x!=null&&x!=='').join(',');
   const totalQty=used.reduce((s,l)=>s+(parseFloat(l.qty)||0),0);
   const prev=(CACHE.trips||[]).filter(t=>t.kind==='return'&&t.order_no===o.orderNo&&(t.line_nos||'')===lineNos).length;
   const rno=prev+1;
-  const rec={id:'ret_'+Date.now()+'_'+Math.random().toString(36).slice(2,5),kind:'return',return_no:rno,trip_date:day,road:road,serial:rno,ship_to:o.shipTo,order_no:o.orderNo,line_nos:lineNos,total_qty:totalQty,carton_qty:carton,return_reason:reason||'',created_by:currentUser.id,created_at:new Date().toISOString()};
+  const rec={id:'ret_'+Date.now()+'_'+Math.random().toString(36).slice(2,5),kind:'return',return_no:rno,trip_date:day,road:road,serial:rno,ship_to:o.shipTo,order_no:o.orderNo,line_nos:lineNos,total_qty:totalQty,carton_qty:carton,return_reason:reason||'',service:svc,created_by:currentUser.id,created_at:new Date().toISOString()};
   try{ await dbInsertTrip([rec]); }
-  catch(e){ if(/return_reason/i.test((e.message||'')+(e.details||''))){ const c={...rec}; delete c.return_reason; try{ await dbInsertTrip([c]); showToast('Saved without reason — run in Supabase: alter table trip_schedule add column if not exists return_reason text;','err'); }catch(e2){ showToast('Failed: '+e2.message,'err'); return; } } else { showToast('Failed: '+e.message+' — did you run SAMPLE_RETURNS_SETUP.sql?','err'); return; } }
+  catch(e){ const m=(e.message||'')+(e.details||'');
+    if(/return_reason|service/i.test(m)){ const c={...rec}; if(/return_reason/i.test(m))delete c.return_reason; if(/service/i.test(m))delete c.service; try{ await dbInsertTrip([c]); showToast('Saved without some fields — run in Supabase: alter table trip_schedule add column if not exists return_reason text; alter table trip_schedule add column if not exists service text;','err'); }catch(e2){ showToast('Failed: '+e2.message,'err'); return; } } else { showToast('Failed: '+e.message+' — did you run SAMPLE_RETURNS_SETUP.sql?','err'); return; } }
   try{ await pkLoadTrips(true); }catch(_){ }
-  showToast('Recorded as Return-'+rno+' ('+o.orderNo+' · lines '+(lineNos||'—')+')'+(reason?(' · '+reason):'')+' on '+fmtDate(day)+'.');
+  showToast('Recorded as Return-'+rno+' ('+(svc?svc+' · ':'')+o.orderNo+' · lines '+(lineNos||'—')+')'+(reason?(' · '+reason):'')+' on '+fmtDate(day)+'.');
 }
 
 // ── Trip Schedule builder ──
@@ -3839,6 +3928,7 @@ function pkRenderTrip(){
    <div class="card" style="margin-bottom:14px;"><div style="padding:14px;display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
      <div><div class="form-label">Order No</div><input class="form-input" id="pk-trip-order" value="${attEsc(pkPendingTripOrder||'')}" placeholder="RS…" style="width:180px;"/></div>
      <div><div class="form-label">Carton Qty</div><input class="form-input" id="pk-trip-carton" type="number" min="0" value="${pkPendingCarton||1}" style="width:110px;"/></div>
+     <div><div class="form-label">Service / Delivery By</div><select class="form-input" id="pk-trip-service" style="min-width:180px;">${pkServiceOptions('')}</select></div>
      <button class="btn btn-primary btn-sm" onclick="pkTripLookup()">Add order to trip</button>
    </div></div>
    <div id="pk-trip-pick"></div>
@@ -3888,11 +3978,15 @@ async function pkTripAddSelected(){
   const totalQty=used.reduce((s,l)=>s+(parseFloat(l.qty)||0),0);
   const h=pkTripPick.header;
   const serial=(CACHE.trips||[]).filter(t=>t.kind!=='return'&&t.trip_date===pkTripDate&&(t.road||'')===pkTripRoad).length+1;
-  const rec={id:'trip_'+Date.now()+'_'+Math.random().toString(36).slice(2,5),kind:'trip',trip_date:pkTripDate,road:pkTripRoad,serial,ship_to:h.shipTo,order_no:h.orderNo,line_nos:lineNos,total_qty:totalQty,carton_qty:pkTripPickCarton,created_by:currentUser.id,created_at:new Date().toISOString()};
-  try{ await dbInsertTrip([rec]); await pkLoadTrips(true); pkTripPick=null; const oi=document.getElementById('pk-trip-order'); if(oi)oi.value=''; pkRenderTripPick(); pkRenderTripRows(); await pkResyncAfterTripChange(); try{ await cdSyncTripNote(h.orderNo,lineNos,pkTripDate); }catch(_){} showToast('Added '+used.length+' line(s) to trip.'); }
-  catch(e){ showToast('Failed: '+e.message,'err'); }
+  const _svc=((document.getElementById('pk-trip-service')||{}).value||'').trim()||pkOrderServiceFor(h.orderNo)||'';
+  const rec={id:'trip_'+Date.now()+'_'+Math.random().toString(36).slice(2,5),kind:'trip',trip_date:pkTripDate,road:pkTripRoad,serial,ship_to:h.shipTo,order_no:h.orderNo,line_nos:lineNos,total_qty:totalQty,carton_qty:pkTripPickCarton,service:_svc,created_by:currentUser.id,created_at:new Date().toISOString()};
+  try{ await dbInsertTrip([rec]); }
+  catch(e){ const m=(e.message||'')+(e.details||'');
+    if(/service/i.test(m)){ const c={...rec}; delete c.service; try{ await dbInsertTrip([c]); showToast('Saved without Service — run in Supabase: alter table trip_schedule add column if not exists service text;','err'); }catch(e2){ showToast('Failed: '+e2.message,'err'); return; } }
+    else { showToast('Failed: '+e.message,'err'); return; } }
+  await pkLoadTrips(true); pkTripPick=null; const oi=document.getElementById('pk-trip-order'); if(oi)oi.value=''; pkRenderTripPick(); pkRenderTripRows(); await pkResyncAfterTripChange(); try{ await cdSyncTripNote(h.orderNo,lineNos,pkTripDate); }catch(_){} showToast('Added '+used.length+' line(s) to trip'+(_svc?(' · '+_svc):'')+'.');
 }
-async function pkTripDelete(id){ if(isPacker()||isFCE()){ showToast('You don\'t have delete access in Sample Packing.','err'); return; } if(!confirm('Remove this order from the trip?'))return; try{ await dbDeleteTrip(id); await pkLoadTrips(true); pkRenderTripRows(); }catch(e){ showToast('Failed: '+e.message,'err'); } }
+async function pkTripDelete(id){ if(!isAdmin()){ showToast('Delete access in the Trip Schedule / Trip List is restricted to the Super Admin.','err'); return; } if(!confirm('Remove this order from the trip?'))return; try{ await dbDeleteTrip(id); await pkLoadTrips(true); pkRenderTripRows(); }catch(e){ showToast('Failed: '+e.message,'err'); } }
 async function pkTripSetCarton(id,val){ const carton=parseInt(val,10)||0; try{ const {error}=await sb.from('trip_schedule').update({carton_qty:carton}).eq('id',id); if(error)throw error; await pkLoadTrips(true); pkRenderTripRows(); }catch(e){ showToast('Carton update failed: '+e.message,'err'); } }
 
 // ── Trip List ──
@@ -3902,22 +3996,25 @@ function pkRenderList(){
     <div class="card-actions" style="display:flex;gap:6px;flex-wrap:wrap;">
       <select class="filter-sel" id="pk-list-kind" onchange="pkListKind=this.value;pkRenderListRows()"><option value="">All types</option><option value="trip" ${pkListKind==='trip'?'selected':''}>Trips only</option><option value="return" ${pkListKind==='return'?'selected':''}>Returns only</option></select>
       <select class="filter-sel" id="pk-list-road" onchange="pkRenderListRows()"><option value="">All roads</option>${zones.map(z=>`<option>${attEsc(z)}</option>`).join('')}</select>
+      <select class="filter-sel" id="pk-list-service" onchange="pkRenderListRows()" title="Filter by Service / Delivery By"><option value="">All services</option>${pkServiceNames().map(s=>`<option>${attEsc(s)}</option>`).join('')}</select>
       <input class="search-pill" type="text" id="pk-list-search" placeholder="Search Order No…" oninput="pkRenderListRows()" style="width:185px;"/>
       <input class="filter-sel" type="date" id="pk-list-date" onchange="pkRenderListRows()" style="width:150px;"/>
-      <button class="btn btn-primary btn-sm" onclick="pkAssignRiderByRoad()" title="Assign one rider to every delivery on a road for a given date">🛵 Assign riders by road</button> <button class="btn btn-ghost btn-sm" onclick="pkPrintSelectedList()">🖨 Print selected</button>
+      <button class="btn btn-primary btn-sm" onclick="pkAssignRiderByRoad()" title="Assign one rider to every delivery on a road for a given date">${pkBikeIcon(13)} Assign riders by road</button> <button class="btn btn-ghost btn-sm" onclick="pkPrintSelectedList()">🖨 Print selected</button>
       <button class="btn btn-ghost btn-sm" onclick="pkExportList()">Download CSV</button>
     </div></div>
-    <div style="overflow:auto;"><table><thead><tr><th style="width:30px;text-align:center;"><input type="checkbox" id="pk-list-all" onchange="pkListTickAll(this.checked)" title="Tick all"/></th><th>Serial</th><th>Type</th><th>Schedule Date</th><th>Ship to Party</th><th>Order No</th><th>Line Nos</th><th>Total Qty</th><th>Carton Qty</th><th>Road</th><th>Rider</th><th>DN Status</th><th>Completion</th><th>Actions</th></tr></thead><tbody id="pk-list-rows"></tbody></table></div></div>`;
+    <div style="overflow:auto;"><table><thead><tr><th style="width:30px;text-align:center;"><input type="checkbox" id="pk-list-all" onchange="pkListTickAll(this.checked)" title="Tick all"/></th><th>Serial</th><th>Type</th><th>Schedule Date</th><th>Ship to Party</th><th>Order No</th><th>Line Nos</th><th>Total Qty</th><th>Carton Qty</th><th>Road</th><th>Service / Delivery By</th><th>Rider</th><th>DN Status</th><th>Completion</th><th>Actions</th></tr></thead><tbody id="pk-list-rows"></tbody></table></div></div>`;
   pkRenderListRows();
 }
 function pkListFiltered(){
   const road=(document.getElementById('pk-list-road')||{}).value||'';
   const date=(document.getElementById('pk-list-date')||{}).value||'';
   const q=((document.getElementById('pk-list-search')||{}).value||'').toLowerCase().trim();
+  const svc=(document.getElementById('pk-list-service')||{}).value||'';
   return (CACHE.trips||[]).filter(t=>{
     const kind=t.kind==='return'?'return':'trip';
     if(pkListKind&&kind!==pkListKind)return false;
     if(road&&t.road!==road)return false;
+    if(svc&&pkListServiceFor(t)!==svc)return false;
     if(date&&t.trip_date!==date)return false;
     if(q&&!((t.order_no||'').toLowerCase().includes(q)))return false;
     return true;
@@ -3948,10 +4045,16 @@ function pkRenderListRows(){
     return '<span class="badge" style="background:rgba(70,230,160,.15);color:#46e6a0;" title="DN copy uploaded (not line-tagged).">Available</span>';
   };
   const cmCell=t=>{ const o=ordMap[(t.order_no||'').trim().toLowerCase()]; if(!o)return '<span style="color:var(--dim);font-size:11px;">—</span>'; return ordCompletionBadge(o); };
-  tb.innerHTML=rows.map((t,i)=>{ const isRet=t.kind==='return'; const typeBadge=`<span style="font-size:11px;font-weight:600;color:${isRet?'#e0913a':'#4ecdc4'};">${pkListType(t)}</span>`; return `<tr><td style="text-align:center;"><input type="checkbox" ${pkListSel.has(t.id)?'checked':''} onchange="pkListTick('${t.id}')"/></td><td>${i+1}</td><td>${typeBadge}</td><td style="white-space:nowrap;">${fmtDate(t.trip_date)}</td><td>${attEsc(t.ship_to)}</td><td>${attEsc(t.order_no)}</td><td><div style="max-width:380px;min-width:160px;white-space:normal;word-break:break-word;font-size:11px;line-height:1.6;color:var(--muted);">${attEsc(t.line_nos)}</div></td><td>${attEsc(t.total_qty)}</td><td>${attEsc(t.carton_qty)}</td><td>${attEsc(t.road)||(isRet?'—':'')}</td><td style="white-space:nowrap;">${t.rider_name?`<div style="font-size:12px;font-weight:600;">${attEsc(t.rider_name)}</div><a href="tel:${attEsc(t.rider_mobile||'')}" style="font-size:11px;color:var(--accent2);text-decoration:none;">${attEsc(t.rider_mobile||'')}</a> <a href="javascript:void(0)" onclick="pkAssignRider('${t.id}')" title="Change rider" style="font-size:11px;">✏️</a>`:`<button class="btn btn-ghost btn-sm" onclick="pkAssignRider('${t.id}')" title="Assign today's rider for this delivery">🛵 Assign</button>`}</td><td>${dnCell(t)}</td><td>${cmCell(t)}</td><td style="white-space:nowrap;"><button class="btn btn-ghost btn-sm" onclick="pkListEdit('${t.id}')">Edit</button> ${(isPacker()||isFCE())?'':`<button class="btn btn-reject btn-sm" onclick="pkListDelete('${t.id}')">Delete</button>`}</td></tr>`;}).join('')||`<tr><td colspan="14" style="text-align:center;color:var(--muted);padding:16px;">No entries yet.</td></tr>`;
+  tb.innerHTML=rows.map((t,i)=>{ const isRet=t.kind==='return'; const typeBadge=`<span style="font-size:11px;font-weight:600;color:${isRet?'#e0913a':'#4ecdc4'};">${pkListType(t)}</span>`; return `<tr><td style="text-align:center;"><input type="checkbox" ${pkListSel.has(t.id)?'checked':''} onchange="pkListTick('${t.id}')"/></td><td>${i+1}</td><td>${typeBadge}</td><td style="white-space:nowrap;">${fmtDate(t.trip_date)}</td><td>${attEsc(t.ship_to)}</td><td>${attEsc(t.order_no)}</td><td><div style="max-width:380px;min-width:160px;white-space:normal;word-break:break-word;font-size:11px;line-height:1.6;color:var(--muted);">${attEsc(t.line_nos)}</div></td><td>${attEsc(t.total_qty)}</td><td>${attEsc(t.carton_qty)}</td><td>${attEsc(t.road)||(isRet?'—':'')}</td><td style="min-width:150px;">${(()=>{const eff=pkListServiceFor(t);return `<select class="filter-sel" style="min-width:140px;font-size:11px;" onchange="pkListSetService('${t.id}',this.value)" title="Service / Delivery By for this entry"><option value="">— service —</option>`+pkServiceNames().map(s=>`<option ${s===eff?'selected':''}>${attEsc(s)}</option>`).join('')+'</select>'+((!t.service&&eff)?'<div style="font-size:10px;color:var(--dim);margin-top:2px;">from Order Tracker</div>':'');})()}</td><td style="white-space:nowrap;">${t.rider_name?`<div style="font-size:12px;font-weight:600;">${attEsc(t.rider_name)}</div><a href="tel:${attEsc(t.rider_mobile||'')}" style="font-size:11px;color:var(--accent2);text-decoration:none;">${attEsc(t.rider_mobile||'')}</a> <a href="javascript:void(0)" onclick="pkAssignRider('${t.id}')" title="Change rider" style="font-size:11px;">✏️</a>`:`<button class="btn btn-ghost btn-sm" onclick="pkAssignRider('${t.id}')" title="Assign today's rider for this delivery">${pkBikeIcon(13)} Assign</button>`}</td><td>${dnCell(t)}</td><td>${cmCell(t)}</td><td style="white-space:nowrap;"><button class="btn btn-ghost btn-sm" onclick="pkListEdit('${t.id}')">Edit</button> ${isAdmin()?`<button class="btn btn-reject btn-sm" onclick="pkListDelete('${t.id}')">Delete</button>`:''}</td></tr>`;}).join('')||`<tr><td colspan="15" style="text-align:center;color:var(--muted);padding:16px;">No entries yet.</td></tr>`;
 }
 function pkListTick(id){ if(pkListSel.has(id))pkListSel.delete(id); else pkListSel.add(id); pkRenderListRows(); }
 function pkListTickAll(on){ pkListSel=new Set(on?pkListFiltered().map(t=>t.id):[]); pkRenderListRows(); }
+async function pkListSetService(id,val){
+  try{ await dbUpdateTrip(id,{service:(val||'').trim()||null}); await pkLoadTrips(true); pkRenderListRows(); try{ pkRenderTripRows(); }catch(_){} showToast(val?('Service / Delivery By set to '+val+'.'):'Service / Delivery By cleared.'); }
+  catch(e){ const m=(e.message||'')+(e.details||'');
+    if(/service/i.test(m)) showToast('Service column missing — run in Supabase: alter table trip_schedule add column if not exists service text;','err');
+    else showToast('Update failed: '+(e.message||e),'err'); }
+}
 function pkPrintSelectedList(){
   let rows=pkListFiltered().filter(t=>pkListSel.has(t.id));
   if(!rows.length)rows=pkListFiltered();
@@ -3972,15 +4075,15 @@ async function pkResyncAfterTripChange(){
   try{ for(const k in _ordLinesCache)delete _ordLinesCache[k]; }catch(_){}
   try{ const {data,error}=await sb.from('sample_lines').select('order_no,line_no,line_status'); if(!error&&data){ await pkSyncOrderStatuses(data); } }catch(e){ console.error('resync',e); }
 }
-async function pkListDelete(id){ if(isPacker()||isFCE()){ showToast('You don\'t have delete access in Sample Packing.','err'); return; }
+async function pkListDelete(id){ if(!isAdmin()){ showToast('Delete access in the Trip List is restricted to the Super Admin.','err'); return; }
   if(!confirm('Delete this trip entry permanently?'))return;
   try{ await dbDeleteTrip(id); await pkLoadTrips(true); pkRenderListRows(); await pkResyncAfterTripChange(); showToast('Trip entry deleted.'); }
   catch(e){ showToast('Delete failed: '+e.message,'err'); }
 }
 function pkExportList(){
   const rows=pkListFiltered();
-  const header='Type,Serial,Date,Ship to Party,Order No,Line Nos,Total Qty,Carton Qty,Road\n';
-  const csv=rows.map(t=>[pkListType(t),t.serial,fmtDate(t.trip_date),t.ship_to,t.order_no,t.line_nos,t.total_qty,t.carton_qty,t.road].map(v=>'"'+String(v==null?'':v).replace(/"/g,'""')+'"').join(',')).join('\n');
+  const header='Type,Serial,Date,Ship to Party,Order No,Line Nos,Total Qty,Carton Qty,Road,Service / Delivery By,Rider,Rider Mobile\n';
+  const csv=rows.map(t=>[pkListType(t),t.serial,fmtDate(t.trip_date),t.ship_to,t.order_no,t.line_nos,t.total_qty,t.carton_qty,t.road,pkListServiceFor(t),t.rider_name||'',t.rider_mobile||''].map(v=>'"'+String(v==null?'':v).replace(/"/g,'""')+'"').join(',')).join('\n');
   const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([header+csv],{type:'text/csv'})); a.download='Trip_Schedule_List.csv'; a.click();
 }
 
@@ -4015,7 +4118,7 @@ function pkRenderReturns(){
   Object.entries(cntByOrder).forEach(([k,v])=>{ if(v.n<2)return; const b=v.n>=5?'5':String(v.n); freq[b].push({order:k,cust:v.cust,n:v.n}); });
   const freqDefs=[['2','Returned 2 times'],['3','Returned 3 times'],['4','Returned 4 times'],['5','Returned 5+ times']];
   const freqRows=freqDefs.map(([key,label])=>{ const list=freq[key]; const itemsHtml=list.length?`<div style="max-height:120px;overflow:auto;display:flex;flex-direction:column;gap:4px;padding:2px 0;">${list.map(x=>`<span style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:3px 9px;font-size:11.5px;white-space:normal;word-break:break-word;line-height:1.4;"><b style="color:var(--accent2);">${attEsc(x.order)}</b>${x.cust?` · ${attEsc(x.cust)}`:''}</span>`).join('')}</div>`:'<span style="color:var(--muted);">—</span>'; return `<tr><td style="white-space:nowrap;font-weight:600;">${label}</td><td class="mono" style="text-align:center;font-weight:700;color:${list.length?'#e0913a':'var(--muted)'};">${list.length}</td><td style="min-width:280px;">${itemsHtml}</td></tr>`; }).join('');
-  const tableRows=tblData.map(r=>`<tr><td><span style="font-size:11px;font-weight:600;color:#e0913a;">Return-${r.return_no||1}</span></td><td style="white-space:nowrap;">${fmtDate(r.trip_date)}</td><td>${attEsc(r.ship_to)}</td><td>${attEsc(r.order_no)}</td><td style="font-size:12px;">${attEsc(r.line_nos)}</td><td style="font-size:12px;">${r.return_reason?attEsc(r.return_reason):'—'}</td><td>${attEsc(r.road)||'—'}</td><td>${attEsc(r.total_qty)}</td><td>${(isAdmin()||isAuthorizer())?`<button class="btn btn-reject btn-sm" onclick="pkListDelete('${r.id}')">Delete</button>`:''}</td></tr>`).join('')||`<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:18px;">No returns recorded yet. Open an order and click “Add to Return”.</td></tr>`;
+  const tableRows=tblData.map(r=>`<tr><td><span style="font-size:11px;font-weight:600;color:#e0913a;">Return-${r.return_no||1}</span></td><td style="white-space:nowrap;">${fmtDate(r.trip_date)}</td><td>${attEsc(r.ship_to)}</td><td>${attEsc(r.order_no)}</td><td style="font-size:12px;">${attEsc(r.line_nos)}</td><td style="font-size:12px;">${r.return_reason?attEsc(r.return_reason):'—'}</td><td>${attEsc(r.road)||'—'}</td><td>${attEsc(r.total_qty)}</td><td>${isAdmin()?`<button class="btn btn-reject btn-sm" onclick="pkListDelete('${r.id}')">Delete</button>`:''}</td></tr>`).join('')||`<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:18px;">No returns recorded yet. Open an order and click “Add to Return”.</td></tr>`;
   // road-wise grouping (day / month)
   const byPR={}; rets.forEach(r=>{ const per=pkRetGran==='day'?((r.trip_date||'').slice(0,10)||'—'):((r.trip_date||'').slice(0,7)||'—'); const rd=r.road||'—'; const key=per+'||'+rd; if(!byPR[key])byPR[key]={per,rd,n:0,q:0}; byPR[key].n++; byPR[key].q+=parseFloat(r.total_qty)||0; });
   const roadRows=Object.values(byPR).sort((a,b)=>String(b.per).localeCompare(String(a.per))||String(a.rd).localeCompare(String(b.rd))).map(x=>`<tr><td style="white-space:nowrap;">${pkRetGran==='day'?(x.per==='—'?'—':fmtDate(x.per)):(x.per==='—'?'—':monthLabel(x.per))}</td><td>${attEsc(x.rd)}</td><td style="text-align:center;">${x.n}</td><td style="text-align:center;">${x.q}</td></tr>`).join('')||`<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:14px;">No road data.</td></tr>`;
@@ -4313,9 +4416,9 @@ function pkRenderImport(){
      </div>
 
      <div style="margin-top:18px;border-top:1px solid var(--border);padding-top:14px;">
-       <div class="form-label" style="color:var(--red);">Danger zone</div>
-       ${(isAdmin()||isAuthorizer())?`<button class="btn btn-reject btn-sm" onclick="pkClearImport()">Clear ALL imported data</button>`:'<span style="font-size:12px;color:var(--muted);">Only Super Admin or Authorizer can clear imported data.</span>'}
-       ${(isAdmin()||isAuthorizer())?'<span style="font-size:12px;color:var(--muted);margin-left:8px;">Use this to wipe the old data, then import a fresh full file so only the latest shows.</span>':''}
+       ${isAdmin()?`<div class="form-label" style="color:var(--red);">Danger zone</div>
+       <button class="btn btn-reject btn-sm" onclick="pkClearImport()">Clear ALL imported data</button>
+       <span style="font-size:12px;color:var(--muted);margin-left:8px;">Use this to wipe the old data, then import a fresh full file so only the latest shows.</span>`:'<span style="font-size:12px;color:var(--muted);">Data clearing is restricted to the Super Admin.</span>'}
      </div>
    </div></div>`;
   pkLogoPreview();
@@ -4325,19 +4428,37 @@ function pkRenderImportLog(){
   const el=document.getElementById('pk-import-log'); if(!el)return;
   const log=(typeof CONTACTS!=='undefined'&&CONTACTS&&Array.isArray(CONTACTS.importLog))?CONTACTS.importLog:[];
   if(!log.length){ el.innerHTML='<div style="font-size:12px;color:var(--dim);">No files imported yet — uploaded file names will appear here.</div>'; return; }
-  const adm=(typeof isAdmin==='function'&&isAdmin());
-  const rows=log.slice(0,12).map((e,idx)=>{ const names=(e.names||[]).map(n=>'📄 '+attEsc(n)).join(', '); return `<tr><td style="white-space:nowrap;color:var(--muted);">${e.at?fmtDateTime(e.at):''}</td><td>${names||'—'}</td><td style="text-align:center;color:var(--accent2);">${e.count||0}</td>${adm?`<td style="text-align:center;"><button class="btn btn-reject btn-sm" title="Remove this import record (Super Admin only)" onclick="pkDeleteImportLog(${idx})">Delete</button></td>`:''}</tr>`; }).join('');
+  const adm=(typeof isAuthorizer==='function'&&isAuthorizer());
+  const rows=log.slice(0,12).map((e,idx)=>{ const names=(e.names||[]).map(n=>'📄 '+attEsc(n)).join(', '); const scoped=!!e.batch; return `<tr><td style="white-space:nowrap;color:var(--muted);">${e.at?fmtDateTime(e.at):''}</td><td>${names||'—'}${scoped?'':' <span style="font-size:10px;color:var(--dim);" title="Imported before file-level delete existed — its rows are not tagged, so only the history entry can be removed.">(legacy)</span>'}</td><td style="text-align:center;color:var(--accent2);">${e.count||0}</td>${adm?`<td style="text-align:center;"><button class="btn btn-reject btn-sm" title="${scoped?'Danger Zone — delete ONLY this file\'s imported rows (the rest of the dataset is untouched)':'Remove this history entry (its rows are not batch-tagged)'}" onclick="pkDeleteImportLog(${idx})">Delete</button></td>`:''}</tr>`; }).join('');
   el.innerHTML=`<div style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:6px;">Recent imports (uploaded files)</div><div style="overflow:auto;border:1px solid var(--border);border-radius:10px;"><table style="font-size:12px;"><thead><tr><th>When</th><th>File(s)</th><th style="text-align:center;">Lines</th>${adm?'<th style="text-align:center;">Action</th>':''}</tr></thead><tbody>${rows}</tbody></table></div>`;
 }
 async function pkDeleteImportLog(idx){
-  if(!(typeof isAdmin==='function'&&isAdmin())){ showToast('Only Super Admin can delete import records.','err'); return; }
+  // Danger Zone — Authorizer / Super Admin only. Deletes ONLY the selected import's rows
+  // (matched by their import_batch tag); it never refreshes or wipes the whole dataset.
+  if(!(typeof isAuthorizer==='function'&&isAuthorizer())){ showToast('Only an Authorizer or Super Admin can delete import records.','err'); return; }
   if(!(typeof CONTACTS!=='undefined'&&CONTACTS&&Array.isArray(CONTACTS.importLog)))return;
   const e=CONTACTS.importLog[idx]; if(!e)return;
   const nm=(e.names||[]).join(', ')||'this entry';
-  if(!confirm('Remove import record:\n'+nm+'\n\nThis removes the history entry only — it does NOT delete the imported order lines. To wipe the actual data use "Clear ALL imported data" below.'))return;
-  CONTACTS.importLog.splice(idx,1);
-  try{ if(typeof dbSaveContacts==='function')await dbSaveContacts(); showToast('Import record removed.'); }
-  catch(err){ showToast('Cloud save failed: '+(err.message||err),'err'); }
+  if(e.batch){
+    if(!confirm('⚠ DANGER ZONE — Delete imported file:\n'+nm+'\n\nThis permanently deletes ONLY the '+(e.count||0)+' order line(s) that came from this import. All other imported data stays untouched.\n\nContinue?'))return;
+    const typed=prompt('This cannot be undone. Type DELETE to confirm removing this import\'s data:');
+    if((typed||'').trim().toUpperCase()!=='DELETE'){ showToast('Cancelled — nothing was deleted.'); return; }
+    try{
+      const {error}=await sb.from('sample_lines').delete().eq('import_batch',e.batch);
+      if(error)throw error;
+      CONTACTS.importLog.splice(idx,1);
+      try{ if(typeof dbSaveContacts==='function')await dbSaveContacts(); }catch(_){}
+      pkOrder=null; pkResults=[]; if(typeof pkDashLines!=='undefined')pkDashLines=null;
+      showToast('Import "'+nm+'" deleted — only that file\'s rows were removed.');
+    }catch(err){ const m=(err.message||'')+(err.details||'');
+      if(/import_batch/i.test(m)) showToast('Cannot target this import — the import_batch column is missing. Run in Supabase: alter table sample_lines add column if not exists import_batch text;','err');
+      else showToast('Delete failed: '+(err.message||err),'err'); }
+  } else {
+    if(!confirm('Remove import record:\n'+nm+'\n\nThis import predates file-level deletion, so its rows are not batch-tagged. Only the history entry will be removed — the imported order lines stay in the database.'))return;
+    CONTACTS.importLog.splice(idx,1);
+    try{ if(typeof dbSaveContacts==='function')await dbSaveContacts(); showToast('Import record removed (history entry only).'); }
+    catch(err){ showToast('Cloud save failed: '+(err.message||err),'err'); }
+  }
   pkRenderImportLog();
 }
 function plantLabel(code){ const c=(''+(code==null?'':code)).trim(); if(!c||c==='—')return c||'—'; const m=(typeof CONTACTS!=='undefined'&&CONTACTS&&CONTACTS.plantNames)||{}; const nm=m[c]; return nm?(c+' — '+nm):c; }
@@ -4380,7 +4501,7 @@ function pkLogoPreview(){ const sel=document.getElementById('pk-logo-crop'); if(
 function pkImportNames(input){ const el=document.getElementById('pk-import-files'); if(!el)return; const fs=input&&input.files?[...input.files]:[]; if(!fs.length){ el.innerHTML=''; return; } el.innerHTML='<b>'+fs.length+' file'+(fs.length>1?'s':'')+' selected:</b><br>'+fs.map(f=>'📄 '+attEsc(f.name)).join('<br>'); }
 function pkCancelImport(){ const fi=document.getElementById('pk-file'); if(fi)fi.value=''; const el=document.getElementById('pk-import-files'); if(el)el.innerHTML=''; const st=document.getElementById('pk-import-status'); if(st)st.textContent='Selection cleared.'; }
 async function pkClearImport(){ if(packerBlocked())return;
-  if(!(isAdmin()||isAuthorizer())){ showToast('Only Super Admin or Authorizer can clear data.','err'); return; }
+  if(!isAdmin()){ showToast('The Danger Zone (Clear ALL imported data) is restricted to the Super Admin.','err'); return; }
   if(!confirm('Delete ALL imported sample-order data? This cannot be undone — you will import a fresh file afterwards.'))return;
   const st=document.getElementById('pk-import-status'); if(st)st.textContent='Clearing…';
   try{ await dbPkClearAll(); pkOrder=null; pkResults=[]; if(st)st.innerHTML='<span style="color:var(--green);font-weight:600;">All imported data cleared. Now upload a fresh file above.</span>'; showToast('Imported data cleared.'); }
@@ -4570,12 +4691,12 @@ async function pkSyncOrderStatuses(recs){
   // ===== ORDER-STATUS MAPPING CONFIG =====
   // Sources:  line_status (ERP import) · Trip List (CACHE.trips, per-line via line_nos) · Complete Delivery List (cdPosts).
   // Precedence (first match wins):
-  //   Delivery Completed  -> EVERY order line is in the Trip List  (OR every line Dispatched AND fully Acknowledged in the CD List)
+  //   Delivery Completed  -> the DN copy is uploaded (covering every line when copies are line-tagged),
+  //                          OR every line is Acknowledged in the CD List. Req. Time is then replaced by the Dispatch Date.
   //   Returned            -> order is in the Trip List as a return (Return-1, Return-2, …)
-  //   Partially Completed -> order is in the Complete Delivery List but not fully complete
-  //   Partially Delivered -> SOME (not all) order lines are in the Trip List
-  //   In Development      -> a line is Processing in Warehouse / Sent for Hub Despatch / PICKING_IN_WAREHOUSE /
-  //                          PARTIALLY_DELIVERED / Processing in Lab (or otherwise started but not yet tripped/CD)
+  //   Partially Completed -> order is on the Trip List with a Rider assigned (rider shows "On the Way"), or in the CD List
+  //   Partially Delivered -> on the Trip List but no rider assigned yet
+  //   In Processing       -> started (any line activity) but no DN uploaded and not on a trip yet
   //   Yet to Start        -> lines are Open (nothing started)
   // NOTE: "Sent for Hub Despatch" is deliberately NOT treated as Dispatched.
   const norm=s=>(''+(s||'')).trim();
@@ -4589,10 +4710,10 @@ async function pkSyncOrderStatuses(recs){
   recs.forEach(r=>{ const ono=(r.order_no||'').trim(); if(!ono)return; const k=ono.toLowerCase(); if(!byOrder[k])byOrder[k]={sts:[],lineSet:new Set()}; byOrder[k].sts.push(norm(r.line_status)); const ln=norm(r.line_no); if(ln)byOrder[k].lineSet.add(ln); });
   try{ if(typeof pkLoadTrips==='function')await pkLoadTrips(); }catch(_){}
   // Trip List: normal trips → tripByOrder (latest date) + tripLinesByOrder (set of line_nos); returns → returnByOrder.
-  const tripByOrder={}, returnByOrder={}, tripLinesByOrder={};
+  const tripByOrder={}, returnByOrder={}, tripLinesByOrder={}, riderByOrder={};
   (CACHE.trips||[]).forEach(t=>{ const k=(t.order_no||'').trim().toLowerCase(); if(!k)return;
     if(t.kind==='return'){ const rn=parseInt(t.return_no)||1; if(!returnByOrder[k]||rn>returnByOrder[k])returnByOrder[k]=rn; }
-    else { const d=t.trip_date||''; if(!tripByOrder[k]||d>tripByOrder[k])tripByOrder[k]=d; const set=tripLinesByOrder[k]||(tripLinesByOrder[k]=new Set()); cdParseLines(t.line_nos).forEach(x=>set.add(String(x))); } });
+    else { const d=t.trip_date||''; if(!tripByOrder[k]||d>tripByOrder[k])tripByOrder[k]=d; const set=tripLinesByOrder[k]||(tripLinesByOrder[k]=new Set()); cdParseLines(t.line_nos).forEach(x=>set.add(String(x))); if((''+(t.rider_name||'')).trim())riderByOrder[k]=1; } });
   // Complete Delivery List: any CD posting = order is in the list; fully acknowledged when every posting is 'done'.
   const cdByOrder={}; cdPosts().forEach(p=>{ const k=(p.orderNo||'').trim().toLowerCase(); if(!k)return; (cdByOrder[k]=cdByOrder[k]||[]).push(p); });
   const changed=[];
@@ -4621,17 +4742,21 @@ async function pkSyncOrderStatuses(recs){
     posts.forEach(p=>{ const meta=(p.deliveredMeta&&typeof p.deliveredMeta==='object')?p.deliveredMeta:{}; Object.keys(meta).forEach(kk=>{ const d=(meta[kk]&&meta[kk].delivDate)||''; if(d&&d>lastDeliv)lastDeliv=d; }); });
     let ns=null, nd=o.deliveredAt||null;
     const hasDnCopy=!!(o.noteFiles&&o.noteFiles.length)||!!o.noteFile;
+    // DN coverage: line-tagged copies must cover every order line; untagged copies count order-wide.
+    const _dnTag=new Set(); (o.noteFiles||[]).forEach(f=>(f.lines||[]).forEach(x=>_dnTag.add(String(x))));
+    const dnFull=hasDnCopy&&(_dnTag.size?(lineSet.size>0&&[...lineSet].every(x=>_dnTag.has(String(x)))):true);
+    const hasRider=!!riderByOrder[k];
     // Precedence:
     //   • order has a return (Return-1, Return-2, …) and NO DN copy yet -> Returned (shown as "Return-N (Ready Lines)")
     //   • once the DN copy is uploaded, completion applies again
     if(returnByOrder[k]&&!hasDnCopy){ ns='Returned'; }
-    else if(allInTrip||allAck){ ns='Delivery Completed'; nd=lastDeliv||o.deliveredAt||null; }    // all lines tripped or all acknowledged
+    else if(dnFull||allAck){ ns='Delivery Completed'; nd=lastDeliv||o.deliveredAt||null; }  // DN uploaded (full coverage) or fully acknowledged → Dispatch Date shown
     else if(returnByOrder[k]){ ns='Returned'; }                                       // return present, DN uploaded but not yet complete
-    else if(someInTrip){ ns='Partially Delivered'; nd=lastDeliv||o.deliveredAt||null; }     // some lines on a trip → Partially Delivered
+    else if(someInTrip&&hasRider){ ns='Partially Completed'; nd=lastDeliv||o.deliveredAt||null; } // on a trip with a rider assigned → "On the Way"
+    else if(someInTrip){ ns='Partially Delivered'; nd=lastDeliv||o.deliveredAt||null; }     // on a trip, rider not assigned yet
     else if(hasCd){ ns='Partially Completed'; nd=lastDeliv||o.deliveredAt||null; }         // posted to the Complete Delivery List (membership), nothing on a trip yet
-    else if(anyDev){ ns='In Development'; }                                            // in-development line statuses
     else if(allOpen||!nLines){ ns='Yet to Start'; }                                   // Open / nothing started
-    else { ns='In Development'; }                                                      // started (e.g. Dispatched) but not yet tripped/CD
+    else { ns='In Processing'; }                                                       // started (anyDev / dispatched lines) but no DN and not on a trip
     const _ndMatters=(ns==='Delivery Completed'||ns==='Partially Delivered'||ns==='Partially Completed');
     if(ns&&(o.status!==ns||(_ndMatters&&o.deliveredAt!==nd))){ o.status=ns; o.deliveredAt=nd; changed.push(orderToRow(o)); }
   });
@@ -4646,7 +4771,7 @@ async function pkDoImport(){
   const fi=document.getElementById('pk-file'); const files=fi?[...fi.files]:[];
   const st=document.getElementById('pk-import-status');
   if(!files.length){ showToast('Choose one or more files first.','err'); return; }
-  window.__pkPlantColMissing=false; window.__pkEnrichedColMissing=false;
+  window.__pkPlantColMissing=false; window.__pkEnrichedColMissing=false; window.__pkBatchColMissing=false; window.__pkRequesterColMissing=false;
   st.textContent='Loading reader…';
   try{
     await pkLoadSheetJS();
@@ -4669,6 +4794,9 @@ async function pkDoImport(){
       const headers=(aoa[hdrIdx]||[]).map(pkFieldFor);
       // "Enriched By" lives in column AW of the ERP export. If the header text didn't match, map it by position.
       if(!headers.includes('enriched_by')&&(aoa[hdrIdx]||[]).length>48&&!headers[48])headers[48]='enriched_by';
+      // Requester lives in column G and Requester Mobile in column H — map by position when the header text didn't match.
+      if(!headers.includes('requester')&&(aoa[hdrIdx]||[]).length>6&&!headers[6])headers[6]='requester';
+      if(!headers.includes('requester_mobile')&&(aoa[hdrIdx]||[]).length>7&&!headers[7])headers[7]='requester_mobile';
       if(!headers.includes('order_no')){ fileErrs.push(f.name); continue; }
       for(let i=hdrIdx+1;i<aoa.length;i++){
         const row=aoa[i]||[]; const o={};
@@ -4702,6 +4830,10 @@ async function pkDoImport(){
       }
     }
     const recs=Object.values(byId);
+    // Tag every line of this upload with one batch id so an incorrect import can later be
+    // removed on its own (file-level delete) without touching the rest of the dataset.
+    const __batch='imp_'+Date.now()+'_'+Math.random().toString(36).slice(2,6);
+    recs.forEach(r=>{ r.import_batch=__batch; });
     if(!recs.length){ st.innerHTML='<span style="color:var(--red);">No data rows found'+(fileErrs.length?(' — header not recognized in: '+attEsc(fileErrs.join(', '))):' in the file(s)')+'.</span>'; return; }
     let done=0; const batch=400;
     for(let i=0;i<recs.length;i+=batch){ await dbPkUpsert(recs.slice(i,i+batch)); done+=Math.min(batch,recs.length-i); st.textContent=`Imported ${done} / ${recs.length}…`; }
@@ -4711,11 +4843,13 @@ async function pkDoImport(){
     st.innerHTML=`<span style="color:var(--green);font-weight:600;">Done — ${recs.length} order lines added / updated from ${files.length} file(s).</span>${dupNote}${errNote} <span style="color:var(--muted);">Kept cumulatively — all historical data is retained.</span>`;
     if(window.__pkPlantColMissing){ st.innerHTML+=' <span style="color:#e0913a;">⚠ Delivery/Supply Plant was NOT saved — the database columns don\'t exist yet. Run the ALTER TABLE statements (add delivery_plant & supply_plant to sample_lines), then re-import to see plant breakdowns.</span>'; }
     if(window.__pkEnrichedColMissing){ st.innerHTML+=' <span style="color:#e0913a;">⚠ Enriched By was NOT saved — run in Supabase: <b>alter table sample_lines add column if not exists enriched_by text;</b> then re-import.</span>'; }
+    if(window.__pkBatchColMissing){ st.innerHTML+=' <span style="color:#e0913a;">⚠ Import-batch tag was NOT saved (file-level delete won\'t work for this import) — run in Supabase: <b>alter table sample_lines add column if not exists import_batch text;</b> then re-import.</span>'; }
+    if(window.__pkRequesterColMissing){ st.innerHTML+=' <span style="color:#e0913a;">⚠ Requester / Requester Mobile were NOT saved — run in Supabase: <b>alter table sample_lines add column if not exists requester text; alter table sample_lines add column if not exists requester_mobile text;</b> then re-import.</span>'; }
     try{ if(typeof pkLoadPlantMap==='function')await pkLoadPlantMap(true); }catch(_){}
     if(typeof pkDashLines!=='undefined')pkDashLines=null;
     try{ const nOrd=await pkAutoCreateOrders(recs); if(nOrd)st.innerHTML+=' <span style="color:var(--accent2);">＋ '+nOrd+' new order(s) added to Order Tracker (Created Date, Order No, Customer, Buyer, Delivery Zone & Responsibility auto-mapped).</span>'; }catch(_){}
     try{
-      if(typeof CONTACTS!=='undefined'&&CONTACTS){ if(!Array.isArray(CONTACTS.importLog))CONTACTS.importLog=[]; CONTACTS.importLog.unshift({names:files.map(f=>f.name), at:new Date().toISOString(), count:recs.length, by:(currentUser&&currentUser.name)||''}); CONTACTS.importLog=CONTACTS.importLog.slice(0,30); if(typeof dbSaveContacts==='function')await dbSaveContacts(); }
+      if(typeof CONTACTS!=='undefined'&&CONTACTS){ if(!Array.isArray(CONTACTS.importLog))CONTACTS.importLog=[]; CONTACTS.importLog.unshift({names:files.map(f=>f.name), at:new Date().toISOString(), count:recs.length, by:(currentUser&&currentUser.name)||'', batch:__batch}); CONTACTS.importLog=CONTACTS.importLog.slice(0,30); if(typeof dbSaveContacts==='function')await dbSaveContacts(); }
     }catch(_){}
     pkRenderImportLog();
     showToast('Import complete: '+recs.length+' lines from '+files.length+' file(s)'+(dupMerged?(' · '+dupMerged+' duplicate(s) ignored'):'')+'.');
