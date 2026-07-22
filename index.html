@@ -555,6 +555,19 @@ input[type="date"]::-moz-clear{display:none!important;}
     <div class="page" id="page-masterdata">
       <div class="section-hint">Manage master lists used in entry forms. The customer list, purposes, and FCE list all feed the dropdowns. Editable by authorizers and admin.</div>
       <div class="master-grid">
+        <div class="card" id="md-appctrl-card" style="grid-column:1/-1;display:none;">
+          <div class="card-header"><div><div class="card-title">App Access Control — Activate / Deactivate</div><div class="card-sub">Deactivating blocks every sign-in and signs out anyone already using the app. The Super Admin can still sign in, so you can always switch it back on.</div></div></div>
+          <div style="padding:14px;">
+            <div id="md-appctrl-state" style="font-size:13px;margin-bottom:12px;"></div>
+            <div class="form-group"><label class="form-label">Message shown to blocked users</label><input class="form-input" id="md-appctrl-msg" placeholder="e.g. System maintenance — back at 6:00 PM."/></div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+              <button class="btn btn-reject btn-sm" onclick="appCtrlSet(false)">Deactivate app</button>
+              <button class="btn btn-primary btn-sm" onclick="appCtrlSet(true)">Activate app</button>
+              <button class="btn btn-ghost btn-sm" onclick="appCtrlRefresh()">Refresh status</button>
+            </div>
+            <div id="md-appctrl-hint" style="font-size:11.5px;color:var(--muted);margin-top:10px;line-height:1.6;"></div>
+          </div>
+        </div>
         <div class="card" style="grid-column:1/-1;"><div class="card-header"><div><div class="card-title">Customer Mapping — App-wide Configuration</div><div class="card-sub">One template drives the whole app: <b>CS Name</b>, <b>Email ID</b>, <b>Mobile Number</b>, <b>FCE Name</b>, <b>Road Name</b> and the <b>Complete Delivery customer list</b> (by Sold-to code). Upload the filled template below — column-wise mapping is automatic. Shared to all PCs.</div></div></div>
           <div style="padding:14px;">
             <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:10px;">
@@ -1066,6 +1079,8 @@ async function doLogin(){
     btn.disabled=false;
     if(error||!data){ err.textContent='Invalid user ID or password.'; return; }
     if(data.password!==pw){ err.textContent='Invalid user ID or password.'; return; }
+    await dbGetAppControl();
+    if(appCtrlBlocks(data)){ err.textContent=appLockMessage(); return; }
     currentUser=data;
     sessionStorage.setItem('fce_session',JSON.stringify({id:data.id}));
     document.getElementById('login-pw').value='';
@@ -1081,6 +1096,8 @@ async function tryRestoreSession(){
   try{
     const {data}=await sb.from('app_users').select('*').eq('id',s.id).single();
     if(!data) return false;
+    await dbGetAppControl();
+    if(appCtrlBlocks(data)){ sessionStorage.removeItem('fce_session'); showAppLock(); return false; }
     currentUser=data;
     document.getElementById('login-screen').classList.add('hidden');
     setThemeColor(false);
@@ -1281,6 +1298,96 @@ function renderTaSubtabs(){
 }
 
 // ═══ BOOT ═══
+// ═══ APP ACCESS CONTROL — remote activate / deactivate (kill switch) ═════════
+// A single row in the `app_control` table decides whether the app accepts sign-ins.
+// If the table doesn't exist yet the app stays fully open (fail-open), so nobody is
+// locked out before the one-time SQL setup is run.
+let APP_CTRL={is_active:true,message:'',updated_by:'',updated_at:null,missing:false};
+const APP_LOCK_DEFAULT='The SC Digital Team app is temporarily unavailable. Please try again later or contact your Super Admin.';
+function appLockMessage(){ return (APP_CTRL.message||'').trim()||APP_LOCK_DEFAULT; }
+function appCtrlBlocks(user){ return !APP_CTRL.is_active && !(user&&user.role==='admin'); }
+
+async function dbGetAppControl(){
+  if(!CONFIGURED){ APP_CTRL.missing=true; APP_CTRL.is_active=true; return APP_CTRL; }
+  try{
+    const {data,error}=await sb.from('app_control').select('*').eq('id',1).single();
+    if(error) throw error;
+    APP_CTRL={is_active:data.is_active!==false, message:data.message||'', updated_by:data.updated_by||'',
+              updated_at:data.updated_at||null, missing:false};
+  }catch(e){ APP_CTRL.missing=true; APP_CTRL.is_active=true; }   // fail-open
+  return APP_CTRL;
+}
+async function dbSetAppControl(active,msg){
+  const row={id:1,is_active:!!active,message:(msg||'').trim(),
+             updated_by:(currentUser&&currentUser.name)||'',updated_at:new Date().toISOString()};
+  const {error}=await sb.from('app_control').upsert(row);
+  if(error) throw error;
+  return dbGetAppControl();
+}
+
+function showAppLock(){
+  let el=document.getElementById('app-lock');
+  if(!el){ el=document.createElement('div'); el.id='app-lock'; document.body.appendChild(el); }
+  el.style.cssText='position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;padding:24px;background:#073A90;';
+  el.innerHTML='<div style="max-width:420px;width:100%;text-align:center;background:linear-gradient(155deg,rgba(12,62,150,.55),rgba(4,50,143,.62));border:1px solid rgba(255,255,255,.45);border-radius:24px;padding:30px 26px;color:#eaf3ff;box-shadow:0 20px 52px rgba(3,12,38,.45);">'
+    +'<div style="font-size:38px;line-height:1;margin-bottom:10px;">🔒</div>'
+    +'<div style="font-size:20px;font-weight:700;margin-bottom:8px;">App temporarily deactivated</div>'
+    +'<div style="font-size:13px;opacity:.92;line-height:1.6;margin-bottom:18px;">'+attEsc(appLockMessage())+'</div>'
+    +'<button class="btn btn-primary btn-sm" onclick="location.reload()">Try again</button></div>';
+}
+function hideAppLock(){ const el=document.getElementById('app-lock'); if(el)el.remove(); }
+
+// Watch for the switch being flipped while people are working (checked every 60s).
+let __appCtrlTimer=null;
+function startAppCtrlWatch(){
+  if(__appCtrlTimer)clearInterval(__appCtrlTimer);
+  const check=async()=>{
+    if(!currentUser)return;
+    await dbGetAppControl();
+    if(appCtrlBlocks(currentUser)){ try{ doLogout(); }catch(_){} showAppLock(); }
+    else { try{ renderAppControl(); }catch(_){} }
+  };
+  __appCtrlTimer=setInterval(check,60000);
+  document.addEventListener('visibilitychange',function(){ if(!document.hidden)check(); });
+}
+
+// ── Master Data card ──
+function renderAppControl(){
+  const card=document.getElementById('md-appctrl-card'); if(!card)return;
+  card.style.display=isAdmin()?'':'none';
+  if(!isAdmin())return;
+  const st=document.getElementById('md-appctrl-state');
+  const hint=document.getElementById('md-appctrl-hint');
+  const msg=document.getElementById('md-appctrl-msg');
+  if(msg&&document.activeElement!==msg)msg.value=APP_CTRL.message||'';
+  if(st){
+    st.innerHTML = APP_CTRL.is_active
+      ? '<span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#46e6a0;margin-right:7px;"></span><b style="color:#46e6a0;">ACTIVE</b> — everyone can sign in normally.'
+      : '<span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#ff5a5f;margin-right:7px;"></span><b style="color:#ff5a5f;">DEACTIVATED</b> — sign-ins are blocked for all users except the Super Admin.';
+    if(APP_CTRL.updated_at) st.innerHTML+='<div style="font-size:11.5px;color:var(--muted);margin-top:4px;">Last changed '+fmtDateTime(APP_CTRL.updated_at)+(APP_CTRL.updated_by?(' by '+attEsc(APP_CTRL.updated_by)):'')+'</div>';
+  }
+  if(hint){
+    hint.innerHTML = APP_CTRL.missing
+      ? '⚠ The <b>app_control</b> table was not found, so the switch is inactive and the app stays open. Run the one-time SQL setup in Supabase (see APP_ACCESS_CONTROL.sql), then press “Refresh status”.'
+      : 'Users are checked at sign-in and again every minute, so anyone already signed in is signed out within about a minute of deactivating.';
+  }
+}
+async function appCtrlRefresh(){ await dbGetAppControl(); renderAppControl(); showToast('Status refreshed.'); }
+async function appCtrlSet(active){
+  if(!isAdmin()){ showToast('Only the Super Admin can activate or deactivate the app.','err'); return; }
+  const msg=((document.getElementById('md-appctrl-msg')||{}).value||'').trim();
+  if(!active && !confirm('Deactivate the app?\n\nEveryone except the Super Admin will be signed out and blocked from signing in until you activate it again.'))return;
+  try{
+    await dbSetAppControl(active,msg);
+    renderAppControl();
+    showToast(active?'App activated — users can sign in again.':'App deactivated — sign-ins are now blocked.');
+  }catch(e){
+    const m=(e.message||'')+(e.details||'');
+    if(/app_control/i.test(m)) showToast('Setup needed — run APP_ACCESS_CONTROL.sql in Supabase first.','err');
+    else showToast('Failed: '+(e.message||e),'err');
+  }
+}
+
 async function bootApp(){
   document.getElementById('full-loader').classList.remove('hidden');
   document.getElementById('loader-text').textContent='Loading data from cloud…';
@@ -1291,6 +1398,7 @@ async function bootApp(){
   document.getElementById('current-role-label').textContent=ROLE_LABELS[currentUser.role]
     ? ROLE_LABELS[currentUser.role](currentUser)
     : 'FCE User · '+(currentUser.station||'own data');
+  try{ await dbGetAppControl(); startAppCtrlWatch(); }catch(_){}
   populateAllSelects(); populateMonthFilters();
   document.getElementById('total-pill-label').textContent=isFCE()?'My Approved TA':'Approved TA';
   // Adaptive sidebar title: logistics-only users see "Sample Order Tracker"
@@ -1684,6 +1792,7 @@ function renderMasterData(){
   rrRender();
   const act=document.getElementById('md-cmap-actions'); if(act)act.style.display=isAdmin()?'':'none'; // Customer Mapping (Sample Packing data sheet) — Super Admin only
   document.querySelectorAll('#page-masterdata .add-item-row').forEach(r=>{ r.style.display=isAuthorizer()?'':'none'; });
+  renderAppControl();
   if(document.getElementById('master-fce-list')) renderMasterList('master-fce-list',m.fce,'fce');
   renderMasterList('master-purpose-list',m.purposes,'purpose');
   renderMasterList('master-reason-list',m.reasons,'reason');
