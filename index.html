@@ -680,6 +680,16 @@ input[type="date"]::-moz-clear{display:none!important;}
           <select class="filter-sel" id="order-plant-filter" onchange="ordPage=1;renderOrders()" title="Filter by the order's Delivery Plant (from the ERP import)"><option value="">Delivery Plant</option></select>
           <input class="search-pill" type="text" id="order-resp-filter" list="order-resp-list" placeholder="Responsibility to…" oninput="ordPage=1;renderOrders()" style="width:185px;"/>
           <datalist id="order-resp-list"></datalist>
+          <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;" title="Filter by the order's Creation Date">
+            <span style="font-size:12px;color:var(--muted);font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:.05em;">Creation date</span>
+            <input class="filter-sel" type="date" id="order-cd-from" onchange="ordPage=1;renderOrders()" style="width:152px;" title="From"/>
+            <span style="font-size:12px;color:var(--muted);">to</span>
+            <input class="filter-sel" type="date" id="order-cd-to" onchange="ordPage=1;renderOrders()" style="width:152px;" title="To"/>
+            <button class="btn btn-ghost btn-sm" onclick="ordCdPreset(7)" title="Last 7 days">7d</button>
+            <button class="btn btn-ghost btn-sm" onclick="ordCdPreset(30)" title="Last 30 days">30d</button>
+            <button class="btn btn-ghost btn-sm" onclick="ordCdClear()" title="Show every date">All dates</button>
+          </div>
+          <span style="font-size:12px;color:#e08a8a;font-style:italic;width:100%;">(Default dates selected for 7 days — alter if required)</span>
           <span class="count-badge" id="order-count">—</span>
           <button class="btn btn-ghost btn-sm" onclick="openServiceReview()" title="Service performance review — by month, service & task"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Service Review</button>
           <button class="btn btn-ghost btn-sm" id="order-csend-btn" onclick="openCombinedSendModal()" title="Send one combined message per assigned person"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>Send combined</button>
@@ -2841,6 +2851,29 @@ function renderServiceReview(){
     <div style="font-size:12px;color:var(--muted);margin-bottom:8px;">How many consignments each service (Excelsior Courier / FCE (Urgent) / Supply Chain Van) handled — split by task.</div>
     <div style="overflow:auto;"><table><thead><tr><th>Service By</th><th>DTM (Swatch/Other Ref.)</th><th>Shade Known</th><th>Total Consignments</th></tr></thead><tbody>${rows}</tbody><tfoot>${foot}</tfoot></table></div>`;
 }
+// ── Creation Date range (From – To) ────────────────────────────────────────
+// Defaults to the last 7 days, as agreed; the presets and "All dates" let the user widen it.
+function ordCdPreset(days){
+  const to=new Date(), from=new Date(); from.setDate(from.getDate()-(days-1));
+  const f=document.getElementById('order-cd-from'), t=document.getElementById('order-cd-to');
+  if(f)f.value=from.toISOString().split('T')[0];
+  if(t)t.value=to.toISOString().split('T')[0];
+  ordPage=1; renderOrders();
+}
+function ordCdClear(){
+  const f=document.getElementById('order-cd-from'), t=document.getElementById('order-cd-to');
+  if(f)f.value=''; if(t)t.value='';
+  ordPage=1; renderOrders();
+}
+let __ordCdInit=false;
+function ordCdInitDefault(){
+  if(__ordCdInit)return; __ordCdInit=true;
+  const f=document.getElementById('order-cd-from'), t=document.getElementById('order-cd-to');
+  if(!f||!t||f.value||t.value)return;
+  const to=new Date(), from=new Date(); from.setDate(from.getDate()-6);
+  f.value=from.toISOString().split('T')[0];
+  t.value=to.toISOString().split('T')[0];
+}
 function renderOrders(){
   buildOrderStatusBar();
   // Lazy-load creation-date + plant map from sample_lines the first time the Order Tracker renders,
@@ -2867,6 +2900,9 @@ function renderOrders(){
   const taskF=document.getElementById('order-task-filter').value;
   const zoneF=(document.getElementById('order-zone-filter')||{}).value||'';
   const serviceF=(document.getElementById('order-service-filter')||{}).value||'';
+  ordCdInitDefault();
+  const cdFrom=(document.getElementById('order-cd-from')||{}).value||'';
+  const cdTo=(document.getElementById('order-cd-to')||{}).value||'';
   const plantF=(document.getElementById('order-plant-filter')||{}).value||'';
   { const pf=document.getElementById('order-plant-filter'); if(pf){ const cur=pf.value; const plants=(CACHE&&CACHE.plantDel)||[]; pf.innerHTML='<option value="">Delivery Plant</option>'+plants.map(p=>`<option ${cur===p?'selected':''}>${attEsc(p)}</option>`).join(''); pf.value=cur; } }
   const respF=((document.getElementById('order-resp-filter')||{}).value||'').toLowerCase().trim();
@@ -2880,6 +2916,12 @@ function renderOrders(){
     if(zoneF&&(ordDeliveryZoneFor(o)||o.to||'')!==zoneF)return false;
     if(plantF){ const pm=(CACHE&&CACHE.plantMap)||{}; const e=pm[(o.orderNo||'').trim()]; if(!e||(e.dp||'')!==plantF)return false; }
     if(serviceF){ if(ordServiceFor(o)!==serviceF)return false; }
+    if(cdFrom||cdTo){
+      const cd=(ordCreationDateFor(o)||'').slice(0,10);
+      if(!cd)return false;                       // no creation date → outside any range
+      if(cdFrom&&cd<cdFrom)return false;
+      if(cdTo&&cd>cdTo)return false;
+    }
     if(respF&&!((o.fce||'').toLowerCase().includes(respF)))return false;
     if(noF&&!((o.orderNo||'').toLowerCase().includes(noF)||(o.customer||'').toLowerCase().includes(noF)||(o.buyer||'').toLowerCase().includes(noF)))return false;
     if(srch&&!(o.customer||'').toLowerCase().includes(srch)&&!(o.buyer||'').toLowerCase().includes(srch)&&!(o.orderNo||'').toLowerCase().includes(srch)&&!(o.fce||'').toLowerCase().includes(srch))return false;
