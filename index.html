@@ -572,6 +572,7 @@ input[type="date"]::-moz-clear{display:none!important;}
           <div style="padding:14px;">
             <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:10px;">
               <div id="md-cmap-status" style="flex:1;min-width:260px;font-size:12px;line-height:1.7;color:var(--muted);">Loading mapping status…</div>
+              <button class="btn btn-ghost btn-sm" onclick="mdReloadMapping()" title="Re-fetch the mapping from the server">Reload mapping</button>
               <div style="display:flex;gap:8px;flex-wrap:wrap;" id="md-cmap-actions">
                 <input class="search-pill" id="md-map-search" type="text" placeholder="Search customer / code / CS / road…" style="min-width:230px;" oninput="mdMapPage=1;mdRenderMapTable()"/>
                 <button class="btn btn-primary btn-sm" onclick="mdEditMapRow(-1)">＋ Add mapping</button>
@@ -1662,8 +1663,17 @@ function closeModal(id){ document.getElementById(id).classList.remove('open'); }
 function mdPaintMapStatus(){
   const el=document.getElementById('md-cmap-status'); if(!el)return;
   const cs=(PKM.csCount||0), roads=(PKM.shipRoad&&PKM.shipRoad.size)||0, cd=(PKM.cdSoldCodes&&PKM.cdSoldCodes.size)||0, fce=(PKM.respBySoldCode&&PKM.respBySoldCode.size)||((PKM.shipResp&&PKM.shipResp.size)||0);
-  if(!cs&&!roads&&!cd){ el.innerHTML='<span style="color:var(--red);">⚠ No mapping loaded yet.</span> Download the template, fill it column-wise, then upload.'; return; }
-  el.innerHTML='✓ Mapping loaded: <b style="color:var(--green);">'+cs.toLocaleString()+'</b> CS contacts (name / email / mobile) · <b style="color:var(--green);">'+roads.toLocaleString()+'</b> road mappings · <b style="color:var(--green);">'+fce.toLocaleString()+'</b> FCE assignments · <b style="color:'+(cd?'var(--green)':'#ff9f5a')+';">'+cd+'</b> Complete-Delivery customers. Feeds DN/Sticker Road Name, CS details, Order Tracker auto-fill and Complete Delivery.';
+  const _retry=' <a href="javascript:void(0)" onclick="mdReloadMapping()" style="color:var(--accent2);">Reload mapping</a>';
+  if(PKM.loading&&!cs&&!roads&&!cd){ el.innerHTML='<span style="color:var(--muted);">⏳ Loading mapping…</span>'; return; }
+  if(!cs&&!roads&&!cd){
+    el.innerHTML = PKM.loadErr
+      ? '<span style="color:#e0913a;">⚠ Could not load the mapping.</span> '+attEsc(PKM.loadErr)+' — your data is safe on the server.'+_retry
+      : '<span style="color:var(--red);">⚠ No mapping loaded yet.</span> Download the template, fill it column-wise, then upload.'+_retry;
+    return;
+  }
+  el.innerHTML='✓ Mapping loaded: <b style="color:var(--green);">'+cs.toLocaleString()+'</b> CS contacts (name / email / mobile) · <b style="color:var(--green);">'+roads.toLocaleString()+'</b> road mappings · <b style="color:var(--green);">'+fce.toLocaleString()+'</b> FCE assignments · <b style="color:'+(cd?'var(--green)':'#ff9f5a')+';">'+cd+'</b> Complete-Delivery customers. Feeds DN/Sticker Road Name, CS details, Order Tracker auto-fill and Complete Delivery.'
+    +(PKM.loadErr?'<div style="margin-top:5px;color:#e0913a;">⚠ Showing the last saved copy — '+attEsc(PKM.loadErr)+_retry+'</div>':'')
+    +(PKM.fromCache&&!PKM.loadErr?'<div style="margin-top:5px;color:var(--muted);">Loaded from this PC\'s saved copy.'+_retry+'</div>':'');
 }
 function mdDownloadTemplate(){
   const headers=['Sold to Party','Sold to Party Name','Ship to Party Code','Ship to Party Name','Customer Group','Zone','Sales Rep Des','CS-Rep','FCE Name','Tech_Rep','CS Mail ID','CS Mobile No.','Road Name','Complated Customer code','Complated Customer Name'];
@@ -1718,7 +1728,14 @@ function mdRenderMapTable(){
   const all=mdCmRows();
   const list=q?all.filter(({r})=>((r[1]||'')+' '+(r[3]||'')+' '+(r[4]||'')+' '+(r[7]||'')+' '+(r[2]||'')+' '+(r[8]||'')+' '+(r[10]||'')).toLowerCase().includes(q)):all;
   const adm=isAdmin();
-  if(!all.length){ box.innerHTML='<div style="font-size:12px;color:var(--muted);padding:10px 0;">No mapping rows yet — add one with ＋ Add mapping, or bulk-upload the template once.</div>'; return; }
+  if(!all.length){
+    box.innerHTML = PKM.loading
+      ? '<div style="font-size:13px;color:var(--muted);padding:10px 0;">⏳ Loading mapping rows…</div>'
+      : (PKM.loadErr
+          ? '<div style="font-size:13px;color:#e0913a;padding:10px 0;">⚠ The mapping could not be loaded ('+attEsc(PKM.loadErr)+'). Nothing has been deleted — <a href="javascript:void(0)" onclick="mdReloadMapping()" style="color:var(--accent2);">try again</a>.</div>'
+          : '<div style="font-size:13px;color:var(--muted);padding:10px 0;">No mapping rows yet — add one with ＋ Add mapping, or bulk-upload the template once.</div>');
+    return;
+  }
   const total=list.length;
   const totalPages=Math.max(1,Math.ceil(total/mdMapPageSize));
   if(mdMapPage>totalPages)mdMapPage=totalPages;
@@ -4932,12 +4949,59 @@ function pkmBuild(at,cm){
     const nm=pkmEmailName(e).toLowerCase(); if(nm&&!PKM.csMobByName.has(nm))PKM.csMobByName.set(nm,mob); });
   PKM.texCount=PKM.tex.size; PKM.csCount=PKM.csMob.size;
 }
-async function dbPkmLoad(){
-  try{ const {data,error}=await sb.from('oor_master').select('*').eq('id',1).maybeSingle(); if(error)throw error;
-    pkmBuild((data&&data.art_tkt)||[],(data&&data.customer_map)||[]); PKM.texUpd=(data&&data.art_updated)||''; PKM.csUpd=(data&&data.cust_updated)||'';
-    try{ lsSet('pkm_cache',{at:(data&&data.art_tkt)||[],cm:(data&&data.customer_map)||[],au:PKM.texUpd,cu:PKM.csUpd}); }catch(e){}
-  }catch(e){ const c=lsGet('pkm_cache',null); if(c){ pkmBuild(c.at||[],c.cm||[]); PKM.texUpd=c.au||''; PKM.csUpd=c.cu||''; } else { pkmBuild([],[]); } }
-  PKM.loaded=true;
+async function dbPkmLoad(force){
+  PKM.loadErr=''; PKM.fromCache=false; PKM.loading=true;
+  try{ mdPaintMapStatus(); }catch(_){}
+  // Show the last known copy immediately so the table is never blank while loading.
+  if(!PKM.loaded){
+    const c0=lsGet('pkm_cache',null);
+    if(c0&&((c0.cm&&c0.cm.length)||(c0.at&&c0.at.length))){
+      pkmBuild(c0.at||[],c0.cm||[]); PKM.texUpd=c0.au||''; PKM.csUpd=c0.cu||''; PKM.fromCache=true;
+      try{ mdPaintMapStatus(); mdRenderMapTable(); }catch(_){}
+    }
+  }
+  let data=null, lastErr=null;
+  for(let attempt=1; attempt<=3; attempt++){
+    try{
+      const r=await sb.from('oor_master').select('*').eq('id',1).maybeSingle();
+      if(r.error) throw r.error;
+      data=r.data; lastErr=null; break;
+    }catch(e){
+      lastErr=e;
+      if(attempt<3) await new Promise(res=>setTimeout(res, attempt*700));  // back off, then retry
+    }
+  }
+  if(lastErr){
+    // Keep whatever we already have — never wipe good data because of a bad request.
+    PKM.loadErr=(lastErr.message||String(lastErr));
+    const c=lsGet('pkm_cache',null);
+    if(!PKM.csCount && c){ pkmBuild(c.at||[],c.cm||[]); PKM.texUpd=c.au||''; PKM.csUpd=c.cu||''; }
+    PKM.fromCache=true;
+  } else {
+    const at=(data&&data.art_tkt)||[], cm=(data&&data.customer_map)||[];
+    const cached=lsGet('pkm_cache',null);
+    const hadCache=!!(cached&&cached.cm&&cached.cm.length);
+    if(!cm.length && hadCache && !force){
+      // The server returned nothing but we hold a good copy — treat as a bad read,
+      // keep the cache and flag it rather than silently emptying the app.
+      pkmBuild(cached.at||[],cached.cm||[]); PKM.texUpd=cached.au||''; PKM.csUpd=cached.cu||'';
+      PKM.fromCache=true; PKM.loadErr='Server returned an empty mapping — showing the last saved copy.';
+    } else {
+      pkmBuild(at,cm); PKM.texUpd=(data&&data.art_updated)||''; PKM.csUpd=(data&&data.cust_updated)||'';
+      // Only cache a non-empty result, so a bad read can never destroy the fallback.
+      if(cm.length||at.length){ try{ lsSet('pkm_cache',{at:at,cm:cm,au:PKM.texUpd,cu:PKM.csUpd}); }catch(_){} }
+    }
+  }
+  PKM.loaded=true; PKM.loading=false;
+  // The Master Data page may have rendered before this finished — repaint it now.
+  try{ mdPaintMapStatus(); mdRenderMapTable(); }catch(_){}
+  try{ if(typeof pkmPaintStatus==='function')pkmPaintStatus(); }catch(_){}
+}
+// Manual retry from the Master Data screen.
+async function mdReloadMapping(){
+  showToast('Reloading mapping…');
+  await dbPkmLoad(true);
+  showToast(PKM.loadErr ? ('Reload problem: '+PKM.loadErr) : ('Mapping reloaded — '+((PKM.shipRoad&&PKM.shipRoad.size)||0).toLocaleString()+' road mappings.'), PKM.loadErr?'err':'ok');
 }
 async function dbPkmSaveTex(arr){ const {error}=await sb.from('oor_master').upsert({id:1,art_tkt:arr,art_updated:new Date().toISOString()}); if(error)throw error; }
 async function dbPkmSaveCs(arr){ const {error}=await sb.from('oor_master').upsert({id:1,customer_map:arr,cust_updated:new Date().toISOString()}); if(error)throw error; }
