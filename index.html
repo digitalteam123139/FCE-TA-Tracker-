@@ -3572,8 +3572,15 @@ function onZoneSelect(sel){ if(sel.value==='__new__'){ const v=prompt('New deliv
 
 /* ── Leave types & balances ── */
 const LEAVE_KEY='sc_leave_types';
-const DEFAULT_LEAVE_TYPES=[{key:'sick',name:'Sick Leave',code:'SL',days:14},{key:'annual',name:'Annual Leave',code:'AL',days:20},{key:'casual',name:'Casual Leave',code:'CL',days:10}];
-function getLeaveTypes(){ const v=lsGet(LEAVE_KEY,null); return (Array.isArray(v)&&v.length)?v:DEFAULT_LEAVE_TYPES.slice(); }
+const DEFAULT_LEAVE_TYPES=[{key:'sick',name:'Sick Leave',code:'SL',days:14},{key:'annual',name:'Annual Leave',code:'AL',days:20},{key:'casual',name:'Casual Leave',code:'CL',days:10},{key:'lieu',name:'Leave in Lieu',code:'LL',days:0}];
+// Built-in types must always be present, even for users whose saved list predates one
+// of them (the list is stored per-browser, so an older save would be missing "Leave in Lieu").
+function ensureBuiltInLeaveTypes(arr){
+  const out=Array.isArray(arr)?arr.slice():[];
+  DEFAULT_LEAVE_TYPES.forEach(d=>{ if(!out.some(t=>t&&t.key===d.key))out.push({...d}); });
+  return out;
+}
+function getLeaveTypes(){ const v=lsGet(LEAVE_KEY,null); return ensureBuiltInLeaveTypes((Array.isArray(v)&&v.length)?v:DEFAULT_LEAVE_TYPES.slice()); }
 function saveLeaveTypes(a){ lsSet(LEAVE_KEY,a); }
 function leaveKeys(){ return getLeaveTypes().map(t=>t.key); }
 function isLeaveStatus(s){ return s==='leave'||leaveKeys().includes(s); }
@@ -5252,13 +5259,15 @@ function pkPrintDN(){
    +'</table>'
    +'<table class="lines"><thead><tr><th>Line No</th><th>COATS BRAND/Tex</th><th>PRODUCT CODE</th><th>SHADE CODE</th><th>QTY</th><th>STYLE/REF NO</th><th>COMMENTS / REMARKS</th></tr></thead><tbody>'+rows+'</tbody></table>'
    +'<div class="sign"><div class="box">Receiver\'s Signature &amp; Date</div></div>';
-  const css='@page{size:A4 '+pkDnOrient()+';margin:10mm;}'
-   +'.so-hdr{display:flex;align-items:center;margin-bottom:12px;}'
-   +'.so-hdr .lg{flex:0 0 auto;}.so-hdr .ttl{flex:1;text-align:center;line-height:1.2;}.so-hdr .ttl .t1{display:block;font-size:22px;font-weight:bold;letter-spacing:.3px;}.so-hdr .ttl .t2{display:block;font-size:16px;font-weight:bold;letter-spacing:.3px;margin-top:2px;}'
+  const css='@page{size:A4 '+pkDnOrient()+';margin:14mm 8mm 10mm;}'
+   +'@media print{body{margin:0!important;padding:0!important;}}'
+   +'.so-hdr{display:flex;align-items:center;margin-bottom:12px;width:100%;padding-top:2mm;}'
+   +'.so-hdr .lg{flex:0 0 auto;overflow:visible;}.so-hdr .ttl{flex:1;text-align:center;line-height:1.2;}.so-hdr .ttl .t1{display:block;font-size:22px;font-weight:bold;letter-spacing:.3px;}.so-hdr .ttl .t2{display:block;font-size:16px;font-weight:bold;letter-spacing:.3px;margin-top:2px;}'
    +'.so-hdr .rd{min-width:160px;}.roadbox{border:1px solid #000;padding:6px 10px;font-size:13px;min-height:36px;}.roadbox b{margin-right:6px;}'
    +'.info{border-collapse:collapse;width:100%;margin-bottom:12px;}'
    +'.info td{border:1px solid #000;padding:6px 9px;font-size:12px;}'
-   +'.info td.k{font-weight:bold;background:#eef1f5;width:15%;}'
+   +'.info td.k{font-weight:bold;background:#eef1f5;width:13%;white-space:nowrap;}'
+   +'.info td{word-break:break-word;overflow-wrap:anywhere;}'
    +'.lines{border-collapse:collapse;width:100%;}'
    +'.lines th,.lines td{border:1px solid #000;padding:5px 7px;font-size:11px;}'
    +'.lines th{background:#1f3a5f;color:#fff;}'
@@ -5275,10 +5284,10 @@ async function pkPrintSticker(){
   const body=''
    +'<div class="hdr"><div class="brand">'+pkLogoImg(false)+'</div><div class="dtwrap"><div class="dt">'+pkNow()+'</div><div class="roadbox"><b>Road Name:</b><span>'+attEsc(road||'')+'</span></div></div></div>'
    +'<table class="st">'
-   +row('Ship to Party Name:',o.shipTo,true)
+   +row('Ship to Party Name:',o.shipTo)
    +row('Requester Name:',o.requester)
    +row('Buyer Name:',o.buyer)
-   +row('Customer Order Ref. No:',o.orderNo,true)
+   +row('Customer Order Ref. No:',o.orderNo)
    +row('Lines No:',lineNos)
    +row('Requester Mobile No:',o.mobile)
    +row('Style No:',o.styleNo)
@@ -5302,14 +5311,21 @@ async function pkPrintSticker(){
 function pkTripPrintRows(rows,date,road){
   if(!rows.length){ showToast('Nothing to print — tick rows or add orders first.','err'); return; }
   let tq=0,tc=0;
-  const tr=rows.map((t,i)=>{tq+=+t.total_qty||0;tc+=+t.carton_qty||0;const ret=t.kind==='return'?('Return-'+(t.return_no||1)):'';return '<tr><td style="text-align:center;">'+(i+1)+'</td><td>'+attEsc(t.ship_to)+'</td><td>'+attEsc(t.order_no)+'</td><td>'+attEsc(t.line_nos)+'</td><td style="text-align:center;">'+attEsc(t.total_qty)+'</td><td style="text-align:center;">'+attEsc(t.carton_qty)+'</td><td style="text-align:center;color:#c2691f;font-weight:600;">'+ret+'</td></tr>';}).join('');
+  const tr=rows.map((t,i)=>{tq+=+t.total_qty||0;tc+=+t.carton_qty||0;const ret=t.kind==='return'?('Return-'+(t.return_no||1)):'';return '<tr><td style="text-align:center;">'+(i+1)+'</td><td>'+attEsc(t.ship_to)+'</td><td>'+attEsc(t.order_no)+'</td><td style="word-break:break-word;overflow-wrap:anywhere;line-height:1.5;">'+attEsc(t.line_nos)+'</td><td style="text-align:center;">'+attEsc(t.total_qty)+'</td><td style="text-align:center;">'+attEsc(t.carton_qty)+'</td><td style="text-align:center;color:#c2691f;font-weight:600;">'+ret+'</td></tr>';}).join('');
   const body='<div class="so-hdr"><div class="lg">'+pkLogoImg(false)+'</div><div class="ttl">Sampling Trip Schedule</div><div class="lg"></div></div>'
     +'<div class="kv"><b>Date:</b><span>'+fmtDate(date)+'</span><b>Road Name:</b><span>'+attEsc(road||'—')+'</span></div>'
-    +'<table><thead><tr><th>Serial</th><th>Ship to Party Name</th><th>Sample Order No</th><th>Line Nos</th><th>Ordered Qty</th><th>Carton Qty</th><th>Return</th></tr></thead><tbody>'+tr
+    +'<table><colgroup><col class="c1"><col class="c2"><col class="c3"><col class="c4"><col class="c5"><col class="c6"><col class="c7"></colgroup>'
+    +'<thead><tr><th>Serial</th><th>Ship to Party Name</th><th>Sample Order No</th><th>Line Nos</th><th>Ordered Qty</th><th>Carton Qty</th><th>Return</th></tr></thead><tbody>'+tr
     +'<tr><td colspan="4" style="text-align:right;font-weight:bold;">Total:</td><td style="font-weight:bold;text-align:center;">'+tq+'</td><td style="font-weight:bold;text-align:center;">'+tc+'</td><td></td></tr></tbody></table>';
-  const css='@page{size:A4 portrait;margin:10mm;}'
-    +'.so-hdr{display:flex;align-items:center;margin-bottom:12px;}'
-    +'.so-hdr .lg{flex:0 0 auto;}.so-hdr .ttl{flex:1;text-align:center;font-size:22px;font-weight:bold;letter-spacing:.3px;transform:translateX(-1.5cm);}';
+  const css='@page{size:A4 portrait;margin:14mm 8mm 10mm;}'
+    +'@media print{body{margin:0!important;padding:0!important;}}'
+    +'.so-hdr{display:flex;align-items:center;margin-bottom:12px;width:100%;padding-top:2mm;}'
+    // Title nudged slightly left of dead-centre so it sits better against the logo block.
+    +'.so-hdr .lg{flex:0 0 auto;overflow:visible;}.so-hdr .ttl{flex:1;text-align:center;font-size:22px;font-weight:bold;letter-spacing:.3px;transform:translateX(-0.7cm);}'
+    +'table{table-layout:fixed;width:100%;}'
+    +'th,td{word-break:break-word;overflow-wrap:anywhere;vertical-align:top;}'
+    +'col.c1{width:7%;}col.c2{width:19%;}col.c3{width:14%;}col.c4{width:32%;}'
+    +'col.c5{width:9%;}col.c6{width:9%;}col.c7{width:10%;}';
   pkPrintWindow('Trip '+date+' '+(road||''), body, css, {});
 }
 function pkPrintTrip(){
