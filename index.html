@@ -1302,20 +1302,41 @@ function renderTaSubtabs(){
 // A single row in the `app_control` table decides whether the app accepts sign-ins.
 // If the table doesn't exist yet the app stays fully open (fail-open), so nobody is
 // locked out before the one-time SQL setup is run.
-let APP_CTRL={is_active:true,message:'',updated_by:'',updated_at:null,missing:false};
+let APP_CTRL={is_active:true,message:'',updated_by:'',updated_at:null,missing:false,why:'',err:''};
 const APP_LOCK_DEFAULT='The SC Digital Team app is temporarily unavailable. Please try again later or contact your Super Admin.';
 function appLockMessage(){ return (APP_CTRL.message||'').trim()||APP_LOCK_DEFAULT; }
 function appCtrlBlocks(user){ return !APP_CTRL.is_active && !(user&&user.role==='admin'); }
 
 async function dbGetAppControl(){
-  if(!CONFIGURED){ APP_CTRL.missing=true; APP_CTRL.is_active=true; return APP_CTRL; }
+  if(!CONFIGURED){ APP_CTRL.missing=true; APP_CTRL.is_active=true; APP_CTRL.why='not-configured'; return APP_CTRL; }
   try{
-    const {data,error}=await sb.from('app_control').select('*').eq('id',1).single();
-    if(error) throw error;
+    // maybeSingle(): an empty table is NOT an error, so "no row" can be told apart
+    // from "no table" and from "no permission".
+    const {data,error}=await sb.from('app_control').select('*').eq('id',1).maybeSingle();
+    if(error){
+      const code=error.code||'', m=((error.message||'')+' '+(error.details||'')+' '+(error.hint||''));
+      APP_CTRL.missing=true; APP_CTRL.is_active=true; APP_CTRL.err=(error.message||'')+(code?(' ['+code+']'):'');
+      if(code==='42P01'||/does not exist/i.test(m)) APP_CTRL.why='no-table';
+      else if(code==='PGRST205'||/schema cache/i.test(m)) APP_CTRL.why='schema-cache';
+      else if(code==='42501'||/permission denied/i.test(m)) APP_CTRL.why='no-grant';
+      else APP_CTRL.why='error';
+      return APP_CTRL;
+    }
+    if(!data){   // table is there but the row is missing — create it, then re-read
+      APP_CTRL.why='no-row'; APP_CTRL.err='';
+      try{
+        const {error:e2}=await sb.from('app_control').insert({id:1,is_active:true,message:''});
+        if(e2) throw e2;
+        const {data:d3}=await sb.from('app_control').select('*').eq('id',1).maybeSingle();
+        if(d3){ APP_CTRL={is_active:d3.is_active!==false,message:d3.message||'',updated_by:d3.updated_by||'',
+                          updated_at:d3.updated_at||null,missing:false,why:'',err:''}; return APP_CTRL; }
+      }catch(e2){ APP_CTRL.err=(e2.message||''); APP_CTRL.why=/permission|policy|row-level/i.test(e2.message||'')?'no-grant':'no-row'; }
+      APP_CTRL.missing=true; APP_CTRL.is_active=true; return APP_CTRL;
+    }
     APP_CTRL={is_active:data.is_active!==false, message:data.message||'', updated_by:data.updated_by||'',
-              updated_at:data.updated_at||null, missing:false};
-  }catch(e){ APP_CTRL.missing=true; APP_CTRL.is_active=true; }   // fail-open
-  return APP_CTRL;
+              updated_at:data.updated_at||null, missing:false, why:'', err:''};
+  }catch(e){ APP_CTRL.missing=true; APP_CTRL.is_active=true; APP_CTRL.why='error'; APP_CTRL.err=e.message||String(e); }
+  return APP_CTRL;   // fail-open: the app stays usable if the switch can't be read
 }
 async function dbSetAppControl(active,msg){
   const row={id:1,is_active:!!active,message:(msg||'').trim(),
@@ -1367,9 +1388,20 @@ function renderAppControl(){
     if(APP_CTRL.updated_at) st.innerHTML+='<div style="font-size:11.5px;color:var(--muted);margin-top:4px;">Last changed '+fmtDateTime(APP_CTRL.updated_at)+(APP_CTRL.updated_by?(' by '+attEsc(APP_CTRL.updated_by)):'')+'</div>';
   }
   if(hint){
-    hint.innerHTML = APP_CTRL.missing
-      ? '⚠ The <b>app_control</b> table was not found, so the switch is inactive and the app stays open. Run the one-time SQL setup in Supabase (see APP_ACCESS_CONTROL.sql), then press “Refresh status”.'
-      : 'Users are checked at sign-in and again every minute, so anyone already signed in is signed out within about a minute of deactivating.';
+    if(!APP_CTRL.missing){
+      hint.innerHTML='Users are checked at sign-in and again every minute, so anyone already signed in is signed out within about a minute of deactivating.';
+    } else {
+      const tips={
+        'no-table':'The <b>app_control</b> table does not exist in the project this app is connected to. Most often the SQL was run in a <b>different Supabase project</b> — check the project URL in Supabase → Settings → API matches the one this app uses, then run APP_ACCESS_CONTROL.sql there.',
+        'schema-cache':'The table exists but Supabase has not refreshed its API cache yet. In the SQL Editor run <b>notify pgrst, \'reload schema\';</b> (or wait a minute), then press “Refresh status”.',
+        'no-grant':'The table exists but this app is not allowed to read it. In the SQL Editor run:<br><b>grant select, insert, update on public.app_control to anon, authenticated;</b><br>then press “Refresh status”.',
+        'no-row':'The table exists but its settings row is missing and could not be created. In the SQL Editor run:<br><b>insert into public.app_control (id, is_active) values (1, true) on conflict (id) do nothing;</b>',
+        'not-configured':'The app is not connected to Supabase.',
+        'error':'The switch could not be read.'
+      };
+      hint.innerHTML='⚠ '+(tips[APP_CTRL.why]||tips['error'])+' Until this is fixed the app stays open for everyone.'
+        +(APP_CTRL.err?('<div style="margin-top:6px;opacity:.8;">Database said: '+attEsc(APP_CTRL.err)+'</div>'):'');
+    }
   }
 }
 async function appCtrlRefresh(){ await dbGetAppControl(); renderAppControl(); showToast('Status refreshed.'); }
