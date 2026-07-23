@@ -454,15 +454,13 @@ input[type="date"]::-moz-clear{display:none!important;}
       <div style="flex:1;">
         <div id="home-welcome" style="font-size:26px;font-weight:700;line-height:1.25;">Welcome back.</div>
         <div style="font-size:14px;color:var(--muted);margin-top:8px;">Do you want to search for something?</div>
-        <div id="home-hint" style="font-size:12px;color:var(--dim);margin-top:4px;">Pick a module below to get started — you can reopen this any time with the home icon.</div>
       </div>
-      <button class="btn-icon" onclick="homeToggle(false)" title="Close"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
     </div>
     <div style="display:flex;gap:0;margin:12px 0 20px;max-width:620px;">
       <input class="form-input" id="home-search" type="text" placeholder="Type an order no, customer, road or question…" style="border-radius:999px 0 0 999px;border-right:none;" onkeydown="if(event.key==='Enter')homeSearch()"/>
       <button class="btn btn-primary" onclick="homeSearch()" style="border-radius:0 999px 999px 0;padding:0 26px;font-weight:700;">Search</button>
     </div>
-    <div id="home-body" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;"></div>
+    <div id="home-body" style="display:flex;flex-wrap:wrap;gap:12px;"></div>
   </div>
 </div>
 <div class="main">
@@ -472,8 +470,6 @@ input[type="date"]::-moz-clear{display:none!important;}
       <button class="btn btn-ghost btn-sm" onclick="homeToggle(true)" title="Home — all modules" style="white-space:nowrap;padding:8px 12px;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5L12 3l9 7.5"/><path d="M5 9.5V20a1 1 0 001 1h12a1 1 0 001-1V9.5"/><path d="M9.5 21v-6h5v6"/></svg></button>
       <button class="btn btn-ghost btn-sm" onclick="askToggle(true)" title="Ask — quick data assistant" style="white-space:nowrap;">✨ Ask</button>
       <div class="search-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg><input type="text" id="global-search" placeholder="Search…" oninput="onSearch(this.value)"/></div>
-      <select class="filter-sel" id="fce-filter" onchange="onFCEFilter(this.value)"><option value="">All FCEs</option></select>
-      <select class="filter-sel" id="month-filter-top" onchange="onMonthFilter(this.value)"></select>
       <button class="btn btn-ghost btn-sm" onclick="refreshAll()" title="Refresh from cloud"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg></button>
       <button class="btn btn-ghost btn-sm" id="app-refresh-btn" onclick="refreshEverything()" title="Refresh ALL app data — orders, trips, packing, delivery lists & dashboards"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.13-9.36L23 10"/></svg> Refresh</button>
     </div>
@@ -485,7 +481,13 @@ input[type="date"]::-moz-clear{display:none!important;}
       <div class="ann-text" id="announce-text" style="cursor:pointer;" onclick="openAnnounceViewer()">No announcements found</div>
       <button class="btn btn-ghost btn-sm ann-add" id="announce-add-btn" onclick="openAnnounceModal()" style="display:none;">Manage</button>
     </div>
-    <div class="att-tabs" id="ta-subtabs" style="display:none;"></div>
+    <div id="ta-subtab-row" style="display:none;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px;">
+      <div class="att-tabs" id="ta-subtabs" style="margin-bottom:0;"></div>
+      <div style="display:flex;gap:8px;margin-left:auto;flex-wrap:wrap;">
+        <select class="filter-sel" id="fce-filter" onchange="onFCEFilter(this.value)"><option value="">All FCEs</option></select>
+        <select class="filter-sel" id="month-filter-top" onchange="onMonthFilter(this.value)"></select>
+      </div>
+    </div>
 
     <div class="page active" id="page-dashboard">
       <div class="metrics" id="dash-metrics"></div>
@@ -1410,8 +1412,64 @@ const LEGAL_DOCS={
   <p>We may update this notice; the "last updated" date above will change when we do.</p>`
  }
 };
+// A Super Admin can edit either document; the text is stored with the shared
+// contacts record so every PC sees the same version. Falls back to the built-in
+// wording until it is edited.
+function legalDoc(kind){
+  const base=LEGAL_DOCS[kind]||LEGAL_DOCS.terms;
+  let saved=null;
+  try{ saved=(typeof CONTACTS!=='undefined'&&CONTACTS&&CONTACTS.legal)?CONTACTS.legal[kind]:null; }catch(_){}
+  return { title:base.title,
+           html:(saved&&saved.html)?saved.html:base.html,
+           updated:(saved&&saved.updated)?saved.updated:LEGAL_UPDATED,
+           edited:!!(saved&&saved.html) };
+}
+function legalEdit(kind){
+  if(!isAdmin()){ showToast('Only the Super Admin can edit these documents.','err'); return; }
+  const d=legalDoc(kind);
+  const el=document.getElementById('legal-overlay'); if(!el)return;
+  el.innerHTML='<div style="background:var(--surface,#0f2a55);border:1px solid var(--border,#244372);border-radius:18px;max-width:860px;width:100%;max-height:88vh;display:flex;flex-direction:column;box-shadow:0 24px 60px rgba(3,12,38,.55);">'
+    +'<div style="padding:18px 22px;border-bottom:1px solid var(--border,#244372);">'
+      +'<div style="font-size:18px;font-weight:700;color:var(--text,#eaf3ff);">Edit — '+d.title+'</div>'
+      +'<div style="font-size:12px;color:var(--muted,#9db4d6);margin-top:2px;">Basic HTML is allowed: &lt;p&gt; for paragraphs, &lt;h4&gt; for headings, &lt;ul&gt;&lt;li&gt; for lists, &lt;b&gt; for bold.</div>'
+    +'</div>'
+    +'<div style="padding:16px 22px;overflow:auto;flex:1;">'
+      +'<textarea id="legal-edit-box" class="form-input" style="width:100%;min-height:44vh;font-family:\'DM Mono\',monospace;font-size:12.5px;line-height:1.6;resize:vertical;"></textarea>'
+    +'</div>'
+    +'<div style="display:flex;gap:8px;justify-content:flex-end;padding:14px 22px;border-top:1px solid var(--border,#244372);flex-wrap:wrap;">'
+      +'<button class="btn btn-reject btn-sm" onclick="legalReset(\''+kind+'\')">Restore default text</button>'
+      +'<button class="btn btn-ghost btn-sm" onclick="legalOpen(\''+kind+'\')">Cancel</button>'
+      +'<button class="btn btn-primary btn-sm" onclick="legalSave(\''+kind+'\')">Save &amp; publish</button>'
+    +'</div></div>';
+  const box=document.getElementById('legal-edit-box'); if(box)box.value=d.html.trim();
+}
+async function legalSave(kind){
+  if(!isAdmin()){ showToast('Only the Super Admin can edit these documents.','err'); return; }
+  const box=document.getElementById('legal-edit-box'); if(!box)return;
+  const html=(box.value||'').trim();
+  if(!html){ showToast('The document cannot be empty.','err'); return; }
+  try{
+    if(!CONTACTS.legal)CONTACTS.legal={};
+    CONTACTS.legal[kind]={ html:html,
+      updated:new Date().toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'}),
+      by:(currentUser&&currentUser.name)||'' };
+    await dbSaveContacts();
+    showToast('Saved — all users will see the updated document.');
+    legalOpen(kind);
+  }catch(e){ showToast('Could not save: '+(e.message||e),'err'); }
+}
+async function legalReset(kind){
+  if(!isAdmin())return;
+  if(!confirm('Restore the built-in wording for this document? Your edited version will be removed.'))return;
+  try{
+    if(CONTACTS.legal)delete CONTACTS.legal[kind];
+    await dbSaveContacts();
+    showToast('Restored the default wording.');
+    legalOpen(kind);
+  }catch(e){ showToast('Could not save: '+(e.message||e),'err'); }
+}
 function legalOpen(kind){
-  const d=LEGAL_DOCS[kind]||LEGAL_DOCS.terms;
+  const d=legalDoc(kind);
   let el=document.getElementById('legal-overlay');
   if(!el){ el=document.createElement('div'); el.id='legal-overlay'; document.body.appendChild(el);
     el.addEventListener('click',function(e){ if(e.target===el)legalClose(); }); }
@@ -1419,7 +1477,8 @@ function legalOpen(kind){
   el.innerHTML='<div style="background:var(--surface,#0f2a55);border:1px solid var(--border,#244372);border-radius:18px;max-width:760px;width:100%;max-height:86vh;display:flex;flex-direction:column;box-shadow:0 24px 60px rgba(3,12,38,.55);">'
     +'<div style="display:flex;align-items:center;gap:12px;padding:18px 22px;border-bottom:1px solid var(--border,#244372);">'
       +'<div style="flex:1;"><div style="font-size:18px;font-weight:700;color:var(--text,#eaf3ff);">'+d.title+'</div>'
-      +'<div style="font-size:12px;color:var(--muted,#9db4d6);margin-top:2px;">SC Digital Team · Coats Bangladesh Ltd. · Last updated '+LEGAL_UPDATED+'</div></div>'
+      +'<div style="font-size:12px;color:var(--muted,#9db4d6);margin-top:2px;">SC Digital Team · Coats Bangladesh Ltd. · Last updated '+d.updated+'</div></div>'
+    +((typeof isAdmin==='function'&&isAdmin())?'<button class="btn btn-ghost btn-sm" onclick="legalEdit(\''+kind+'\')" title="Edit this document">✎ Edit</button>':'')
       +'<button onclick="legalClose()" title="Close" style="background:none;border:none;cursor:pointer;color:var(--muted,#9db4d6);font-size:22px;line-height:1;">&times;</button>'
     +'</div>'
     +'<div id="legal-scroll" style="padding:18px 22px;overflow:auto;font-size:13.5px;line-height:1.75;color:var(--text,#eaf3ff);">'+d.html+'</div>'
@@ -1440,9 +1499,9 @@ document.addEventListener('keydown',function(e){
 function navGroupLabel(g){ return g==='Logistics'?'Logistics (Sample Tracker)':g; }
 // Modules announced but not released yet — shown to everyone who can reach Logistics.
 const SOON_MODULES=[
-  {id:'soon-prod', label:'Production Availability Check', desc:'Check live production capacity before committing a date.'},
-  {id:'soon-recipe', label:'Material Recipe Availability Check', desc:'Confirm recipe and material availability for a shade.'},
-  {id:'soon-library', label:'Product Library', desc:'Browse the full product and shade catalogue.'}
+  {id:'soon-prod',    label:'Production Availability Check'},
+  {id:'soon-recipe',  label:'GT & Material Recipe Availability Check'},
+  {id:'soon-library', label:'Product Library'}
 ];
 function homeFirstName(){
   const n=((currentUser&&(currentUser.name||currentUser.id))||'').trim();
@@ -1461,37 +1520,44 @@ function homeSearch(){
   const i=document.getElementById('ask-in'); if(i)i.value=v;
   try{ askRun(v); }catch(_){ }               // same quick-data-assistant logic as ✨ Ask
 }
-function homeGo(id){ homeToggle(false); showPage(id); }
+function homeGo(id){ homeToggle(false); setActiveSection(sectionOfPage(id)); showPage(id); }
+// The Home panel lists SECTIONS only. Choosing one opens that tracker's first page;
+// to move to a different tracker the user comes back through the home icon.
+const HOME_SECTIONS=[
+  {group:'TA Tracker',  icon:'<path d="M3 3v18h18"/><path d="M7 14l3-3 3 3 5-6"/>'},
+  {group:'Logistics',   icon:'<rect x="1" y="3" width="15" height="13" rx="1"/><path d="M16 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/>'},
+  {group:'Attendance',  icon:'<path d="M8 2v4M16 2v4"/><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18"/><path d="M9 16l2 2 4-4"/>'},
+  {group:'Admin',       icon:'<path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>'}
+];
+function homeSectionEntry(group){
+  const items=NAV_ITEMS.filter(it=>it.group===group&&it.id!=='profile'&&canSee(it.id));
+  return items.length?items[0].id:null;     // first page the user is allowed to open
+}
 function homeRender(){
   const body=document.getElementById('home-body'); if(!body)return;
-  // Only the sections this user is allowed to see.
-  const visible=NAV_ITEMS.filter(it=>it.id!=='profile'&&canSee(it.id));
-  const groups=[];
-  visible.forEach(it=>{ const g=groups.find(x=>x.g===it.group); if(g)g.items.push(it); else groups.push({g:it.group,items:[it]}); });
-  const canLogistics=visible.some(it=>it.group==='Logistics');
-  const card=(inner)=>`<div style="background:var(--surface2);border:1px solid var(--border);border-radius:14px;padding:14px 16px;">${inner}</div>`;
-  let html=groups.map(gr=>card(
-      `<div style="font-family:'DM Mono',monospace;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--accent2);margin-bottom:10px;">${attEsc(navGroupLabel(gr.g))}</div>`
-      +`<div style="display:flex;flex-direction:column;gap:6px;">`
-      +gr.items.map(it=>`<button class="btn btn-ghost btn-sm" style="justify-content:flex-start;width:100%;text-align:left;" onclick="homeGo('${it.id}')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" style="margin-right:8px;flex-shrink:0;">${it.icon}</svg>${attEsc(tr(it.label))}</button>`).join('')
-      +`</div>`)).join('');
-  // Coming-soon modules sit alongside the Sample Tracker.
-  if(canLogistics){
-    html+=card(
-      `<div style="font-family:'DM Mono',monospace;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--accent2);margin-bottom:10px;">Coming soon</div>`
-      +`<div style="display:flex;flex-direction:column;gap:8px;">`
-      +SOON_MODULES.map(m=>`<div style="opacity:.72;border:1px dashed var(--border);border-radius:10px;padding:9px 11px;">
-            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;"><b style="font-size:13.5px;">${attEsc(m.label)}</b>
-            <span style="font-size:10.5px;font-weight:700;color:#ffc24d;border:1px solid rgba(255,194,77,.5);border-radius:999px;padding:1px 8px;">LIVE SOON</span></div>
-            <div style="font-size:12px;color:var(--muted);margin-top:3px;">${attEsc(m.desc)}</div></div>`).join('')
-      +`</div>`);
-  }
+  const tab=(label,icon,onclick,soon)=>`<button class="btn ${soon?'btn-ghost':'btn-primary'}" ${soon?'disabled':''} onclick="${onclick||''}"
+      style="display:flex;align-items:center;gap:9px;padding:14px 20px;border-radius:14px;font-size:14px;font-weight:600;${soon?'opacity:.6;cursor:not-allowed;':''}">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" style="flex-shrink:0;">${icon}</svg>
+      <span style="text-align:left;">${attEsc(label)}</span>
+      ${soon?'<span style="font-size:10px;font-weight:800;color:#ffc24d;border:1px solid rgba(255,194,77,.5);border-radius:999px;padding:1px 7px;white-space:nowrap;">LIVE SOON</span>':''}
+    </button>`;
+  let html='';
+  HOME_SECTIONS.forEach(s=>{
+    const first=homeSectionEntry(s.group);
+    if(first)html+=tab(navGroupLabel(s.group), s.icon, `homeGo('${first}')`);
+  });
+  const canLogistics=!!homeSectionEntry('Logistics');
+  if(canLogistics) SOON_MODULES.forEach(m=>{ html+=tab(m.label, '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>', '', true); });
   body.innerHTML=html||'<div style="color:var(--muted);">No modules available for your role.</div>';
   const w=document.getElementById('home-welcome');
   if(w)w.innerHTML='Welcome back, <span style="color:var(--accent2);">'+attEsc(homeFirstName())+'.</span>';
 }
+let activeSection=null;   // 'TA Tracker' | 'Logistics' | 'Attendance' | 'Admin'
+function sectionOfPage(id){ const it=NAV_ITEMS.find(i=>i.id===id); return it?it.group:null; }
+function setActiveSection(g){ if(g&&g!=='Account'&&g!==activeSection){ activeSection=g; try{ buildNav(); }catch(_){} } }
 function buildNav(){
-  const items=NAV_ITEMS.filter(it=>canSee(it.id));
+  // Account (Profile Settings) stays reachable from every section.
+  const items=NAV_ITEMS.filter(it=>canSee(it.id)&&(!activeSection||it.group===activeSection||it.group==='Account'));
   const taItems=items.filter(it=>it.taSub);
   let html='',last='',taDone=false;
   items.forEach(it=>{
@@ -1506,6 +1572,12 @@ function buildNav(){
     if(it.group!==last){ html+=`<div class="nav-label">${tr(navGroupLabel(it.group))}</div>`; last=it.group; }
     html+=`<button class="nav-btn" data-page="${it.id}" onclick="showPage('${it.id}',this)"${it.accent?' style="color:var(--accent2);"':''}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">${it.icon}</svg><span>${tr(it.label)}</span>${it.notif?'<span class="notif-dot"></span>':''}</button>`;
   });
+  if(activeSection){
+    html+=`<div style="margin:14px 10px 4px;padding-top:12px;border-top:1px solid var(--border);">
+      <button class="nav-btn" onclick="homeToggle(true)" title="Switch to another tracker">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 10.5L12 3l9 7.5"/><path d="M5 9.5V20a1 1 0 001 1h12a1 1 0 001-1V9.5"/><path d="M9.5 21v-6h5v6"/></svg>
+        <span>Switch tracker</span></button></div>`;
+  }
   document.getElementById('nav-menu').innerHTML=html;
 }
 const TA_IDS=['dashboard','visitlog','charts','perfce','addentry','approval'];
@@ -2546,6 +2618,7 @@ function showPage(name,btn){
   if(!canSee(name)){ showToast('You don\'t have access to this page.','err'); return; }
   if(activePage!==name){ resetStageFilters(activePage); resetStageFilters(name); }
   activePage=name;
+  setActiveSection(sectionOfPage(name));
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
   document.getElementById('page-'+name).classList.add('active');
@@ -2553,7 +2626,9 @@ function showPage(name,btn){
   if(TA_IDS.includes(name)){
     const parent=document.querySelector('.nav-btn[data-group="tatracker"]'); if(parent)parent.classList.add('active');
     if(subbar){ renderTaSubtabs(); subbar.style.display='flex'; }
+    const subrow=document.getElementById('ta-subtab-row'); if(subrow)subrow.style.display='flex';
   } else {
+    const subrow=document.getElementById('ta-subtab-row'); if(subrow)subrow.style.display='none';
     if(subbar) subbar.style.display='none';
     if(btn)btn.classList.add('active'); else{const nb=document.querySelector(`.nav-btn[data-page="${name}"]`);if(nb)nb.classList.add('active');}
   }
