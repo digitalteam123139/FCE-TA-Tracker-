@@ -689,7 +689,6 @@ input[type="date"]::-moz-clear{display:none!important;}
             <button class="btn btn-ghost btn-sm" onclick="ordCdPreset(30)" title="Last 30 days">30d</button>
             <button class="btn btn-ghost btn-sm" onclick="ordCdClear()" title="Show every date">All dates</button>
           </div>
-          <span style="font-size:12px;color:#e08a8a;font-style:italic;width:100%;">(Default dates selected for 7 days — alter if required)</span>
           <span class="count-badge" id="order-count">—</span>
           <button class="btn btn-ghost btn-sm" onclick="openServiceReview()" title="Service performance review — by month, service & task"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Service Review</button>
           <button class="btn btn-ghost btn-sm" id="order-csend-btn" onclick="openCombinedSendModal()" title="Send one combined message per assigned person"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>Send combined</button>
@@ -704,7 +703,7 @@ input[type="date"]::-moz-clear{display:none!important;}
         <span style="display:inline-flex;align-items:center;gap:5px;"><span style="width:11px;height:11px;border-radius:3px;background:rgba(255,194,77,.95);"></span>1 day</span>
         <span style="display:inline-flex;align-items:center;gap:5px;"><span style="width:11px;height:11px;border-radius:3px;background:rgba(255,148,66,.95);"></span>2 days</span>
         <span style="display:inline-flex;align-items:center;gap:5px;"><span style="width:11px;height:11px;border-radius:3px;background:rgba(255,90,95,.98);"></span>3+ days due</span>
-        <span style="display:inline-flex;align-items:center;gap:5px;"><span style="width:11px;height:11px;border-radius:3px;background:rgba(70,230,160,.95);"></span>DN uploaded</span>
+        <span style="display:inline-flex;align-items:center;gap:5px;"><span style="width:11px;height:11px;border-radius:3px;background:rgba(70,230,160,.95);"></span>DN uploaded / Completed</span>
       </div>
       <div class="card tbl-scroll"><table><thead><tr><th style="width:26px;text-align:center;"><input type="checkbox" id="ord-tick-all" onclick="toggleAllTicks(this)" title="Select all" style="cursor:pointer;"></th><th style="width:30px;"></th><th>Entry Date</th><th>Creation Date</th><th>Order No</th><th>Task</th><th>Customer</th><th>Buyer</th><th>Responsibility To</th><th>Service / Delivery By</th><th>Delivery Zone</th><th>Req. Time / Dispatched</th><th>Status</th><th>DN Download</th><th>Actions</th></tr></thead><tbody id="orders-table"></tbody></table><div id="orders-pager"></div></div>
     </div>
@@ -2819,7 +2818,10 @@ function ordGoPage(p){ ordPage=Math.max(1,p); renderOrders(); }
 function orderAgeDays(o){ if(!o.date)return 0; const d=new Date((''+o.date).slice(0,10)+'T00:00:00'); if(isNaN(d))return 0; const t=new Date(); t.setHours(0,0,0,0); return Math.floor((t-d)/86400000); }
 function orderRowTint(o){
   let rgb;
-  if(o.noteFiles&&o.noteFiles.length){ rgb='70,230,160'; }   // DN uploaded → green
+  // DTM (Swatch/Other Ref.) has no DN upload step — being marked Delivery Completed IS
+  // its finished state, so it takes the same green as a DN-uploaded order.
+  const _done=(typeof normOrderStatus==='function'?normOrderStatus(o.status):o.status)==='Delivery Completed';
+  if((o.noteFiles&&o.noteFiles.length)||_done){ rgb='70,230,160'; }   // DN uploaded / completed → green
   else { const a=orderAgeDays(o);
     if(a<=0) rgb='47,214,224';                    // new today → cyan
     else if(a===1) rgb='255,194,77';              // 1 day → amber
@@ -4372,11 +4374,16 @@ function ordShowRiderTrack(orderNo){
   const el=_riderOverlay('ord-track-modal');
   el.innerHTML=`<div style="background:var(--surface,#131f42);border:1px solid var(--border,#27407A);border-radius:14px;padding:20px 22px;width:min(94vw,560px);max-height:80vh;overflow:auto;box-shadow:0 24px 60px rgba(0,0,0,.5);">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;"><div style="font-weight:700;font-size:15px;"><span class="bike-lane" style="vertical-align:-4px;">${pkBikeIcon(17,'#ff3b3b',2.4,true)}</span> Delivery Tracking — ${attEsc(orderNo)}</div><button class="btn btn-ghost btn-sm" onclick="document.getElementById('ord-track-modal').style.display='none'">✕</button></div>
-    ${trips.length?trips.map(x=>`<div style="border:1px solid var(--border,#27407A);border-radius:10px;padding:12px 16px;margin-bottom:8px;display:grid;grid-template-columns:1fr 1.25fr 1.25fr 1.4fr;gap:8px;align-items:center;text-align:center;font-size:12.5px;">
-      <div><div style="font-size:10px;color:var(--muted);letter-spacing:.06em;margin-bottom:2px;">LINES</div>${attEsc(x.line_nos||'—')}</div>
-      <div><div style="font-size:10px;color:var(--muted);letter-spacing:.06em;margin-bottom:2px;">RIDER</div>${x.rider_name?attEsc(x.rider_name):'<span style="color:var(--dim);">Not assigned yet</span>'}</div>
-      <div><div style="font-size:10px;color:var(--muted);letter-spacing:.06em;margin-bottom:2px;">MOBILE</div>${x.rider_mobile?`<a href="tel:${attEsc(x.rider_mobile)}" style="color:var(--accent2);text-decoration:none;">${attEsc(x.rider_mobile)}</a>`:'—'}</div>
-      <div><div style="font-size:10px;color:var(--muted);letter-spacing:.06em;margin-bottom:2px;">CURRENT STATUS</div>${stBadge(x)}<div style="font-size:10.5px;color:var(--dim);margin-top:2px;">${attEsc(x.road||'—')} · ${fmtDate((tripDone(x)&&o&&o.deliveredAt)?o.deliveredAt:x.trip_date)}</div></div></div>`).join(''):'<div style="color:var(--muted);font-size:12.5px;">This order is not on any trip list yet.</div>'}</div>`;
+    ${trips.length?trips.map(x=>`<div style="border:1px solid var(--border,#27407A);border-radius:10px;padding:12px 16px;margin-bottom:8px;font-size:12.5px;">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;align-items:start;text-align:center;">
+        <div><div style="font-size:10px;color:var(--muted);letter-spacing:.06em;margin-bottom:3px;">RIDER</div><div style="font-weight:600;">${x.rider_name?attEsc(x.rider_name):'<span style="color:var(--dim);font-weight:400;">Not assigned yet</span>'}</div></div>
+        <div><div style="font-size:10px;color:var(--muted);letter-spacing:.06em;margin-bottom:3px;">MOBILE</div>${x.rider_mobile?`<a href="tel:${attEsc(x.rider_mobile)}" style="color:var(--accent2);text-decoration:none;">${attEsc(x.rider_mobile)}</a>`:'—'}</div>
+        <div><div style="font-size:10px;color:var(--muted);letter-spacing:.06em;margin-bottom:3px;">CURRENT STATUS</div>${stBadge(x)}<div style="font-size:10.5px;color:var(--dim);margin-top:3px;">${attEsc(x.road||'—')} · ${fmtDate((tripDone(x)&&o&&o.deliveredAt)?o.deliveredAt:x.trip_date)}</div></div>
+      </div>
+      <div style="margin-top:10px;padding-top:9px;border-top:1px solid var(--border,#27407A);">
+        <div style="font-size:10px;color:var(--muted);letter-spacing:.06em;margin-bottom:3px;">LINES</div>
+        <div style="word-break:break-word;overflow-wrap:anywhere;line-height:1.6;max-height:78px;overflow:auto;">${attEsc(x.line_nos||'—')}</div>
+      </div></div>`).join(''):'<div style="color:var(--muted);font-size:12.5px;">This order is not on any trip list yet.</div>'}</div>`;
   el.style.display='flex';
 }
 async function dbUpdateTrip(id,patch){ const {error}=await sb.from('trip_schedule').update(patch).eq('id',id); if(error)throw error; }
